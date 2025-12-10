@@ -2,6 +2,7 @@ package com.hienao.openlist2strm.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hienao.openlist2strm.config.PathConfiguration;
+import com.hienao.openlist2strm.dto.HashComparisonConfig;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -389,6 +390,33 @@ public class SystemConfigService {
     // 这里可以添加实际的API验证逻辑
     // 暂时只检查格式：TMDB API Key通常是32位字符
     return apiKey.trim().length() >= 32;
+  }
+
+  /**
+   * 获取MD5比对配置
+   *
+   * @return MD5比对配置
+   */
+  @SuppressWarnings("unchecked")
+  public HashComparisonConfig getMd5ComparisonConfig() {
+    try {
+      Map<String, Object> systemConfig = getSystemConfig();
+      Map<String, Object> hashConfig = (Map<String, Object>) systemConfig.getOrDefault("hashComparison", new HashMap<>());
+
+      HashComparisonConfig config = new HashComparisonConfig();
+      config.setEnabled(Boolean.TRUE.equals(hashConfig.get("enabled")));
+      config.setMaxFileSizeForMd5(((Number) hashConfig.getOrDefault("maxFileSizeForMd5", 104857600L)).longValue()); // 默认100MB
+      config.setForceDownloadAll(Boolean.TRUE.equals(hashConfig.get("forceDownloadAll")));
+
+      return config;
+    } catch (Exception e) {
+      log.warn("获取MD5比对配置失败，使用默认配置: {}", e.getMessage());
+      HashComparisonConfig defaultConfig = new HashComparisonConfig();
+      defaultConfig.setEnabled(true);
+      defaultConfig.setMaxFileSizeForMd5(104857600L); // 100MB
+      defaultConfig.setForceDownloadAll(false);
+      return defaultConfig;
+    }
   }
 
   /** 创建配置目录（如果不存在） */

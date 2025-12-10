@@ -5,3 +5,6 @@ docs/.vitepress/dist
 docs/.vitepress/cache
 llmdoc/
 .claude/
+data/
+logs/
+strm/

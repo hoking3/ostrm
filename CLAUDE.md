@@ -406,6 +406,12 @@ docker run -d \
 - **Documentation System**: Complete llmdoc/ documentation with architecture analysis and guides
 - **Multi-Platform Development**: Full support for ARM64 and AMD64 development environments
 
+### Feature Development: Scraping Optimization (001-optimize-scraping-cache)
+- **MD5-Based File Comparison**: Implementing smart download optimization by comparing OpenList API hash_info.md5 with local file MD5
+- **Performance Optimization**: Skipping unchanged file downloads to reduce bandwidth usage and improve scraping speed
+- **Configuration-Driven**: User-controllable MD5 comparison settings with performance tuning options
+- **Statistics Tracking**: Comprehensive download optimization metrics and reporting
+
 ## Important Notes
 
 - **Testing Strategy**: Prioritize Docker container builds over automated unit tests unless explicitly requested by users

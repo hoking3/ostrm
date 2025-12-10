@@ -1,5 +1,7 @@
 package com.hienao.openlist2strm.service;
 
+import com.hienao.openlist2strm.dto.FileHashCheckResult;
+import com.hienao.openlist2strm.dto.HashComparisonConfig;
 import com.hienao.openlist2strm.dto.media.AiRecognitionResult;
 import com.hienao.openlist2strm.dto.media.MediaInfo;
 import com.hienao.openlist2strm.dto.tmdb.TmdbMovieDetail;
@@ -9,6 +11,7 @@ import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.util.MediaFileParser;
 import com.hienao.openlist2strm.util.TmdbIdExtractor;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -39,6 +42,8 @@ public class MediaScrapingService {
   private final AiFileNameRecognitionService aiFileNameRecognitionService;
   private final OpenlistApiService openlistApiService;
   private final DataReportService dataReportService;
+  private final HashComparisonService hashComparisonService;
+  private final DownloadStatisticsTracker statisticsTracker;
 
   /**
    * 执行媒体刮削
@@ -897,6 +902,26 @@ public class MediaScrapingService {
       String relativePath,
       String saveDirectory,
       List<OpenlistApiService.OpenlistFile> directoryFiles) {
+    return copyExistingScrapingInfo(openlistConfig, fileName, relativePath, saveDirectory, directoryFiles, null);
+  }
+
+  /**
+   * 复制已存在的刮削信息到STRM目录（带任务ID）
+   *
+   * @param fileName 媒体文件名
+   * @param relativePath 相对路径
+   * @param saveDirectory 保存目录
+   * @param directoryFiles 目录文件列表（可选，为null时不会调用API获取）
+   * @param taskId 任务ID（用于统计追踪）
+   * @return 是否成功复制了刮削信息
+   */
+  private boolean copyExistingScrapingInfo(
+      OpenlistConfig openlistConfig,
+      String fileName,
+      String relativePath,
+      String saveDirectory,
+      List<OpenlistApiService.OpenlistFile> directoryFiles,
+      String taskId) {
     try {
       String baseFileName = fileName.substring(0, fileName.lastIndexOf('.'));
 
@@ -913,6 +938,9 @@ public class MediaScrapingService {
 
       log.debug("[DEBUG] 构建文件路径 - relativePath: {}, dirPath: {}", relativePath, dirPath);
 
+      // 获取MD5比对配置
+      HashComparisonConfig md5Config = systemConfigService.getMd5ComparisonConfig();
+
       boolean foundScrapingInfo = false;
 
       // 获取目录中的所有文件（优先使用传入的文件列表）
@@ -925,79 +953,77 @@ public class MediaScrapingService {
         return false;
       }
 
-      // 查找NFO文件 - 复制目录中所有NFO文件，不做文件名限制
+      // 查找并复制所有刮削文件（NFO和图片）
       for (OpenlistApiService.OpenlistFile file : files) {
         if ("file".equals(file.getType())) {
           String fileName_lower = file.getName().toLowerCase();
 
-          // 检查是否是NFO文件：只要后缀是.nfo就复制
-          if (fileName_lower.endsWith(".nfo")) {
-            log.debug("准备复制NFO文件: {} (使用OpenlistFile对象)", file.getName());
+          // 检查是否是刮削文件（NFO或图片）
+          boolean isScrapingFile = fileName_lower.endsWith(".nfo") || isImageFile(fileName_lower);
 
-            // 刮削文件下载场景：不进行URL编码，避免认证问题
-            byte[] nfoContent = openlistApiService.getFileContent(openlistConfig, file, false);
-            if (nfoContent != null && nfoContent.length > 0) {
-              Path targetNfoFile = Paths.get(saveDirectory, file.getName());
-              Files.createDirectories(targetNfoFile.getParent());
-              Files.write(targetNfoFile, nfoContent);
-              log.info(
-                  "已复制NFO文件: {} -> {} (大小: {} bytes)",
-                  file.getName(),
-                  targetNfoFile,
-                  nfoContent.length);
-              foundScrapingInfo = true;
-            } else {
-              log.debug("NFO文件内容为空: {}", file.getName());
+          if (isScrapingFile) {
+            // 检查是否需要下载此文件
+            boolean shouldDownload = true;
+
+            // 如果启用了MD5比对且不是强制下载
+            if (md5Config.isEnabled() && !md5Config.isForceDownloadAll() && file.hasMd5Hash()) {
+              Path localFilePath = Paths.get(saveDirectory, file.getName());
+
+              // 检查本地文件是否存在
+              if (Files.exists(localFilePath)) {
+                try {
+                  // 检查文件大小是否在MD5计算限制内
+                  long fileSize = Files.size(localFilePath);
+                  if (fileSize <= md5Config.getMaxFileSizeForMd5()) {
+                    // 执行MD5比对
+                    FileHashCheckResult checkResult = hashComparisonService.checkFileHash(
+                        file, localFilePath, md5Config);
+
+                    // 记录统计信息
+                    if (taskId != null) {
+                      statisticsTracker.recordFileCheck(taskId, checkResult);
+                    }
+
+                    // 如果MD5匹配，跳过下载
+                    if (checkResult.isFilesMatch()) {
+                      shouldDownload = false;
+                      if (md5Config.isLogSkippedFiles()) {
+                        log.info("跳过下载，MD5匹配: {} (节省 {} bytes)",
+                            file.getName(), fileSize);
+                      }
+                    }
+                  } else {
+                    if (md5Config.isLogSkippedFiles()) {
+                      log.info("文件过大，跳过MD5检查: {} ({}MB)",
+                          file.getName(), fileSize / (1024 * 1024));
+                    }
+                  }
+                } catch (IOException e) {
+                  log.warn("检查文件大小时出错，将下载: {}", file.getName(), e);
+                }
+              }
+            }
+
+            // 下载文件
+            if (shouldDownload) {
+              log.debug("准备下载刮削文件: {}", file.getName());
+              byte[] content = openlistApiService.getFileContent(openlistConfig, file, false);
+
+              if (content != null && content.length > 0) {
+                Path targetFile = Paths.get(saveDirectory, file.getName());
+                Files.createDirectories(targetFile.getParent());
+                Files.write(targetFile, content);
+
+                log.info("已下载刮削文件: {} -> {} (大小: {} bytes)",
+                    file.getName(), targetFile, content.length);
+                foundScrapingInfo = true;
+              } else {
+                log.debug("刮削文件内容为空: {}", file.getName());
+              }
             }
           }
         }
       }
-
-      // 查找刮削图片文件 - 复制目录中所有图片文件，不做文件名限制
-      String[] imageExtensions = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff"};
-
-      for (OpenlistApiService.OpenlistFile file : files) {
-        if ("file".equals(file.getType())) {
-          String fileName_lower = file.getName().toLowerCase();
-
-          // 检查是否是图片文件：只要后缀是图片格式就复制
-          boolean isImageFile = false;
-          for (String ext : imageExtensions) {
-            if (fileName_lower.endsWith(ext)) {
-              isImageFile = true;
-              break;
-            }
-          }
-
-          if (isImageFile) {
-            log.debug("准备复制图片文件: {} (使用OpenlistFile对象)", file.getName());
-
-            // 刮削文件下载场景：不进行URL编码，避免认证问题
-            byte[] imageContent = openlistApiService.getFileContent(openlistConfig, file, false);
-            if (imageContent != null && imageContent.length > 0) {
-              // 检查文件内容是否真的是图片（简单检查前几个字节）
-              String contentType = detectFileType(imageContent);
-              log.debug("图片文件内容类型检测: {} -> {}", file.getName(), contentType);
-
-              Path targetImageFile = Paths.get(saveDirectory, file.getName());
-              Files.createDirectories(targetImageFile.getParent());
-              Files.write(targetImageFile, imageContent);
-              log.info(
-                  "已复制刮削图片: {} -> {} (大小: {} bytes, 类型: {})",
-                  file.getName(),
-                  targetImageFile,
-                  imageContent.length,
-                  contentType);
-              foundScrapingInfo = true;
-            } else {
-              log.debug("刮削图片内容为空: {}", file.getName());
-            }
-          }
-        }
-      }
-
-      // 注意：上面的循环已经复制了所有NFO文件和图片文件，包括电视剧相关的文件
-      // 不需要额外的电视剧文件处理逻辑，因为已经移除了文件名限制
 
       return foundScrapingInfo;
     } catch (Exception e) {
@@ -1079,6 +1105,22 @@ public class MediaScrapingService {
     }
 
     return "BINARY";
+  }
+
+  /**
+   * 检查文件是否为图片文件
+   *
+   * @param fileName 文件名
+   * @return 是否为图片文件
+   */
+  private boolean isImageFile(String fileName) {
+    String[] imageExtensions = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff"};
+    for (String ext : imageExtensions) {
+      if (fileName.endsWith(ext)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

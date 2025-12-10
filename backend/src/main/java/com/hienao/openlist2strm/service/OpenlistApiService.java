@@ -8,7 +8,9 @@ import com.hienao.openlist2strm.util.UrlEncoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -77,6 +79,61 @@ public class OpenlistApiService {
 
     @JsonProperty("sign")
     private String sign;
+
+    @JsonProperty("hashinfo")
+    private String hashinfo;
+
+    @JsonProperty("hash_info")
+    private Object hashInfo;
+
+    /**
+     * 获取文件的MD5哈希值
+     * 优先从hash_info字段获取，如果没有则从hashinfo字段解析
+     *
+     * @return MD5哈希值，如果没有则返回null
+     */
+    public String getMd5Hash() {
+      // 首先尝试从hash_info字段获取
+      if (hashInfo instanceof Map) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> hashInfoMap = (Map<String, Object>) hashInfo;
+        Object md5Value = hashInfoMap.get("md5");
+        if (md5Value instanceof String) {
+          return (String) md5Value;
+        }
+      }
+
+      // 如果hash_info不是Map或没有md5，尝试从hashinfo字符串解析
+      if (hashinfo != null && !hashinfo.isEmpty()) {
+        try {
+          // 解析JSON格式的hashinfo
+          if (hashinfo.contains("\"md5\"")) {
+            int start = hashinfo.indexOf("\"md5\":\"") + 7;
+            int end = hashinfo.indexOf("\"", start);
+            if (end > start) {
+              String md5 = hashinfo.substring(start, end);
+              // 验证MD5格式（32位十六进制）
+              if (md5.matches("^[a-fA-F0-9]{32}$")) {
+                return md5.toLowerCase();
+              }
+            }
+          }
+        } catch (Exception e) {
+          // 忽略解析错误
+        }
+      }
+
+      return null;
+    }
+
+    /**
+     * 检查文件是否有MD5哈希值
+     *
+     * @return 如果有MD5哈希值返回true，否则返回false
+     */
+    public boolean hasMd5Hash() {
+      return getMd5Hash() != null && !getMd5Hash().isEmpty();
+    }
   }
 
   /** Alist API响应数据结构 */
@@ -146,6 +203,103 @@ public class OpenlistApiService {
 
     @JsonProperty("hash_info")
     private Object hashInfo;
+
+    /**
+     * 获取文件的MD5哈希值
+     * 优先从hash_info字段获取，如果没有则从hashinfo字段解析
+     *
+     * @return MD5哈希值，如果没有则返回null
+     */
+    public String getMd5Hash() {
+      // 首先尝试从hash_info字段获取
+      if (hashInfo instanceof Map) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> hashInfoMap = (Map<String, Object>) hashInfo;
+        Object md5Value = hashInfoMap.get("md5");
+        if (md5Value instanceof String) {
+          return (String) md5Value;
+        }
+      }
+
+      // 如果hash_info不是Map或没有md5，尝试从hashinfo字符串解析
+      if (hashinfo != null && !hashinfo.isEmpty()) {
+        try {
+          // 解析JSON格式的hashinfo
+          if (hashinfo.contains("\"md5\"")) {
+            int start = hashinfo.indexOf("\"md5\":\"") + 7;
+            int end = hashinfo.indexOf("\"", start);
+            if (end > start) {
+              String md5 = hashinfo.substring(start, end);
+              // 验证MD5格式（32位十六进制）
+              if (md5.matches("^[a-fA-F0-9]{32}$")) {
+                return md5;
+              }
+            }
+          }
+        } catch (Exception e) {
+          log.debug("Failed to parse hashinfo for MD5: {}", hashinfo, e);
+        }
+      }
+
+      return null;
+    }
+
+    /**
+     * 检查文件是否有MD5哈希值
+     *
+     * @return 如果有MD5哈希值返回true，否则返回false
+     */
+    public boolean hasMd5Hash() {
+      return getMd5Hash() != null && !getMd5Hash().isEmpty();
+    }
+
+    /**
+     * 获取完整的哈希信息映射
+     * 将hashInfo转换为Map格式
+     *
+     * @return 哈希信息映射
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, String> getHashInfoMap() {
+      Map<String, String> result = new HashMap<>();
+
+      // 处理hash_info字段
+      if (hashInfo instanceof Map) {
+        try {
+          Map<String, Object> map = (Map<String, Object>) hashInfo;
+          for (Map.Entry<String, Object> entry : map.entrySet()) {
+            if (entry.getValue() != null) {
+              result.put(entry.getKey(), entry.getValue().toString());
+            }
+          }
+        } catch (Exception e) {
+          log.debug("Failed to process hash_info as Map", e);
+        }
+      }
+
+      // 处理hashinfo字符串字段
+      if (hashinfo != null && !hashinfo.isEmpty()) {
+        try {
+          // 简单的JSON解析，提取键值对
+          if (hashinfo.startsWith("{") && hashinfo.endsWith("}")) {
+            String content = hashinfo.substring(1, hashinfo.length() - 1);
+            String[] pairs = content.split(",");
+            for (String pair : pairs) {
+              String[] kv = pair.split(":");
+              if (kv.length == 2) {
+                String key = kv[0].trim().replace("\"", "");
+                String value = kv[1].trim().replace("\"", "");
+                result.put(key, value);
+              }
+            }
+          }
+        } catch (Exception e) {
+          log.debug("Failed to parse hashinfo string", e);
+        }
+      }
+
+      return result;
+    }
   }
 
   /**
