@@ -28,7 +28,7 @@ public class CacheConfig {
   private CaffeineCache verifyCodeCache() {
     return new CaffeineCache(
         VERIFY_CODE,
-        Caffeine.newBuilder().maximumSize(1000).expireAfterWrite(60, TimeUnit.SECONDS).build());
+        Caffeine.newBuilder().maximumSize(100).expireAfterWrite(60, TimeUnit.SECONDS).build());
   }
 
   private CaffeineCache versionCheckCache() {
