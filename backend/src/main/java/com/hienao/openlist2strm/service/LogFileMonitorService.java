@@ -179,6 +179,12 @@ public class LogFileMonitorService {
       long currentSize = Files.size(logFilePath);
       long lastPosition = lastReadPositions.getOrDefault(logType, 0L);
 
+      // 处理日志轮转或截断
+      if (currentSize < lastPosition) {
+        log.info("日志文件大小变小(轮转?), 重置读取位置: {} -> 0", lastPosition);
+        lastPosition = 0;
+      }
+
       if (currentSize > lastPosition) {
         try (RandomAccessFile file = new RandomAccessFile(logFilePath.toFile(), "r")) {
           file.seek(lastPosition);

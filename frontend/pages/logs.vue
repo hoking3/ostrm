@@ -161,23 +161,33 @@
               <p class="text-gray-500">暂无日志数据</p>
             </div>
             
-            <RecycleScroller
+            <DynamicScroller
               v-else
               ref="scroller"
               class="h-full custom-scrollbar"
               :items="logLines"
-              :item-size="28" 
+              :min-item-size="28" 
               key-field="id"
-              v-slot="{ item, index }"
             >
-              <div 
-                class="whitespace-pre-wrap break-words px-4 py-1 hover:bg-gray-900 transition-colors flex"
-                :class="item.class"
-              >
-                <span class="text-gray-500 mr-2 select-none w-10 text-right flex-shrink-0">{{ item.lineNum }}</span>
-                <span>{{ item.text }}</span>
-              </div>
-            </RecycleScroller>
+              <template v-slot="{ item, index, active }">
+                <DynamicScrollerItem
+                  :item="item"
+                  :active="active"
+                  :size-dependencies="[
+                    item.text,
+                  ]"
+                  :data-index="index"
+                >
+                  <div 
+                    class="whitespace-pre-wrap break-words px-4 py-1 hover:bg-gray-900 transition-colors flex"
+                    :class="item.class"
+                  >
+                    <span class="text-gray-500 mr-2 select-none w-10 text-right flex-shrink-0">{{ item.lineNum }}</span>
+                    <span>{{ item.text }}</span>
+                  </div>
+                </DynamicScrollerItem>
+              </template>
+            </DynamicScroller>
           </div>
         </div>
         
@@ -260,7 +270,7 @@ import { useAuthStore } from '~/stores/auth.js'
 import logger from '~/utils/logger.js'
 
 // 引入 vue-virtual-scroller
-import { RecycleScroller } from 'vue-virtual-scroller'
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 
 // 页面元数据
@@ -448,8 +458,10 @@ const throttle = (func, limit) => {
 // 节流滚动
 const throttledScrollToBottom = throttle(() => {
   if (autoScroll.value && scroller.value) {
-    // 虚拟滚动的 scrollToBottom 方法
-    scroller.value.scrollToBottom()
+    // 虚拟滚动的 scrollToItem 方法，确保滚动到最后一行
+    if (logLines.value.length > 0) {
+      scroller.value.scrollToItem(logLines.value.length - 1)
+    }
   }
 }, 100)
 
@@ -596,6 +608,7 @@ const connectWebSocket = () => {
     }
 
     ws.onmessage = (event) => {
+      // console.log('WS Received:', event.data.length, 'bytes'); // Debug log
       // 将消息加入缓冲区
       messageBuffer.push(event.data)
       
