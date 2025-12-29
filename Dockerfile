@@ -9,12 +9,11 @@ FROM node:20 AS frontend-builder
 ARG APP_VERSION
 WORKDIR /app/frontend
 
-# Install dependencies first to leverage Docker layer cache
+# Install dependencies with BuildKit cache mount for faster builds
 COPY frontend/package*.json ./
-RUN npm ci --prefer-offline --no-audit --no-fund --omit=dev && \
-    npm cache clean --force && \
-    rm -rf /tmp/* && \
-    rm -rf /root/.npm
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --no-fund --omit=dev && \
+    rm -rf /tmp/*
 
 # Copy source code and build
 COPY frontend/ ./
@@ -31,27 +30,21 @@ WORKDIR $WORKDIR
 # Copy gradle configuration files
 COPY backend/build.gradle.kts backend/settings.gradle.kts backend/gradle.properties ./
 
-# Download dependencies first to leverage Docker layer cache
-RUN echo "=== Downloading dependencies ===" && \
+# Download dependencies with BuildKit cache mount for faster builds
+RUN --mount=type=cache,target=/root/.gradle \
+    echo "=== Downloading dependencies ===" && \
     gradle --refresh-dependencies dependencies --configuration compileClasspath
 
 # Copy source code
 COPY backend/src ./src
 
-# Build application with system Gradle (avoids wrapper SSL issues in QEMU)
-RUN echo "=== Building application ===" && \
-    for i in 1 2 3; do \
-        timeout 300 gradle \
-            --no-daemon \
-            -Dhttps.protocols=TLSv1.1,TLSv1.2,TLSv1.3 \
-            -Dtrust_all_cert=true \
-            -Dorg.gradle.internal.http.connectionTimeout=60000 \
-            -Dorg.gradle.internal.http.socketTimeout=60000 \
-            bootJar -x test && \
-        break || \
-        echo "Build attempt $i failed, cleaning and retrying..." && \
-        gradle clean && sleep 15; \
-    done && \
+# Build application with Gradle cache mount
+RUN --mount=type=cache,target=/root/.gradle \
+    echo "=== Building application ===" && \
+    gradle \
+        --no-daemon \
+        --build-cache \
+        bootJar -x test && \
     mv $WORKDIR/build/libs/openlisttostrm.jar /openlisttostrm.jar && \
     echo "✅ JAR file created successfully" && \
     ls -la /openlisttostrm.jar
