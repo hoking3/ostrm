@@ -654,6 +654,292 @@ public class OpenlistApiService {
   }
 
   /**
+   * 验证OpenList配置信息（用于前端保存配置时的验证）
+   *
+   * @param baseUrl OpenList服务地址
+   * @param token   认证Token
+   * @return 验证结果，包含用户信息
+   */
+  public ValidateConfigResult validateConfig(String baseUrl, String token) {
+    try {
+      // 构建API URL
+      String apiUrl = baseUrl;
+      if (!apiUrl.endsWith("/")) {
+        apiUrl += "/";
+      }
+      apiUrl += "api/me";
+
+      log.info("验证OpenList配置: {}", apiUrl);
+
+      // 设置请求头
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.APPLICATION_JSON);
+      headers.set("User-Agent", "OpenList-STRM/1.0");
+      headers.set("Authorization", token);
+
+      HttpEntity<String> entity = new HttpEntity<>(headers);
+
+      // 发送GET请求
+      ResponseEntity<String> response =
+          restTemplate.exchange(apiUrl, HttpMethod.GET, entity, String.class);
+
+      if (!response.getStatusCode().is2xxSuccessful()) {
+        throw new BusinessException("OpenList API请求失败，状态码: " + response.getStatusCode());
+      }
+
+      String responseBody = response.getBody();
+      if (responseBody == null || responseBody.isEmpty()) {
+        throw new BusinessException("OpenList API返回空响应");
+      }
+
+      log.debug("验证配置响应: {}", responseBody);
+
+      // 解析响应
+      MeApiResponse meResponse = objectMapper.readValue(responseBody, MeApiResponse.class);
+
+      if (meResponse.getCode() == null || !meResponse.getCode().equals(200)) {
+        throw new BusinessException("OpenList API返回错误: " + meResponse.getMessage());
+      }
+
+      if (meResponse.getData() == null) {
+        throw new BusinessException("OpenList API返回数据为空");
+      }
+
+      MeData userData = meResponse.getData();
+
+      // 检查用户是否被禁用
+      if (userData.getDisabled() != null && userData.getDisabled()) {
+        throw new BusinessException("该账号已被禁用，无法添加配置");
+      }
+
+      ValidateConfigResult result = new ValidateConfigResult();
+      result.setUsername(userData.getUsername());
+      result.setBasePath(userData.getBasePath() != null ? userData.getBasePath() : "/");
+
+      log.info("验证OpenList配置成功: username={}, basePath={}", result.getUsername(), result.getBasePath());
+      return result;
+
+    } catch (BusinessException e) {
+      throw e;
+    } catch (Exception e) {
+      log.error("验证OpenList配置失败: {}", e.getMessage(), e);
+      if (e.getMessage() != null && e.getMessage().contains("401")) {
+        throw new BusinessException("Token无效或已过期");
+      } else if (e.getMessage() != null && e.getMessage().contains("403")) {
+        throw new BusinessException("没有权限访问该API");
+      } else if (e.getMessage() != null && e.getMessage().contains("404")) {
+        throw new BusinessException("API接口不存在，请检查Base URL");
+      }
+      throw new BusinessException("网络连接失败，请检查Base URL和Token: " + e.getMessage());
+    }
+  }
+
+  /**
+   * 验证任务路径是否存在
+   *
+   * @param baseUrl  OpenList服务地址
+   * @param token    认证Token
+   * @param basePath 用户的basePath
+   * @param taskPath 任务路径
+   * @return 是否为有效目录
+   */
+  public boolean validatePath(String baseUrl, String token, String basePath, String taskPath) {
+    try {
+      // 拼接完整路径
+      String fullPath = basePath;
+      if (fullPath.endsWith("/") && taskPath.startsWith("/")) {
+        fullPath = fullPath.substring(0, fullPath.length() - 1) + taskPath;
+      } else if (!fullPath.endsWith("/") && !taskPath.startsWith("/")) {
+        fullPath = fullPath + "/" + taskPath;
+      } else {
+        fullPath = fullPath + taskPath;
+      }
+
+      // 构建API URL
+      String apiUrl = baseUrl;
+      if (!apiUrl.endsWith("/")) {
+        apiUrl += "/";
+      }
+      apiUrl += "api/fs/get";
+
+      log.info("验证任务路径: {}, fullPath: {}", apiUrl, fullPath);
+
+      // 设置请求头
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.APPLICATION_JSON);
+      headers.set("User-Agent", "OpenList-STRM/1.0");
+      headers.set("Authorization", token);
+
+      // 构建请求体
+      String requestBody = String.format(
+          "{\"path\":\"%s\",\"password\":\"\",\"page\":1,\"per_page\":0,\"refresh\":false}",
+          fullPath);
+
+      HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+
+      // 发送POST请求
+      ResponseEntity<String> response =
+          restTemplate.exchange(apiUrl, HttpMethod.POST, entity, String.class);
+
+      if (!response.getStatusCode().is2xxSuccessful()) {
+        throw new BusinessException("OpenList API请求失败，状态码: " + response.getStatusCode());
+      }
+
+      String responseBody = response.getBody();
+      if (responseBody == null || responseBody.isEmpty()) {
+        throw new BusinessException("OpenList API返回空响应");
+      }
+
+      log.debug("验证路径响应: {}", responseBody);
+
+      // 解析响应
+      FsGetApiResponse fsResponse = objectMapper.readValue(responseBody, FsGetApiResponse.class);
+
+      if (fsResponse.getCode() == null || !fsResponse.getCode().equals(200)) {
+        throw new BusinessException("路径验证失败: " + fsResponse.getMessage());
+      }
+
+      if (fsResponse.getData() == null) {
+        throw new BusinessException("指定路径不存在");
+      }
+
+      // 检查是否为目录
+      if (fsResponse.getData().getIsDir() == null || !fsResponse.getData().getIsDir()) {
+        throw new BusinessException("指定路径不是一个目录");
+      }
+
+      log.info("验证任务路径成功: {}", fullPath);
+      return true;
+
+    } catch (BusinessException e) {
+      throw e;
+    } catch (Exception e) {
+      log.error("验证任务路径失败: {}", e.getMessage(), e);
+      if (e.getMessage() != null && e.getMessage().contains("401")) {
+        throw new BusinessException("OpenList Token无效或已过期");
+      } else if (e.getMessage() != null && e.getMessage().contains("403")) {
+        throw new BusinessException("没有权限访问该路径");
+      } else if (e.getMessage() != null && e.getMessage().contains("404")) {
+        throw new BusinessException("指定路径不存在");
+      }
+      throw new BusinessException("路径验证失败，请检查路径是否正确: " + e.getMessage());
+    }
+  }
+
+  /** /api/me 接口响应结构 */
+  @Data
+  public static class MeApiResponse {
+    @JsonProperty("code")
+    private Integer code;
+
+    @JsonProperty("message")
+    private String message;
+
+    @JsonProperty("data")
+    private MeData data;
+  }
+
+  /** /api/me 用户数据结构 */
+  @Data
+  public static class MeData {
+    @JsonProperty("id")
+    private Long id;
+
+    @JsonProperty("username")
+    private String username;
+
+    @JsonProperty("password")
+    private String password;
+
+    @JsonProperty("base_path")
+    private String basePath;
+
+    @JsonProperty("role")
+    private Integer role;
+
+    @JsonProperty("disabled")
+    private Boolean disabled;
+
+    @JsonProperty("permission")
+    private Integer permission;
+
+    @JsonProperty("sso_id")
+    private String ssoId;
+
+    @JsonProperty("authn")
+    private String authn;
+  }
+
+  /** /api/fs/get 接口响应结构 */
+  @Data
+  public static class FsGetApiResponse {
+    @JsonProperty("code")
+    private Integer code;
+
+    @JsonProperty("message")
+    private String message;
+
+    @JsonProperty("data")
+    private FsGetData data;
+  }
+
+  /** /api/fs/get 数据结构 */
+  @Data
+  public static class FsGetData {
+    @JsonProperty("name")
+    private String name;
+
+    @JsonProperty("size")
+    private Long size;
+
+    @JsonProperty("is_dir")
+    private Boolean isDir;
+
+    @JsonProperty("modified")
+    private String modified;
+
+    @JsonProperty("created")
+    private String created;
+
+    @JsonProperty("sign")
+    private String sign;
+
+    @JsonProperty("thumb")
+    private String thumb;
+
+    @JsonProperty("type")
+    private Integer type;
+
+    @JsonProperty("hashinfo")
+    private String hashinfo;
+
+    @JsonProperty("hash_info")
+    private Object hashInfo;
+
+    @JsonProperty("raw_url")
+    private String rawUrl;
+
+    @JsonProperty("readme")
+    private String readme;
+
+    @JsonProperty("header")
+    private String header;
+
+    @JsonProperty("provider")
+    private String provider;
+
+    @JsonProperty("related")
+    private Object related;
+  }
+
+  /** 验证配置结果 */
+  @Data
+  public static class ValidateConfigResult {
+    private String username;
+    private String basePath;
+  }
+
+  /**
    * 构建文件URL，使用UriComponentsBuilder进行正确的URL编码
    *
    * <p>使用Spring的UriComponentsBuilder进行URL编码，正确处理包含中文字符的路径
