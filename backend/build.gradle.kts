@@ -15,7 +15,7 @@ plugins {
 }
 
 group = "com.hienao.openlist2strm"
-version = "1.0.0"
+version = "2.2.6"
 description = "openlist to strm"
 java.sourceCompatibility = JavaVersion.VERSION_21
 
