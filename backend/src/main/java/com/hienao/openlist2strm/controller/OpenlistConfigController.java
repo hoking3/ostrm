@@ -1,6 +1,6 @@
 /*
- * OpenList STRM - Stream Management System
- * Copyright (C) 2024 OpenList STRM Project
+ * OStrm - Stream Management System
+ * Copyright (C) 2024 OStrm Project
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@ package com.hienao.openlist2strm.controller;
 import com.hienao.openlist2strm.dto.ApiResponse;
 import com.hienao.openlist2strm.dto.openlist.OpenlistConfigDto;
 import com.hienao.openlist2strm.entity.OpenlistConfig;
+import com.hienao.openlist2strm.service.OpenlistApiService;
 import com.hienao.openlist2strm.service.OpenlistConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -50,6 +51,7 @@ public class OpenlistConfigController {
   private static final String CONFIG_ID_PARAM = "配置ID";
 
   private final OpenlistConfigService openlistConfigService;
+  private final OpenlistApiService openlistApiService;
 
   /** 查询所有配置 */
   @GetMapping
@@ -139,6 +141,46 @@ public class OpenlistConfigController {
     return ResponseEntity.ok(ApiResponse.success(null));
   }
 
+  /** 验证OpenList配置（用于前端保存配置前的验证，避免CORS问题） */
+  @PostMapping("/validate")
+  @Operation(summary = "验证OpenList配置", description = "验证OpenList的baseUrl和token是否有效")
+  public ResponseEntity<ApiResponse<ValidateConfigResponse>> validateConfig(
+      @Parameter(description = "验证配置请求", required = true) @RequestBody
+          ValidateConfigRequest request) {
+    try {
+      OpenlistApiService.ValidateConfigResult result =
+          openlistApiService.validateConfig(request.getBaseUrl(), request.getToken());
+      
+      ValidateConfigResponse response = new ValidateConfigResponse();
+      response.setUsername(result.getUsername());
+      response.setBasePath(result.getBasePath());
+      
+      return ResponseEntity.ok(ApiResponse.success(response));
+    } catch (Exception e) {
+      log.error("验证OpenList配置失败: {}", e.getMessage());
+      return ResponseEntity.ok(ApiResponse.error(400, e.getMessage()));
+    }
+  }
+
+  /** 验证任务路径（用于前端创建任务时验证路径是否存在，避免CORS问题） */
+  @PostMapping("/validate-path")
+  @Operation(summary = "验证任务路径", description = "验证指定的任务路径在OpenList中是否存在且是目录")
+  public ResponseEntity<ApiResponse<Void>> validatePath(
+      @Parameter(description = "验证路径请求", required = true) @RequestBody
+          ValidatePathRequest request) {
+    try {
+      openlistApiService.validatePath(
+          request.getBaseUrl(),
+          request.getToken(),
+          request.getBasePath(),
+          request.getTaskPath());
+      return ResponseEntity.ok(ApiResponse.success(null));
+    } catch (Exception e) {
+      log.error("验证任务路径失败: {}", e.getMessage());
+      return ResponseEntity.ok(ApiResponse.error(400, e.getMessage()));
+    }
+  }
+
   /** 状态更新请求DTO */
   public static class UpdateStatusRequest {
     private Boolean isActive;
@@ -149,6 +191,90 @@ public class OpenlistConfigController {
 
     public void setIsActive(Boolean isActive) {
       this.isActive = isActive;
+    }
+  }
+
+  /** 验证配置请求DTO */
+  public static class ValidateConfigRequest {
+    private String baseUrl;
+    private String token;
+
+    public String getBaseUrl() {
+      return baseUrl;
+    }
+
+    public void setBaseUrl(String baseUrl) {
+      this.baseUrl = baseUrl;
+    }
+
+    public String getToken() {
+      return token;
+    }
+
+    public void setToken(String token) {
+      this.token = token;
+    }
+  }
+
+  /** 验证配置响应DTO */
+  public static class ValidateConfigResponse {
+    private String username;
+    private String basePath;
+
+    public String getUsername() {
+      return username;
+    }
+
+    public void setUsername(String username) {
+      this.username = username;
+    }
+
+    public String getBasePath() {
+      return basePath;
+    }
+
+    public void setBasePath(String basePath) {
+      this.basePath = basePath;
+    }
+  }
+
+  /** 验证路径请求DTO */
+  public static class ValidatePathRequest {
+    private String baseUrl;
+    private String token;
+    private String basePath;
+    private String taskPath;
+
+    public String getBaseUrl() {
+      return baseUrl;
+    }
+
+    public void setBaseUrl(String baseUrl) {
+      this.baseUrl = baseUrl;
+    }
+
+    public String getToken() {
+      return token;
+    }
+
+    public void setToken(String token) {
+      this.token = token;
+    }
+
+    public String getBasePath() {
+      return basePath;
+    }
+
+    public void setBasePath(String basePath) {
+      this.basePath = basePath;
+    }
+
+    public String getTaskPath() {
+      return taskPath;
+    }
+
+    public void setTaskPath(String taskPath) {
+      this.taskPath = taskPath;
     }
   }
 

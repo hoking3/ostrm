@@ -28,8 +28,8 @@ public class TaskExecutorConfig {
     executor.setCorePoolSize(1);
     // 最大线程数
     executor.setMaxPoolSize(1);
-    // 队列容量
-    executor.setQueueCapacity(100000);
+    // 队列容量（降低以减少内存占用）
+    executor.setQueueCapacity(1000);
     // 线程名前缀
     executor.setThreadNamePrefix("task-submit-");
     // 拒绝策略：调用者运行

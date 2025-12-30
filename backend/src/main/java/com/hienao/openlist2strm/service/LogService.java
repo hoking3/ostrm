@@ -1,6 +1,6 @@
 /*
- * OpenList STRM - Stream Management System
- * Copyright (C) 2024 OpenList STRM Project
+ * OStrm - Stream Management System
+ * Copyright (C) 2024 OStrm Project
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@ package com.hienao.openlist2strm.service;
 import com.hienao.openlist2strm.dto.FrontendLogRequest;
 import jakarta.annotation.PostConstruct;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -31,6 +32,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.input.ReversedLinesFileReader;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -121,7 +123,7 @@ public class LogService {
     return logFilePath;
   }
 
-  /** 获取日志行 */
+  /** 获取日志行（反向读取文件末尾，避免读取整个文件） */
   public List<String> getLogLines(String logType, int maxLines) {
     Path logFile = getLogFilePath(logType);
 
@@ -130,16 +132,19 @@ public class LogService {
       return Collections.emptyList();
     }
 
-    try {
-      List<String> allLines = Files.readAllLines(logFile);
+    try (ReversedLinesFileReader reader =
+        new ReversedLinesFileReader(logFile.toFile(), StandardCharsets.UTF_8)) {
 
-      // 如果请求的行数大于等于总行数，返回所有行
-      if (maxLines >= allLines.size()) {
-        return allLines;
+      LinkedList<String> lines = new LinkedList<>();
+      String line;
+      int count = 0;
+
+      while ((line = reader.readLine()) != null && count < maxLines) {
+        lines.addFirst(line); // 保持正确顺序（时间正序）
+        count++;
       }
 
-      // 返回最后的 maxLines 行
-      return allLines.subList(allLines.size() - maxLines, allLines.size());
+      return lines;
 
     } catch (IOException e) {
       log.error("读取日志文件失败: {}", logFile, e);

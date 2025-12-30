@@ -69,7 +69,7 @@ public class QuartzConfig {
     SchedulerFactoryBean schedulerFactory = new SchedulerFactoryBean();
     schedulerFactory.setSchedulerName("data-backup-scheduler");
     Properties props = getCommonProps();
-    props.setProperty("org.quartz.threadPool.threadCount", "5");
+    props.setProperty("org.quartz.threadPool.threadCount", "2");
     schedulerFactory.setQuartzProperties(props);
     schedulerFactory.setJobDetails(dataBackupJobDetail);
     schedulerFactory.setTriggers(dataBackupTrigger);

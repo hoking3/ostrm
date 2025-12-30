@@ -436,64 +436,31 @@ const editTask = (task) => {
   showEditTaskModal.value = true
 }
 
-// 验证任务路径是否存在
+// 验证任务路径是否存在（通过后端代理，避免CORS问题）
 const validateTaskPath = async (taskPath) => {
   try {
     if (!configInfo.value) {
       throw new Error('配置信息未加载')
     }
 
-    // 拼接完整路径：basePath + taskPath
-    let fullPath = configInfo.value.basePath
-
-    // 处理路径拼接规则：如果basePath结尾和taskPath开头都是/，则移除basePath结尾的/
-    if (fullPath.endsWith('/') && taskPath.startsWith('/')) {
-      fullPath = fullPath.slice(0, -1) + taskPath
-    } else if (!fullPath.endsWith('/') && !taskPath.startsWith('/')) {
-      fullPath = fullPath + '/' + taskPath
-    } else {
-      fullPath = fullPath + taskPath
-    }
-
-    // 构建完整的API URL
-    const baseUrl = configInfo.value.baseUrl
-    const apiUrl = baseUrl.endsWith('/') ? baseUrl + 'api/fs/get' : baseUrl + '/api/fs/get'
-
-    // 直接使用 $fetch 调用 OpenList API，避免触发全局 401 处理逻辑
-    const response = await $fetch(apiUrl, {
+    // 调用后端代理接口进行路径验证
+    const response = await authenticatedApiCall('/openlist-config/validate-path', {
       method: 'POST',
-      headers: {
-        'Authorization': configInfo.value.token,
-        'Content-Type': 'application/json'
-      },
       body: {
-        path: fullPath,
-        password: '',
-        page: 1,
-        per_page: 0,
-        refresh: false
+        baseUrl: configInfo.value.baseUrl,
+        token: configInfo.value.token,
+        basePath: configInfo.value.basePath,
+        taskPath: taskPath
       }
     })
 
-    if (response.code === 200 && response.data) {
-      // 检查是否为目录
-      if (!response.data.is_dir) {
-        throw new Error('指定路径不是一个目录')
-      }
+    if (response.code === 200) {
       return true
     } else {
       throw new Error(response.message || '路径验证失败')
     }
   } catch (error) {
-    if (error.status === 401) {
-      throw new Error('OpenList Token无效或已过期')
-    } else if (error.status === 403) {
-      throw new Error('没有权限访问该路径')
-    } else if (error.status === 404) {
-      throw new Error('指定路径不存在')
-    } else {
-      throw new Error(error.message || '路径验证失败，请检查路径是否正确')
-    }
+    throw new Error(error.message || '路径验证失败，请检查路径是否正确')
   }
 }
 

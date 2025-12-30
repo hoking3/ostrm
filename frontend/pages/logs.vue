@@ -147,11 +147,10 @@
             </div>
           </div>
           
-          <!-- 日志内容 -->
+          <!-- 日志内容 (Virtual Scroll) -->
           <div 
-            ref="logContainer"
-            class="h-96 overflow-y-auto bg-black text-green-400 font-mono text-sm p-4"
-            style="max-height: 500px;"
+            class="bg-black text-green-400 font-mono text-sm"
+            style="height: 500px;"
           >
             <div v-if="loading" class="flex justify-center items-center h-full">
               <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-400"></div>
@@ -162,17 +161,34 @@
               <p class="text-gray-500">暂无日志数据</p>
             </div>
             
-            <div v-else>
-              <div 
-                v-for="(line, index) in logLines" 
-                :key="index"
-                class="whitespace-pre-wrap break-words py-1 hover:bg-gray-900 transition-colors"
-                :class="getLogLineClass(line)"
-              >
-                <span class="text-gray-500 mr-2">{{ String(index + 1).padStart(4, '0') }}</span>
-                {{ line }}
-              </div>
-            </div>
+            <DynamicScroller
+              v-else
+              ref="scroller"
+              class="h-full custom-scrollbar"
+              :items="logLines"
+              :min-item-size="28" 
+              key-field="id"
+              @update="onScrollerUpdate"
+            >
+              <template v-slot="{ item, index, active }">
+                <DynamicScrollerItem
+                  :item="item"
+                  :active="active"
+                  :size-dependencies="[
+                    item.text,
+                  ]"
+                  :data-index="index"
+                >
+                  <div 
+                    class="whitespace-pre-wrap break-words px-4 py-1 hover:bg-gray-900 transition-colors flex"
+                    :class="item.class"
+                  >
+                    <span class="text-gray-500 mr-2 select-none w-10 text-right flex-shrink-0">{{ item.lineNum }}</span>
+                    <span>{{ item.text }}</span>
+                  </div>
+                </DynamicScrollerItem>
+              </template>
+            </DynamicScroller>
           </div>
         </div>
         
@@ -205,7 +221,7 @@
               </div>
               <div class="ml-4">
                 <p class="text-sm font-medium text-gray-500">错误日志</p>
-                <p class="text-2xl font-semibold text-gray-900">{{ errorCount }}</p>
+                <p class="text-2xl font-semibold text-gray-900">{{ logStats.error }}</p>
               </div>
             </div>
           </div>
@@ -221,7 +237,7 @@
               </div>
               <div class="ml-4">
                 <p class="text-sm font-medium text-gray-500">警告日志</p>
-                <p class="text-2xl font-semibold text-gray-900">{{ warningCount }}</p>
+                <p class="text-2xl font-semibold text-gray-900">{{ logStats.warn }}</p>
               </div>
             </div>
           </div>
@@ -248,15 +264,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed, reactive } from 'vue'
 import AppHeader from '~/components/AppHeader.vue'
 import { apiCall } from '~/utils/api.js'
 import { useAuthStore } from '~/stores/auth.js'
 import logger from '~/utils/logger.js'
 
-// 页面元数据 - 日志页面无需认证，API接口已配置为公开访问
+// 引入 vue-virtual-scroller
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
+
+// 页面元数据
 definePageMeta({
-  // 移除认证中间件，日志页面和API接口都是公开访问
 })
 
 // 获取认证store
@@ -269,36 +288,41 @@ const userInfo = computed(() => {
 })
 const selectedLogType = ref('backend')
 const selectedLogLevel = ref('all')
-const logLines = ref([])
-const originalLogLines = ref([]) // 存储原始日志数据
+const logLines = ref([]) // 显示的日志行
+const originalLogLines = ref([]) // 所有日志行
 const loading = ref(false)
 const autoScroll = ref(true)
 const wsConnected = ref(false)
 const downloading = ref(false)
 const lastUpdateTime = ref('')
-const logContainer = ref(null)
+const scroller = ref(null)
 
+// 标记是否有待处理的滚动请求
+const pendingScrollToBottom = ref(false)
+
+// 增量统计
+const logStats = reactive({
+  error: 0,
+  warn: 0,
+  info: 0,
+  debug: 0,
+  trace: 0
+})
+
+// 全局计数器，确保唯一ID
+let logIdCounter = 0
 
 // WebSocket 连接
 let ws = null
 
-// 计算属性
-const errorCount = computed(() => {
-  return logLines.value.filter(line => 
-    line.toLowerCase().includes('error') || 
-    line.toLowerCase().includes('exception') ||
-    line.toLowerCase().includes('failed')
-  ).length
-})
-
-const warningCount = computed(() => {
-  return logLines.value.filter(line => 
-    line.toLowerCase().includes('warn') || 
-    line.toLowerCase().includes('warning')
-  ).length
-})
-
-
+// 定义日志级别优先级
+const LOG_LEVEL_PRIORITY = {
+  'trace': 0,
+  'debug': 1,
+  'info': 2,
+  'warn': 3,
+  'error': 4
+}
 
 // 返回上一页
 const goBack = () => {
@@ -310,16 +334,11 @@ const logout = async () => {
   try {
     const token = useCookie('token')
     const userInfoCookie = useCookie('userInfo')
-
-    // 清除本地token和用户信息
     token.value = null
     userInfoCookie.value = null
-
-    // 跳转到登录页
     await navigateTo('/login')
   } catch (error) {
     logger.error('登出失败:', error)
-    // 即使失败也清除本地数据
     const token = useCookie('token')
     const userInfoCookie = useCookie('userInfo')
     token.value = null
@@ -338,75 +357,152 @@ const openSettings = () => {
   navigateTo('/settings')
 }
 
-// 打开日志页面（当前页面，无操作）
+// 打开日志页面
 const openLogs = () => {
-  // 当前就在日志页面，无需操作
 }
 
-
-
-// 获取日志行的样式类
-const getLogLineClass = (line) => {
-  const lowerLine = line.toLowerCase()
+// 解析日志级别和样式
+const parseLogLine = (line) => {
+  const lineStr = String(line)
+  const lowerLine = lineStr.toLowerCase()
+  let level = 'info'
+  let cssClass = 'text-green-400'
+  
   if (lowerLine.includes('error') || lowerLine.includes('exception') || lowerLine.includes('failed')) {
-    return 'text-red-400'
+    level = 'error'
+    cssClass = 'text-red-400'
   } else if (lowerLine.includes('warn') || lowerLine.includes('warning')) {
-    return 'text-yellow-400'
+    level = 'warn'
+    cssClass = 'text-yellow-400'
   } else if (lowerLine.includes('info')) {
-    return 'text-blue-400'
+    level = 'info'
+    cssClass = 'text-blue-400'
   } else if (lowerLine.includes('debug')) {
-    return 'text-gray-400'
+    level = 'debug'
+    cssClass = 'text-gray-400'
   } else if (lowerLine.includes('trace')) {
-    return 'text-gray-500'
+    level = 'trace'
+    cssClass = 'text-gray-500'
   }
-  return 'text-green-400'
-}
-
-// 获取日志行的级别
-const getLogLevel = (line) => {
-  const lowerLine = line.toLowerCase()
-  if (lowerLine.includes('error') || lowerLine.includes('exception') || lowerLine.includes('failed')) {
-    return 'error'
-  } else if (lowerLine.includes('warn') || lowerLine.includes('warning')) {
-    return 'warn'
-  } else if (lowerLine.includes('info')) {
-    return 'info'
-  } else if (lowerLine.includes('debug')) {
-    return 'debug'
-  } else if (lowerLine.includes('trace')) {
-    return 'trace'
+  
+  return {
+    id: logIdCounter++,
+    text: lineStr,
+    level: level,
+    class: cssClass,
+    lineNum: String(logIdCounter).padStart(4, '0') // 实际上应该是基于当前列表的索引，但为了性能这里先用ID
   }
-  return 'info' // 默认为info级别
 }
 
-// 定义日志级别优先级（数值越大优先级越高）
-const LOG_LEVEL_PRIORITY = {
-  'trace': 0,
-  'debug': 1,
-  'info': 2,
-  'warn': 3,
-  'error': 4
+// 重置统计
+const resetStats = () => {
+  logStats.error = 0
+  logStats.warn = 0
+  logStats.info = 0
+  logStats.debug = 0
+  logStats.trace = 0
+  logIdCounter = 0
 }
 
-// 按日志级别筛选日志（显示选定级别及更高优先级的日志）
+// 更新统计
+const updateStats = (level) => {
+  if (logStats[level] !== undefined) {
+    logStats[level]++
+  }
+}
+
+// 批量添加日志
+const batchAddLogs = (lines) => {
+  const newEntries = []
+  
+  for (const line of lines) {
+    const entry = parseLogLine(line)
+    newEntries.push(entry)
+    updateStats(entry.level)
+  }
+  
+  // 更新原始数据
+  originalLogLines.value.push(...newEntries)
+  
+  // 更新显示数据
+  if (selectedLogLevel.value === 'all') {
+    logLines.value.push(...newEntries)
+  } else {
+    const selectedPriority = LOG_LEVEL_PRIORITY[selectedLogLevel.value]
+    const filteredEntries = newEntries.filter(entry => 
+      LOG_LEVEL_PRIORITY[entry.level] >= selectedPriority
+    )
+    logLines.value.push(...filteredEntries)
+  }
+  
+  // 修正行号显示 (在虚拟列表中，每一行需要知道它在当前视图的序号)
+  // 注意：为了极致性能，这里我们在 render 时不做计算，而是简单使用原始序号或者不显示序号
+  // 上面的 parseLogLine 使用了全局计数器作为行号，这在过滤时会有跳号，
+  // 但对于日志查看来说通常是可以接受的，或者我们可以仅在全量显示时保证连续。
+  // 如果需要严格连续行号，可以在 filterLogsByLevel 中重新生成。
+  
+  lastUpdateTime.value = new Date().toLocaleString('zh-CN')
+  
+  // 标记需要滚动到底部
+  if (autoScroll.value) {
+    pendingScrollToBottom.value = true
+  }
+}
+
+// 节流函数
+const throttle = (func, limit) => {
+  let inThrottle
+  return function() {
+    const args = arguments
+    const context = this
+    if (!inThrottle) {
+      func.apply(context, args)
+      inThrottle = true
+      setTimeout(() => inThrottle = false, limit)
+    }
+  }
+}
+
+// 节流滚动
+const throttledScrollToBottom = throttle(() => {
+  if (autoScroll.value && scroller.value && logLines.value.length > 0) {
+    scroller.value.scrollToBottom()
+  }
+}, 100)
+
+// DynamicScroller 更新事件处理
+const onScrollerUpdate = () => {
+  if (pendingScrollToBottom.value && autoScroll.value && scroller.value) {
+    scroller.value.scrollToBottom()
+    pendingScrollToBottom.value = false
+  }
+}
+
+// 简单的滚动到底部（非节流，用于手动触发）
+const scrollToBottom = () => {
+  if (autoScroll.value && scroller.value) {
+    nextTick(() => {
+      scroller.value.scrollToBottom()
+    })
+  }
+}
+
+// 按日志级别筛选
 const filterLogsByLevel = () => {
   if (selectedLogLevel.value === 'all') {
     logLines.value = [...originalLogLines.value]
   } else {
     const selectedPriority = LOG_LEVEL_PRIORITY[selectedLogLevel.value]
-    logLines.value = originalLogLines.value.filter(line => {
-      const logLevel = getLogLevel(line)
-      const logPriority = LOG_LEVEL_PRIORITY[logLevel]
-      // 显示选定级别及更高优先级的日志
-      return logPriority >= selectedPriority
-    })
+    logLines.value = originalLogLines.value.filter(entry => 
+      LOG_LEVEL_PRIORITY[entry.level] >= selectedPriority
+    )
   }
   scrollToBottom()
 }
 
 // 切换日志类型
 const switchLogType = () => {
-  selectedLogLevel.value = 'all' // 重置筛选级别
+  selectedLogLevel.value = 'all'
   loadLogs()
   connectWebSocket()
 }
@@ -414,14 +510,8 @@ const switchLogType = () => {
 // 切换自动滚动
 const toggleAutoScroll = () => {
   autoScroll.value = !autoScroll.value
-}
-
-// 滚动到底部
-const scrollToBottom = () => {
-  if (autoScroll.value && logContainer.value) {
-    nextTick(() => {
-      logContainer.value.scrollTop = logContainer.value.scrollHeight
-    })
+  if (autoScroll.value) {
+    scrollToBottom()
   }
 }
 
@@ -430,21 +520,23 @@ const clearLogs = () => {
   logLines.value = []
   originalLogLines.value = []
   lastUpdateTime.value = ''
+  resetStats()
 }
 
 // 加载日志
 const loadLogs = async () => {
   loading.value = true
+  clearLogs() // 加载前清空
+  
   try {
     const response = await apiCall(`/logs/${selectedLogType.value}`, {
       method: 'GET'
     })
 
     if (response.code === 200) {
-      originalLogLines.value = response.data || []
-      filterLogsByLevel() // 应用当前的级别筛选
-      lastUpdateTime.value = new Date().toLocaleString('zh-CN')
-      scrollToBottom()
+      if (response.data && Array.isArray(response.data)) {
+        batchAddLogs(response.data)
+      }
     } else {
       logger.error('获取日志失败:', response.message)
     }
@@ -459,21 +551,14 @@ const loadLogs = async () => {
 const downloadLogs = async () => {
   downloading.value = true
   try {
-    // 构建下载URL
     const config = useRuntimeConfig()
     const baseURL = config.public.apiBase || 'http://localhost:8080'
     const downloadUrl = `${baseURL}/logs/${selectedLogType.value}/download`
 
-    // 使用fetch下载文件，无需认证
-    const response = await fetch(downloadUrl, {
-      method: 'GET'
-    })
+    const response = await fetch(downloadUrl, { method: 'GET' })
 
     if (response.ok) {
-      // 获取文件内容
       const blob = await response.blob()
-
-      // 创建下载链接
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -496,32 +581,39 @@ const downloadLogs = async () => {
 
 // 连接WebSocket
 const connectWebSocket = () => {
-  // 断开现有连接
   if (ws) {
     ws.close()
   }
 
   try {
-    // 构建WebSocket URL
     const config = useRuntimeConfig()
     const apiBase = config.public.apiBase
-
     let wsUrl
 
     if (apiBase && apiBase.startsWith('http')) {
-      // 开发环境：使用完整的URL
       const apiUrl = new URL(apiBase)
       const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:'
       wsUrl = `${wsProtocol}//${apiUrl.host}/ws/logs/${selectedLogType.value}`
     } else {
-      // 生产环境：使用相对路径，基于当前页面的协议和主机
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       wsUrl = `${wsProtocol}//${window.location.host}/ws/logs/${selectedLogType.value}`
     }
 
     logger.info('连接WebSocket:', wsUrl)
-
     ws = new WebSocket(wsUrl)
+
+    // WebSocket 消息缓冲区
+    let messageBuffer = []
+    let rafId = null
+
+    // 批量处理函数
+    const processBuffer = () => {
+      if (messageBuffer.length > 0) {
+        batchAddLogs(messageBuffer)
+        messageBuffer = []
+      }
+      rafId = null
+    }
 
     ws.onopen = () => {
       wsConnected.value = true
@@ -529,22 +621,23 @@ const connectWebSocket = () => {
     }
 
     ws.onmessage = (event) => {
-      const newLine = event.data
-      originalLogLines.value.push(newLine)
+      // console.log('WS Received:', event.data.length, 'bytes'); // Debug log
+      // 将消息加入缓冲区
+      messageBuffer.push(event.data)
       
-      // 检查新日志是否符合当前筛选条件
-      if (selectedLogLevel.value === 'all' || getLogLevel(newLine) === selectedLogLevel.value) {
-        logLines.value.push(newLine)
+      // 如果没有正在进行的 RAF，则启动一个
+      if (!rafId) {
+        rafId = requestAnimationFrame(processBuffer)
       }
-      
-      lastUpdateTime.value = new Date().toLocaleString('zh-CN')
-      scrollToBottom()
     }
 
     ws.onclose = () => {
       wsConnected.value = false
       logger.info('WebSocket连接已关闭')
-      // 尝试重连
+      if (rafId) {
+        cancelAnimationFrame(rafId)
+        rafId = null
+      }
       setTimeout(() => {
         if (!wsConnected.value) {
           connectWebSocket()
@@ -562,15 +655,12 @@ const connectWebSocket = () => {
   }
 }
 
-// 组件挂载时初始化
 onMounted(() => {
-  // 确保认证状态已初始化
   authStore.restoreAuth()
   loadLogs()
   connectWebSocket()
 })
 
-// 组件卸载时清理
 onUnmounted(() => {
   if (ws) {
     ws.close()
@@ -579,21 +669,30 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 自定义滚动条样式 */
-.overflow-y-auto::-webkit-scrollbar {
+/* 自定义滚动条样式 - 用于非虚拟滚动区域 */
+.custom-scrollbar::-webkit-scrollbar {
   width: 8px;
 }
 
-.overflow-y-auto::-webkit-scrollbar-track {
+.custom-scrollbar::-webkit-scrollbar-track {
   background: #1f2937;
 }
 
-.overflow-y-auto::-webkit-scrollbar-thumb {
+.custom-scrollbar::-webkit-scrollbar-thumb {
   background: #4b5563;
   border-radius: 4px;
 }
 
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
+}
+
+/* 覆盖 vue-virtual-scroller 默认样式以适配我们的黑色主题 */
+:deep(.vue-recycle-scroller__item-wrapper) {
+  box-sizing: border-box;
+}
+
+:deep(.vue-recycle-scroller.ready .vue-recycle-scroller__item-view) {
+  will-change: transform; 
 }
 </style>

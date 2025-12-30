@@ -532,47 +532,29 @@ const getConfigs = async () => {
   }
 }
 
-// 验证OpenList配置
+// 验证OpenList配置（通过后端代理，避免CORS问题）
 const validateOpenListConfig = async (baseUrl, token) => {
   try {
-    // 构建完整的API URL
-    const apiUrl = baseUrl.endsWith('/') ? baseUrl + 'api/me' : baseUrl + '/api/me'
-
-    // 直接使用 $fetch 调用 OpenList API，避免触发全局 401 处理逻辑
-    const response = await $fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token
+    // 调用后端代理接口进行验证
+    const response = await authenticatedApiCall('/openlist-config/validate', {
+      method: 'POST',
+      body: {
+        baseUrl: baseUrl,
+        token: token
       }
     })
 
     if (response.code === 200 && response.data) {
-      const userData = response.data
-
-      // 检查用户是否被禁用
-      if (userData.disabled) {
-        throw new Error('该账号已被禁用，无法添加配置')
-      }
-
       return {
-        username: userData.username,
-        basePath: userData.base_path || '/'
+        username: response.data.username,
+        basePath: response.data.basePath || '/'
       }
     } else {
       throw new Error(response.message || '验证失败')
     }
   } catch (error) {
     logger.error('OpenList配置验证失败:', error)
-    if (error.status === 401) {
-      throw new Error('Token无效或已过期')
-    } else if (error.status === 403) {
-      throw new Error('没有权限访问该API')
-    } else if (error.status === 404) {
-      throw new Error('API接口不存在，请检查Base URL')
-    } else {
-      throw new Error(error.message || '网络连接失败，请检查Base URL和Token')
-    }
+    throw new Error(error.message || '配置验证失败，请检查Base URL和Token')
   }
 }
 

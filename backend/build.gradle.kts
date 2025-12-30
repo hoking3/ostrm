@@ -15,7 +15,7 @@ plugins {
 }
 
 group = "com.hienao.openlist2strm"
-version = "1.0.0"
+version = "2.2.6"
 description = "openlist to strm"
 java.sourceCompatibility = JavaVersion.VERSION_21
 
@@ -42,6 +42,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-aop")
     implementation("org.apache.commons:commons-lang3:3.17.0")
     implementation("org.apache.commons:commons-collections4:4.4")
+    implementation("commons-io:commons-io:2.15.1")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
     implementation("com.auth0:java-jwt:4.4.0")
     implementation("org.flywaydb:flyway-core:$flywayVersion")
