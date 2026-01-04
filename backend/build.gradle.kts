@@ -1,22 +1,25 @@
-import org.springframework.boot.gradle.tasks.bundling.BootJar
+/**
+ * Ostrm Backend - Quarkus + GraalVM Native Image
+ * @author hienao
+ * @date 2025-12-31
+ */
 
-val testcontainersVersion by extra("1.20.6")
+val quarkusVersion by extra("3.17.5")
 val flywayVersion by extra("11.4.0")
+val testcontainersVersion by extra("1.20.6")
 
 plugins {
     java
     `java-library`
     jacoco
-    id("org.springframework.boot") version "3.3.9"
-    id("io.spring.dependency-management") version "1.1.7"
-    id("org.springdoc.openapi-gradle-plugin") version "1.9.0"
+    id("io.quarkus") version "3.17.5"
     id("pmd")
-    id("com.diffplug.spotless") version "7.0.2"
+    // id("com.diffplug.spotless") version "7.0.2" // Disabled to prevent corruption
 }
 
 group = "com.hienao.openlist2strm"
-version = "2.2.6"
-description = "openlist to strm"
+version = "3.0.0"
+description = "openlist to strm - Quarkus Native"
 java.sourceCompatibility = JavaVersion.VERSION_21
 
 configurations {
@@ -30,53 +33,70 @@ repositories {
 }
 
 dependencies {
-    implementation("org.springframework.boot:spring-boot-starter-quartz")
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.4")
-    implementation("org.springframework.boot:spring-boot-starter-mail")
-    implementation("org.springframework.boot:spring-boot-starter-cache")
-    implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-websocket")
-    implementation("org.springframework.boot:spring-boot-starter-aop")
+    // Quarkus 核心依赖
+    implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:$quarkusVersion"))
+    
+    // RESTful API
+    implementation("io.quarkus:quarkus-rest-jackson")
+    implementation("io.quarkus:quarkus-hibernate-validator")
+    
+    // 安全和 JWT
+    implementation("io.quarkus:quarkus-security")
+    implementation("io.quarkus:quarkus-smallrye-jwt")
+    implementation("io.quarkus:quarkus-smallrye-jwt-build")
+    
+    // 数据库和 ORM
+    implementation("io.quarkiverse.jdbc:quarkus-jdbc-sqlite:3.0.11") // SQLite Native Image 支持
+    implementation("io.quarkiverse.mybatis:quarkus-mybatis:2.2.2")
+    
+    // 数据库迁移
+    implementation("io.quarkus:quarkus-flyway")
+    
+    // 缓存
+    implementation("io.quarkus:quarkus-cache")
+    
+    // 定时任务
+    implementation("io.quarkus:quarkus-scheduler")
+    
+    // WebSocket
+    implementation("io.quarkus:quarkus-websockets-next")
+    
+    // OpenAPI 文档
+    implementation("io.quarkus:quarkus-smallrye-openapi")
+    implementation("io.swagger.core.v3:swagger-annotations:2.2.25")
+    
+    // 健康检查
+    implementation("io.quarkus:quarkus-smallrye-health")
+    
+    // 工具类
     implementation("org.apache.commons:commons-lang3:3.17.0")
     implementation("org.apache.commons:commons-collections4:4.4")
     implementation("commons-io:commons-io:2.15.1")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
-    implementation("com.auth0:java-jwt:4.4.0")
-    implementation("org.flywaydb:flyway-core:$flywayVersion")
-    implementation("com.github.ben-manes.caffeine:caffeine:3.2.0")
-    // SQLite database
-    runtimeOnly("org.xerial:sqlite-jdbc:3.47.1.0")
-    // MyBatis does not need additional SQLite dialect
+    
+    // Lombok (开发时使用，Native 编译时需要注意)
+    compileOnly("org.projectlombok:lombok:1.18.36")
+    annotationProcessor("org.projectlombok:lombok:1.18.36")
+    
+    // 测试依赖
+    testImplementation("io.quarkus:quarkus-junit5")
+    testImplementation("io.rest-assured:rest-assured")
     testImplementation("org.testcontainers:junit-jupiter:$testcontainersVersion")
-    testImplementation("org.testcontainers:testcontainers-bom:$testcontainersVersion")
-    compileOnly("org.projectlombok:lombok")
-    developmentOnly("org.springframework.boot:spring-boot-devtools")
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.springframework.boot:spring-boot-starter-webflux")
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.security:spring-security-test")
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
-    annotationProcessor("org.projectlombok:lombok")
+    
+    // JSR 305 注解
     api("org.jspecify:jspecify:1.0.0")
-}
-
-tasks.withType<BootJar> {
-    archiveFileName.set("openlisttostrm.jar")
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    systemProperty("java.util.logging.manager", "org.jboss.logmanager.LogManager")
 }
 
 tasks.test {
-    finalizedBy(tasks.jacocoTestReport) // report is always generated after tests run
+    finalizedBy(tasks.jacocoTestReport)
 }
 
 tasks.jacocoTestReport {
-    dependsOn(tasks.test) // tests are required to run before generating the report
+    dependsOn(tasks.test)
 }
 
 jacoco {
@@ -90,25 +110,4 @@ pmd {
     toolVersion = "7.9.0"
     rulesMinimumPriority.set(5)
     ruleSetFiles = files("pmd-rules.xml")
-}
-
-spotless {
-    format("misc") {
-        // define the files to apply `misc` to
-        target("*.gradle.kts", "*.md", ".gitignore")
-        // define the steps to apply to those files
-        trimTrailingWhitespace()
-        leadingTabsToSpaces()
-        endWithNewline()
-    }
-
-    java {
-        googleJavaFormat("1.25.2").reflowLongStrings()
-        formatAnnotations()
-    }
-
-    kotlinGradle {
-        target("*.gradle.kts") // default target for kotlinGradle
-        ktlint() // or ktfmt() or prettier()
-    }
 }

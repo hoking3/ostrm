@@ -32,17 +32,17 @@ public class TmdbIdExtractor {
       if (matcher.find()) {
         String tmdbIdStr = matcher.group(1);
         int tmdbId = Integer.parseInt(tmdbIdStr);
-        log.debug("从路径中提取到TMDB ID: {} -> {}", relativePath, tmdbId);
+        log.debug("从路径中提取到TMDB ID: %s -> %s", relativePath, tmdbId);
         return tmdbId;
       } else {
-        log.debug("路径中未找到TMDB ID格式: {}", relativePath);
+        log.debug("路径中未找到TMDB ID格式: %s", relativePath);
         return null;
       }
     } catch (NumberFormatException e) {
-      log.warn("路径中TMDB ID格式错误: {}, 错误: {}", relativePath, e.getMessage());
+      log.warn("路径中TMDB ID格式错误: %s, 错误: %s", relativePath, e.getMessage());
       return null;
     } catch (Exception e) {
-      log.error("提取TMDB ID时发生异常: {}", relativePath, e);
+      log.error("提取TMDB ID时发生异常: %s", relativePath, e);
       return null;
     }
   }
@@ -73,17 +73,17 @@ public class TmdbIdExtractor {
       if (matcher.find()) {
         String tmdbIdStr = matcher.group(1);
         int tmdbId = Integer.parseInt(tmdbIdStr);
-        log.debug("从文件名中提取到TMDB ID: {} -> {}", fileName, tmdbId);
+        log.debug("从文件名中提取到TMDB ID: %s -> %s", fileName, tmdbId);
         return tmdbId;
       } else {
-        log.debug("文件名中未找到TMDB ID格式: {}", fileName);
+        log.debug("文件名中未找到TMDB ID格式: %s", fileName);
         return null;
       }
     } catch (NumberFormatException e) {
-      log.warn("文件名中TMDB ID格式错误: {}, 错误: {}", fileName, e.getMessage());
+      log.warn("文件名中TMDB ID格式错误: %s, 错误: %s", fileName, e.getMessage());
       return null;
     } catch (Exception e) {
-      log.error("提取TMDB ID时发生异常: {}", fileName, e);
+      log.error("提取TMDB ID时发生异常: %s", fileName, e);
       return null;
     }
   }

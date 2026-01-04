@@ -1,28 +1,44 @@
+/*
+ * OStrm - Stream Management System
+ * @author hienao
+ * @date 2025-12-31
+ */
+
 package com.hienao.openlist2strm.service;
 
-import com.hienao.openlist2strm.config.cache.CacheConfig;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
+import io.quarkus.cache.CacheInvalidate;
+import io.quarkus.cache.CacheInvalidateAll;
+import io.quarkus.cache.CacheResult;
+import io.quarkus.logging.Log;
+import jakarta.enterprise.context.ApplicationScoped;
 
-@Service
-@Slf4j
+/**
+ * 缓存服务 - Quarkus CDI 版本
+ *
+ * @author hienao
+ * @since 2025-12-31
+ */
+@ApplicationScoped
 public class CacheService {
-  @Cacheable(value = CacheConfig.VERIFY_CODE, key = "{#identify}", unless = "#result == null")
+
+  @CacheResult(cacheName = "verify-code")
   public String getVerifyCodeBy(String identify) {
+    Log.debug("缓存未命中: " + identify);
     return null;
   }
 
-  @CachePut(value = CacheConfig.VERIFY_CODE, key = "{#identify}")
+  @CacheResult(cacheName = "verify-code")
   public String upsertVerifyCodeBy(String identify, String value) {
     return value;
   }
 
-  @CacheEvict(value = CacheConfig.VERIFY_CODE, key = "{#identify}")
-  public void removeVerifyCodeBy(String identify) {}
+  @CacheInvalidate(cacheName = "verify-code")
+  public void removeVerifyCodeBy(String identify) {
+    Log.debug("移除验证码缓存: " + identify);
+  }
 
-  @CacheEvict(value = CacheConfig.VERIFY_CODE, allEntries = true)
-  public void clearAllVerifyCode() {}
+  @CacheInvalidateAll(cacheName = "verify-code")
+  public void clearAllVerifyCode() {
+    Log.debug("清除所有验证码缓存");
+  }
 }

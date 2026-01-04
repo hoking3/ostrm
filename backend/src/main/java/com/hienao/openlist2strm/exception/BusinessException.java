@@ -2,9 +2,11 @@ package com.hienao.openlist2strm.exception;
 
 public class BusinessException extends RuntimeException {
 
-  @java.io.Serial private static final long serialVersionUID = -2119302295305964305L;
+  @java.io.Serial
+  private static final long serialVersionUID = -2119302295305964305L;
 
-  public BusinessException() {}
+  public BusinessException() {
+  }
 
   public BusinessException(String message) {
     super(message);

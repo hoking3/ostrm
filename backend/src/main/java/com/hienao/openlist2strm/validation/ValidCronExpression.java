@@ -13,14 +13,14 @@ import java.lang.annotation.Target;
  * @author hienao
  * @since 2024-01-01
  */
-@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Target({ ElementType.FIELD, ElementType.PARAMETER })
 @Retention(RetentionPolicy.RUNTIME)
 @Constraint(validatedBy = CronExpressionValidator.class)
 public @interface ValidCronExpression {
 
   String message() default "定时任务表达式格式不正确";
 
-  Class<?>[] groups() default {};
+  Class<?>[] groups() default{};
 
-  Class<? extends Payload>[] payload() default {};
+  Class<? extends Payload>[] payload() default{};
 }

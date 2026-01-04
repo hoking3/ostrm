@@ -70,7 +70,7 @@ public class MediaFileParser {
       return createUnknownMedia(fileName);
     }
 
-    log.debug("开始解析（优先级模式）: 文件='{}', 目录='{}'", fileName, directoryPath);
+    log.debug("开始解析（优先级模式）: 文件='%s', 目录='%s'", fileName, directoryPath);
 
     // 按优先级排序正则表达式
     List<String> prioritizedMovieRegexps =
@@ -103,7 +103,7 @@ public class MediaFileParser {
     // 计算最终置信度
     calculateConfidence(mediaInfo);
 
-    log.debug("解析结果: {}", mediaInfo);
+    log.debug("解析结果: %s", mediaInfo);
     return mediaInfo;
   }
 
@@ -123,11 +123,11 @@ public class MediaFileParser {
           Matcher matcher = pattern.matcher(directoryPath);
           if (matcher.find()) {
             extractNamedGroups(matcher, mediaInfo);
-            log.debug("电视剧目录正则 '{}' 匹配成功: {}", regex, directoryPath);
+            log.debug("电视剧目录正则 '%s' 匹配成功: %s", regex, directoryPath);
             break; // 找到第一个匹配的目录正则即可
           }
         } catch (Exception e) {
-          log.warn("无效的电视剧目录正则表达式: '{}', 错误: {}", regex, e.getMessage());
+          log.warn("无效的电视剧目录正则表达式: '%s', 错误: %s", regex, e.getMessage());
         }
       }
     }
@@ -139,11 +139,11 @@ public class MediaFileParser {
         Matcher matcher = pattern.matcher(nameWithoutExt);
         if (matcher.find()) {
           extractNamedGroups(matcher, mediaInfo);
-          log.debug("电视剧文件正则 '{}' 匹配成功: {}", regex, nameWithoutExt);
+          log.debug("电视剧文件正则 '%s' 匹配成功: %s", regex, nameWithoutExt);
           break; // 找到第一个匹配的文件正则即可
         }
       } catch (Exception e) {
-        log.warn("无效的电视剧文件正则表达式: '{}', 错误: {}", regex, e.getMessage());
+        log.warn("无效的电视剧文件正则表达式: '%s', 错误: %s", regex, e.getMessage());
       }
     }
 
@@ -172,13 +172,13 @@ public class MediaFileParser {
         Matcher matcher = pattern.matcher(nameWithoutExt);
         if (matcher.find()) {
           extractNamedGroups(matcher, mediaInfo);
-          log.debug("电影正则 '{}' 匹配成功: {}", regex, nameWithoutExt);
+          log.debug("电影正则 '%s' 匹配成功: %s", regex, nameWithoutExt);
           mediaInfo.setType(MediaInfo.MediaType.MOVIE);
           cleanupTitle(mediaInfo);
           return; // 找到第一个匹配的即可
         }
       } catch (Exception e) {
-        log.warn("无效的电影正则表达式: '{}', 错误: {}", regex, e.getMessage());
+        log.warn("无效的电影正则表达式: '%s', 错误: %s", regex, e.getMessage());
       }
     }
     // 如果所有电影正则都匹配失败，则认为是未知类型

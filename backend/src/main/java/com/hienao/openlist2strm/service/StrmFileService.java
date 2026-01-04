@@ -3,6 +3,9 @@ package com.hienao.openlist2strm.service;
 import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.exception.BusinessException;
 import com.hienao.openlist2strm.util.UrlEncoder;
+import io.quarkus.logging.Log;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -14,10 +17,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 /**
  * STRM文件生成服务
@@ -25,15 +24,15 @@ import org.springframework.util.StringUtils;
  * @author hienao
  * @since 2024-01-01
  */
-@Slf4j
-@Service
-@RequiredArgsConstructor
+@ApplicationScoped
 public class StrmFileService {
 
   private static final String ERROR_SUFFIX = ", 错误: ";
 
-  private final SystemConfigService systemConfigService;
-  private final OpenlistApiService openlistApiService;
+  @Inject
+  SystemConfigService systemConfigService;
+  @Inject
+  OpenlistApiService openlistApiService;
 
   /**
    * 生成STRM文件
@@ -73,19 +72,19 @@ public class StrmFileService {
       // 检查文件是否已存在
       if (Files.exists(strmFilePath)) {
         if (!forceRegenerate) {
-          log.info("STRM文件已存在，跳过生成: {}", strmFilePath);
+          Log.infof("STRM文件已存在，跳过生成: %s", strmFilePath);
           return;
         }
         // forceRegenerate=true时（增量模式），比较内容是否相同
         try {
           String existingContent = Files.readString(strmFilePath, StandardCharsets.UTF_8).trim();
           if (existingContent.equals(finalUrl)) {
-            log.debug("STRM链接未变化，跳过更新: {}", strmFilePath);
+            Log.debugf("STRM链接未变化，跳过更新: %s", strmFilePath);
             return;
           }
-          log.info("STRM链接已变化，更新文件: {}", strmFilePath);
+          Log.infof("STRM链接已变化，更新文件: %s", strmFilePath);
         } catch (IOException e) {
-          log.warn("读取现有STRM文件失败，将重新生成: {}, 错误: {}", strmFilePath, e.getMessage());
+          Log.warnf("读取现有STRM文件失败，将重新生成: %s, 错误: %s", strmFilePath, e.getMessage());
         }
       }
 
@@ -95,10 +94,10 @@ public class StrmFileService {
       // 写入STRM文件内容（直接写入已处理的finalUrl，避免重复编码）
       writeStrmFileDirectly(strmFilePath, finalUrl);
 
-      log.info("生成STRM文件成功: {}", strmFilePath);
+      Log.infof("生成STRM文件成功: %s", strmFilePath);
 
     } catch (Exception e) {
-      log.error("生成STRM文件失败: {}" + ERROR_SUFFIX + "{}", fileName, e.getMessage(), e);
+      Log.errorf(e, "生成STRM文件失败: %s" + ERROR_SUFFIX + "%s", fileName, e.getMessage());
       throw new BusinessException("生成STRM文件失败: " + fileName + ERROR_SUFFIX + e.getMessage(), e);
     }
   }
@@ -114,7 +113,7 @@ public class StrmFileService {
     String processedName = originalFileName;
 
     // 应用重命名规则
-    if (StringUtils.hasText(renameRegex)) {
+    if ((renameRegex != null && !renameRegex.trim().isEmpty())) {
       try {
         // 简单的正则替换，可以根据需要扩展
         // 格式: "原始模式|替换内容"
@@ -123,10 +122,10 @@ public class StrmFileService {
           String pattern = parts[0];
           String replacement = parts[1];
           processedName = processedName.replaceAll(pattern, replacement);
-          log.debug("文件重命名: {} -> {}", originalFileName, processedName);
+          Log.debugf("文件重命名: %s -> %s", originalFileName, processedName);
         }
       } catch (Exception e) {
-        log.warn("重命名规则应用失败: {}, 使用原始文件名", renameRegex, e);
+        Log.warnf(e, "重命名规则应用失败: %s, 使用原始文件名", renameRegex);
       }
     }
 
@@ -152,10 +151,10 @@ public class StrmFileService {
     try {
       Path basePath = Paths.get(strmBasePath);
 
-      if (StringUtils.hasText(relativePath)) {
+      if ((relativePath != null && !relativePath.trim().isEmpty())) {
         // 清理相对路径，并处理编码问题
         String cleanRelativePath = relativePath.replaceAll("^/+", "").replaceAll("/+$", "");
-        if (StringUtils.hasText(cleanRelativePath)) {
+        if ((cleanRelativePath != null && !cleanRelativePath.trim().isEmpty())) {
           // 确保路径使用UTF-8编码
           cleanRelativePath = new String(
               cleanRelativePath.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8);
@@ -168,7 +167,7 @@ public class StrmFileService {
       return basePath.resolve(safeFileName);
 
     } catch (Exception e) {
-      log.warn("构建STRM文件路径时遇到编码问题，尝试使用备用方案: {}", e.getMessage());
+      Log.warnf("构建STRM文件路径时遇到编码问题，尝试使用备用方案: %s", e.getMessage());
       // 备用方案：使用原始路径，让Java处理
       return Paths.get(strmBasePath, relativePath != null ? relativePath : "", fileName);
     }
@@ -183,7 +182,7 @@ public class StrmFileService {
     try {
       if (directoryPath != null && !Files.exists(directoryPath)) {
         Files.createDirectories(directoryPath);
-        log.debug("创建目录: {}", directoryPath);
+        Log.debugf("创建目录: %s", directoryPath);
       }
     } catch (IOException e) {
       throw new BusinessException("创建目录失败: " + directoryPath + ERROR_SUFFIX + e.getMessage(), e);
@@ -204,7 +203,7 @@ public class StrmFileService {
           finalUrl,
           StandardOpenOption.CREATE,
           StandardOpenOption.TRUNCATE_EXISTING);
-      log.debug("写入STRM文件: {} -> {}", strmFilePath, finalUrl);
+      Log.debugf("写入STRM文件: %s -> %s", strmFilePath, finalUrl);
     } catch (IOException e) {
       throw new BusinessException("写入STRM文件失败: " + strmFilePath + ERROR_SUFFIX + e.getMessage(), e);
     }
@@ -219,13 +218,12 @@ public class StrmFileService {
   private boolean shouldEncodeUrl(OpenlistConfig openlistConfig) {
     // 如果配置为空或未设置编码选项，默认启用编码（向后兼容）
     if (openlistConfig == null || openlistConfig.getEnableUrlEncoding() == null) {
-      log.debug("URL编码配置为空，默认启用编码");
+      Log.debug("URL编码配置为空，默认启用编码");
       return true;
     }
 
     boolean shouldEncode = openlistConfig.getEnableUrlEncoding();
-    log.debug("URL编码配置: enableUrlEncoding={}, 编码状态={}",
-        openlistConfig.getEnableUrlEncoding(), shouldEncode ? "启用" : "禁用");
+    Log.debugf("URL编码配置: enableUrlEncoding=%s, 编码状态=%s", openlistConfig.getEnableUrlEncoding(), shouldEncode ? "启用" : "禁用");
     return shouldEncode;
   }
 
@@ -248,10 +246,10 @@ public class StrmFileService {
       // 使用智能编码，只编码路径部分，保留协议和域名结构
       String encodedUrl = UrlEncoder.encodeUrlSmart(originalUrl);
 
-      log.debug("URL智能编码成功: {} -> {}", originalUrl, encodedUrl);
+      Log.debugf("URL智能编码成功: %s -> %s", originalUrl, encodedUrl);
       return encodedUrl;
     } catch (Exception e) {
-      log.warn("URL编码失败，使用原始URL: {}, 错误: {}", originalUrl, e.getMessage());
+      Log.warnf("URL编码失败，使用原始URL: %s, 错误: %s", originalUrl, e.getMessage());
       return originalUrl;
     }
   }
@@ -264,7 +262,7 @@ public class StrmFileService {
    * @return 相对路径
    */
   public String calculateRelativePath(String taskPath, String filePath) {
-    if (!StringUtils.hasText(taskPath) || !StringUtils.hasText(filePath)) {
+    if (!(taskPath != null && !taskPath.trim().isEmpty()) || !(filePath != null && !filePath.trim().isEmpty())) {
       return "";
     }
 
@@ -294,7 +292,7 @@ public class StrmFileService {
    * @return 是否为视频文件
    */
   public boolean isVideoFile(String fileName) {
-    if (!StringUtils.hasText(fileName)) {
+    if (!(fileName != null && !fileName.trim().isEmpty())) {
       return false;
     }
 
@@ -305,7 +303,7 @@ public class StrmFileService {
       List<String> mediaExtensions = (List<String>) systemConfig.get("mediaExtensions");
 
       if (mediaExtensions == null || mediaExtensions.isEmpty()) {
-        log.warn("系统配置中未找到媒体文件后缀配置，使用默认配置");
+        Log.warn("系统配置中未找到媒体文件后缀配置，使用默认配置");
         return isVideoFileWithDefaultExtensions(fileName);
       }
 
@@ -320,7 +318,7 @@ public class StrmFileService {
       return false;
 
     } catch (Exception e) {
-      log.error("检查文件后缀时发生错误，使用默认配置: {}", e.getMessage());
+      Log.errorf("检查文件后缀时发生错误，使用默认配置: %s", e.getMessage());
       return isVideoFileWithDefaultExtensions(fileName);
     }
   }
@@ -350,8 +348,8 @@ public class StrmFileService {
    * @param strmBasePath STRM基础路径
    */
   public void clearStrmDirectory(String strmBasePath) {
-    if (!StringUtils.hasText(strmBasePath)) {
-      log.warn("STRM基础路径为空，跳过清理操作");
+    if (!(strmBasePath != null && !strmBasePath.trim().isEmpty())) {
+      Log.warn("STRM基础路径为空，跳过清理操作");
       return;
     }
 
@@ -360,17 +358,17 @@ public class StrmFileService {
 
       // 检查目录是否存在
       if (!Files.exists(strmPath)) {
-        log.info("STRM目录不存在，无需清理: {}", strmPath);
+        Log.infof("STRM目录不存在，无需清理: %s", strmPath);
         return;
       }
 
       // 检查是否为目录
       if (!Files.isDirectory(strmPath)) {
-        log.warn("STRM路径不是目录，跳过清理: {}", strmPath);
+        Log.warnf("STRM路径不是目录，跳过清理: %s", strmPath);
         return;
       }
 
-      log.info("开始清理STRM目录: {}", strmPath);
+      Log.infof("开始清理STRM目录: %s", strmPath);
 
       // 递归删除目录下的所有文件和子目录
       Files.walk(strmPath)
@@ -380,16 +378,16 @@ public class StrmFileService {
               path -> {
                 try {
                   Files.delete(path);
-                  log.debug("删除: {}", path);
+                  Log.debugf("删除: %s", path);
                 } catch (IOException e) {
-                  log.warn("删除文件/目录失败: {}" + ERROR_SUFFIX + "{}", path, e.getMessage());
+                  Log.warnf("删除文件/目录失败: %s" + ERROR_SUFFIX + "%s", path, e.getMessage());
                 }
               });
 
-      log.info("STRM目录清理完成: {}", strmPath);
+      Log.infof("STRM目录清理完成: %s", strmPath);
 
     } catch (Exception e) {
-      log.error("清理STRM目录失败: {}" + ERROR_SUFFIX + "{}", strmBasePath, e.getMessage(), e);
+      Log.errorf(e, "清理STRM目录失败: %s" + ERROR_SUFFIX + "%s", strmBasePath, e.getMessage());
       throw new BusinessException("清理STRM目录失败: " + strmBasePath + ERROR_SUFFIX + e.getMessage(), e);
     }
   }
@@ -418,8 +416,8 @@ public class StrmFileService {
       String taskPath,
       String renameRegex,
       OpenlistConfig openlistConfig) {
-    if (!StringUtils.hasText(strmBasePath)) {
-      log.warn("STRM基础路径为空，跳过孤立文件清理");
+    if (!(strmBasePath != null && !strmBasePath.trim().isEmpty())) {
+      Log.warn("STRM基础路径为空，跳过孤立文件清理");
       return 0;
     }
 
@@ -432,11 +430,11 @@ public class StrmFileService {
 
       // 检查目录是否存在
       if (!Files.exists(strmPath) || !Files.isDirectory(strmPath)) {
-        log.info("STRM目录不存在或不是目录，无需清理孤立文件: {}", strmPath);
+        Log.infof("STRM目录不存在或不是目录，无需清理孤立文件: %s", strmPath);
         return 0;
       }
 
-      log.info("开始使用深度优先遍历清理孤立STRM文件: {}", strmBasePath);
+      Log.infof("开始使用深度优先遍历清理孤立STRM文件: %s", strmBasePath);
 
       // 计算任务路径在OpenList中的相对路径（作为根路径）
       String openlistRootPath = taskPath;
@@ -445,11 +443,11 @@ public class StrmFileService {
       int cleanedCount = validateAndCleanDirectory(
           strmPath, openlistConfig, taskPath, openlistRootPath, renameRegex);
 
-      log.info("深度优先遍历清理完成，共清理 {} 个孤立文件/目录", cleanedCount);
+      Log.infof("深度优先遍历清理完成，共清理 %s 个孤立文件/目录", cleanedCount);
       return cleanedCount;
 
     } catch (Exception e) {
-      log.error("清理孤立STRM文件失败: {}, 错误: {}", strmBasePath, e.getMessage(), e);
+      Log.errorf(e, "清理孤立STRM文件失败: %s, 错误: %s", strmBasePath, e.getMessage());
       return 0;
     }
   }
@@ -470,10 +468,10 @@ public class StrmFileService {
         Path nfoFile = parentDir.resolve(baseFileName + ".nfo");
         if (Files.exists(nfoFile)) {
           Files.delete(nfoFile);
-          log.info("删除孤立的NFO文件: {}", nfoFile);
+          Log.infof("删除孤立的NFO文件: %s", nfoFile);
         }
       } catch (Exception e) {
-        log.warn("删除NFO文件失败: {}, 错误: {}", baseFileName + ".nfo", e.getMessage());
+        Log.warnf("删除NFO文件失败: %s, 错误: %s", baseFileName + ".nfo", e.getMessage());
       }
 
       // 删除电影相关的刮削文件
@@ -481,20 +479,20 @@ public class StrmFileService {
         Path moviePoster = parentDir.resolve(baseFileName + "-poster.jpg");
         if (Files.exists(moviePoster)) {
           Files.delete(moviePoster);
-          log.info("删除孤立的电影海报文件: {}", moviePoster);
+          Log.infof("删除孤立的电影海报文件: %s", moviePoster);
         }
       } catch (Exception e) {
-        log.warn("删除电影海报文件失败: {}, 错误: {}", baseFileName + "-poster.jpg", e.getMessage());
+        Log.warnf("删除电影海报文件失败: %s, 错误: %s", baseFileName + "-poster.jpg", e.getMessage());
       }
 
       try {
         Path movieBackdrop = parentDir.resolve(baseFileName + "-fanart.jpg");
         if (Files.exists(movieBackdrop)) {
           Files.delete(movieBackdrop);
-          log.info("删除孤立的电影背景图文件: {}", movieBackdrop);
+          Log.infof("删除孤立的电影背景图文件: %s", movieBackdrop);
         }
       } catch (Exception e) {
-        log.warn("删除电影背景图文件失败: {}, 错误: {}", baseFileName + "-fanart.jpg", e.getMessage());
+        Log.warnf("删除电影背景图文件失败: %s, 错误: %s", baseFileName + "-fanart.jpg", e.getMessage());
       }
 
       // 删除电视剧相关的刮削文件
@@ -502,10 +500,10 @@ public class StrmFileService {
         Path episodeThumb = parentDir.resolve(baseFileName + "-thumb.jpg");
         if (Files.exists(episodeThumb)) {
           Files.delete(episodeThumb);
-          log.info("删除孤立的剧集缩略图文件: {}", episodeThumb);
+          Log.infof("删除孤立的剧集缩略图文件: %s", episodeThumb);
         }
       } catch (Exception e) {
-        log.warn("删除剧集缩略图文件失败: {}, 错误: {}", baseFileName + "-thumb.jpg", e.getMessage());
+        Log.warnf("删除剧集缩略图文件失败: %s, 错误: %s", baseFileName + "-thumb.jpg", e.getMessage());
       }
 
       // 检查是否需要删除电视剧公共文件（当目录中没有其他视频文件时）
@@ -525,30 +523,30 @@ public class StrmFileService {
             Path tvShowNfo = parentDir.resolve("tvshow.nfo");
             if (Files.exists(tvShowNfo)) {
               Files.delete(tvShowNfo);
-              log.info("删除孤立的电视剧NFO文件: {}", tvShowNfo);
+              Log.infof("删除孤立的电视剧NFO文件: %s", tvShowNfo);
             }
           } catch (Exception e) {
-            log.warn("删除电视剧NFO文件失败: {}, 错误: {}", "tvshow.nfo", e.getMessage());
+            Log.warnf("删除电视剧NFO文件失败: %s, 错误: %s", "tvshow.nfo", e.getMessage());
           }
 
           try {
             Path tvShowPoster = parentDir.resolve("poster.jpg");
             if (Files.exists(tvShowPoster)) {
               Files.delete(tvShowPoster);
-              log.info("删除孤立的电视剧海报文件: {}", tvShowPoster);
+              Log.infof("删除孤立的电视剧海报文件: %s", tvShowPoster);
             }
           } catch (Exception e) {
-            log.warn("删除电视剧海报文件失败: {}, 错误: {}", "poster.jpg", e.getMessage());
+            Log.warnf("删除电视剧海报文件失败: %s, 错误: %s", "poster.jpg", e.getMessage());
           }
 
           try {
             Path tvShowFanart = parentDir.resolve("fanart.jpg");
             if (Files.exists(tvShowFanart)) {
               Files.delete(tvShowFanart);
-              log.info("删除孤立的电视剧背景图文件: {}", tvShowFanart);
+              Log.infof("删除孤立的电视剧背景图文件: %s", tvShowFanart);
             }
           } catch (Exception e) {
-            log.warn("删除电视剧背景图文件失败: {}, 错误: {}", "fanart.jpg", e.getMessage());
+            Log.warnf("删除电视剧背景图文件失败: %s, 错误: %s", "fanart.jpg", e.getMessage());
           }
 
           // 清理目录中多余的图片文件和NFO文件
@@ -558,18 +556,18 @@ public class StrmFileService {
           try {
             if (isDirectoryEmpty(parentDir)) {
               Files.delete(parentDir);
-              log.info("删除空目录: {}", parentDir);
+              Log.infof("删除空目录: %s", parentDir);
             }
           } catch (Exception e) {
-            log.warn("删除空目录失败: {}, 详细错误: {}", parentDir, e.getMessage(), e);
+            Log.warnf(e, "删除空目录失败: %s, 详细错误: %s", parentDir, e.getMessage());
           }
         }
       } catch (Exception e) {
-        log.warn("检查目录中的其他视频文件失败: {}, 错误: {}", parentDir, e.getMessage());
+        Log.warnf("检查目录中的其他视频文件失败: %s, 错误: %s", parentDir, e.getMessage());
       }
 
     } catch (Exception e) {
-      log.warn("清理孤立刮削文件失败: {}, 错误: {}", strmFile, e.getMessage());
+      Log.warnf("清理孤立刮削文件失败: %s, 错误: %s", strmFile, e.getMessage());
     }
   }
 
@@ -590,14 +588,14 @@ public class StrmFileService {
                   // 检查目录是否为空
                   if (Files.list(dir).findAny().isEmpty()) {
                     Files.delete(dir);
-                    log.debug("删除空目录: {}", dir);
+                    Log.debugf("删除空目录: %s", dir);
                   }
                 } catch (IOException e) {
-                  log.debug("检查或删除目录失败: {}, 错误: {}", dir, e.getMessage());
+                  Log.debugf("检查或删除目录失败: %s, 错误: %s", dir, e.getMessage());
                 }
               });
     } catch (IOException e) {
-      log.warn("清理空目录失败: {}, 错误: {}", rootPath, e.getMessage());
+      Log.warnf("清理空目录失败: %s, 错误: %s", rootPath, e.getMessage());
     }
   }
 
@@ -624,17 +622,17 @@ public class StrmFileService {
               file -> {
                 try {
                   Files.delete(file);
-                  log.info("删除多余的刮削文件: {}", file);
+                  Log.infof("删除多余的刮削文件: %s", file);
                 } catch (IOException e) {
-                  log.warn("删除多余刮削文件失败: {}, 错误: {}", file, e.getMessage());
+                  Log.warnf("删除多余刮削文件失败: %s, 错误: %s", file, e.getMessage());
                 } catch (Exception e) {
-                  log.warn("删除多余刮削文件时发生异常: {}, 错误: {}", file, e.getMessage());
+                  Log.warnf("删除多余刮削文件时发生异常: %s, 错误: %s", file, e.getMessage());
                 }
               });
     } catch (IOException e) {
-      log.warn("清理多余刮削文件失败: {}, 错误: {}", directory, e.getMessage());
+      Log.warnf("清理多余刮削文件失败: %s, 错误: %s", directory, e.getMessage());
     } catch (Exception e) {
-      log.warn("清理多余刮削文件时发生异常: {}, 错误: {}", directory, e.getMessage());
+      Log.warnf("清理多余刮削文件时发生异常: %s, 错误: %s", directory, e.getMessage());
     }
   }
 
@@ -648,7 +646,7 @@ public class StrmFileService {
     try {
       return Files.list(directory).findAny().isEmpty();
     } catch (IOException e) {
-      log.warn("检查目录是否为空失败: {}, 错误: {}", directory, e.getMessage());
+      Log.warnf("检查目录是否为空失败: %s, 错误: %s", directory, e.getMessage());
       return false;
     }
   }
@@ -663,10 +661,10 @@ public class StrmFileService {
   private List<OpenlistApiService.OpenlistFile> getOpenListFileTree(
       OpenlistConfig config, String openlistPath) {
     try {
-      log.debug("获取OpenList文件树: {}", openlistPath);
+      Log.debugf("获取OpenList文件树: %s", openlistPath);
       return openlistApiService.getDirectoryContents(config, openlistPath);
     } catch (Exception e) {
-      log.warn("获取OpenList文件树失败: {}, 错误: {}", openlistPath, e.getMessage());
+      Log.warnf("获取OpenList文件树失败: %s, 错误: %s", openlistPath, e.getMessage());
       return new ArrayList<>();
     }
   }
@@ -690,20 +688,20 @@ public class StrmFileService {
       boolean hasSubDirectories = Files.list(directoryPath).anyMatch(Files::isDirectory);
 
       if (hasStrmFiles) {
-        log.debug("目录 {} 包含STRM文件，不应删除", directoryPath);
+        Log.debugf("目录 %s 包含STRM文件，不应删除", directoryPath);
         return false;
       }
 
       if (hasSubDirectories) {
-        log.debug("目录 {} 包含子目录，不应删除", directoryPath);
+        Log.debugf("目录 %s 包含子目录，不应删除", directoryPath);
         return false;
       }
 
-      log.debug("目录 {} 无STRM文件和子目录，可以删除", directoryPath);
+      Log.debugf("目录 %s 无STRM文件和子目录，可以删除", directoryPath);
       return true;
 
     } catch (IOException e) {
-      log.warn("检查目录是否应该删除失败: {}, 错误: {}", directoryPath, e.getMessage());
+      Log.warnf("检查目录是否应该删除失败: %s, 错误: %s", directoryPath, e.getMessage());
       return false;
     }
   }
@@ -734,7 +732,7 @@ public class StrmFileService {
         return 0;
       }
 
-      log.debug("清理STRM文件并检查目录: {} (OpenList路径: {})", directoryPath, openlistRelativePath);
+      Log.debugf("清理STRM文件并检查目录: %s (OpenList路径: %s)", directoryPath, openlistRelativePath);
 
       // 获取OpenList中对应路径的文件树
       List<OpenlistApiService.OpenlistFile> openlistFiles = getOpenListFileTree(openlistConfig, openlistRelativePath);
@@ -744,9 +742,9 @@ public class StrmFileService {
         // 检查是否为任务根目录
         Path rootStrmPath = Paths.get(rootTaskPath);
         if (directoryPath.equals(rootStrmPath)) {
-          log.info("OpenList中不存在路径: {}, 但这是任务根目录，不删除: {}", openlistRelativePath, directoryPath);
+          Log.infof("OpenList中不存在路径: %s, 但这是任务根目录，不删除: %s", openlistRelativePath, directoryPath);
         } else {
-          log.info("OpenList中不存在路径: {}, 删除对应STRM目录: {}", openlistRelativePath, directoryPath);
+          Log.infof("OpenList中不存在路径: %s, 删除对应STRM目录: %s", openlistRelativePath, directoryPath);
           deleteDirectoryRecursively(directoryPath);
           return cleanedCount.get();
         }
@@ -768,14 +766,14 @@ public class StrmFileService {
                   try {
                     // 删除孤立的STRM文件
                     Files.delete(strmFile);
-                    log.info("删除孤立的STRM文件: {} (OpenList中不存在对应文件)", strmFile);
+                    Log.infof("删除孤立的STRM文件: %s (OpenList中不存在对应文件)", strmFile);
                     cleanedCount.incrementAndGet();
 
                     // 删除对应的刮削文件
                     cleanOrphanedScrapingFiles(strmFile);
 
                   } catch (IOException e) {
-                    log.warn("删除孤立STRM文件失败: {}, 详细错误: {}", strmFile, e.getMessage(), e);
+                    Log.warnf(e, "删除孤立STRM文件失败: %s, 详细错误: %s", strmFile, e.getMessage());
                   }
                 }
               });
@@ -788,7 +786,7 @@ public class StrmFileService {
       boolean isRootDirectory = directoryPath.equals(rootStrmPath);
 
       if (isRootDirectory) {
-        log.debug("这是任务根目录，不删除: {}", directoryPath);
+        Log.debugf("这是任务根目录，不删除: %s", directoryPath);
       } else if (shouldDelete) {
         try {
           // 再次确认目录内容
@@ -797,19 +795,19 @@ public class StrmFileService {
           if (remainingFiles.isEmpty()) {
             // 删除空目录
             Files.delete(directoryPath);
-            log.info("删除空目录: {}", directoryPath);
+            Log.infof("删除空目录: %s", directoryPath);
           } else {
-            log.warn("目录不为空，跳过删除: {} (包含文件: {})", directoryPath, remainingFiles);
+            Log.warnf("目录不为空，跳过删除: %s (包含文件: %s)", directoryPath, remainingFiles);
           }
         } catch (IOException e) {
-          log.warn("删除空目录失败: {}, 详细错误: {}", directoryPath, e.getMessage(), e);
+          Log.warnf(e, "删除空目录失败: %s, 详细错误: %s", directoryPath, e.getMessage());
         }
       } else {
-        log.debug("目录不需要删除: {} (包含内容)", directoryPath);
+        Log.debugf("目录不需要删除: %s (包含内容)", directoryPath);
       }
 
     } catch (Exception e) {
-      log.error("清理STRM文件和检查目录失败: {}, 详细错误: {}", directoryPath, e.getMessage(), e);
+      Log.errorf(e, "清理STRM文件和检查目录失败: %s, 详细错误: %s", directoryPath, e.getMessage());
     }
 
     return cleanedCount.get();
@@ -842,7 +840,7 @@ public class StrmFileService {
               }
 
               // 2. 如果有重命名规则，尝试反向匹配
-              if (StringUtils.hasText(renameRegex) && renameRegex.contains("|")) {
+              if ((renameRegex != null && !renameRegex.trim().isEmpty()) && renameRegex.contains("|")) {
                 try {
                   String[] parts = renameRegex.split("\\|", 2);
                   String pattern = parts[0];
@@ -853,19 +851,19 @@ public class StrmFileService {
 
                   // 检查还原后的名称是否匹配
                   if (restoredName.equals(openlistBaseName)) {
-                    log.debug("反向还原匹配成功: {} -> {}", strmBaseName, restoredName);
+                    Log.debugf("反向还原匹配成功: %s -> %s", strmBaseName, restoredName);
                     return true;
                   }
 
                   // 也尝试将OpenList文件名应用重命名规则后匹配
                   String renamedOpenListFile = openlistBaseName.replaceAll(pattern, replacement);
                   if (strmBaseName.equals(renamedOpenListFile)) {
-                    log.debug("重命名规则匹配成功: {} -> {}", openlistBaseName, renamedOpenListFile);
+                    Log.debugf("重命名规则匹配成功: %s -> %s", openlistBaseName, renamedOpenListFile);
                     return true;
                   }
 
                 } catch (Exception e) {
-                  log.debug("重命名规则匹配失败: {}", e.getMessage());
+                  Log.debugf("重命名规则匹配失败: %s", e.getMessage());
                 }
               }
 
@@ -883,7 +881,7 @@ public class StrmFileService {
    * @return 基础名
    */
   private String getBaseName(String fileName) {
-    if (!StringUtils.hasText(fileName)) {
+    if (!(fileName != null && !fileName.trim().isEmpty())) {
       return "";
     }
     int lastDotIndex = fileName.lastIndexOf('.');
@@ -910,16 +908,16 @@ public class StrmFileService {
               path -> {
                 try {
                   Files.delete(path);
-                  log.debug("递归删除: {}", path);
+                  Log.debugf("递归删除: %s", path);
                 } catch (IOException e) {
-                  log.warn("递归删除失败: {}, 错误: {}", path, e.getMessage());
+                  Log.warnf("递归删除失败: %s, 错误: %s", path, e.getMessage());
                 }
               });
 
-      log.info("递归删除目录完成: {}", directoryPath);
+      Log.infof("递归删除目录完成: %s", directoryPath);
 
     } catch (IOException e) {
-      log.error("递归删除目录失败: {}, 错误: {}", directoryPath, e.getMessage(), e);
+      Log.errorf(e, "递归删除目录失败: %s, 错误: %s", directoryPath, e.getMessage());
     }
   }
 
@@ -947,7 +945,7 @@ public class StrmFileService {
         return 0;
       }
 
-      log.debug("验证并清理目录: {} -> OpenList路径: {}", strmDirectoryPath, openlistRelativePath);
+      Log.debugf("验证并清理目录: %s -> OpenList路径: %s", strmDirectoryPath, openlistRelativePath);
 
       // 获取当前STRM目录下的所有子目录
       List<Path> subDirectories = Files.list(strmDirectoryPath)
@@ -976,7 +974,7 @@ public class StrmFileService {
       totalCleanedCount.addAndGet(currentDirCleanedCount);
 
     } catch (Exception e) {
-      log.error("验证并清理目录失败: {}, 错误: {}", strmDirectoryPath, e.getMessage(), e);
+      Log.errorf(e, "验证并清理目录失败: %s, 错误: %s", strmDirectoryPath, e.getMessage());
     }
 
     return totalCleanedCount.get();
@@ -991,26 +989,20 @@ public class StrmFileService {
    */
   private String processUrlWithBaseUrlReplacement(
       String originalUrl, OpenlistConfig openlistConfig) {
-    log.info("开始处理URL替换，原始URL: {}", originalUrl);
+    Log.infof("开始处理URL替换，原始URL: %s", originalUrl);
 
     if (originalUrl == null || openlistConfig == null) {
-      log.warn(
-          "URL或OpenList配置为空，返回原始URL。URL: {}, Config: {}",
-          originalUrl,
-          openlistConfig != null ? "非空" : "空");
+      Log.warnf("URL或OpenList配置为空，返回原始URL。URL: %s, Config: %s", originalUrl, openlistConfig != null ? "非空" : "空");
       return originalUrl;
     }
 
     // 打印配置详情
-    log.info(
-        "OpenList配置详情 - ID: {}, strmBaseUrl: '{}'",
-        openlistConfig.getId(),
-        openlistConfig.getStrmBaseUrl());
+    Log.infof("OpenList配置详情 - ID: %s, strmBaseUrl: '%s'", openlistConfig.getId(), openlistConfig.getStrmBaseUrl());
 
     // 如果没有配置strmBaseUrl，直接返回原始URL
     if (openlistConfig.getStrmBaseUrl() == null
         || openlistConfig.getStrmBaseUrl().trim().isEmpty()) {
-      log.info("未配置strmBaseUrl或为空，直接使用原始URL: {}", originalUrl);
+      Log.infof("未配置strmBaseUrl或为空，直接使用原始URL: %s", originalUrl);
       return originalUrl;
     }
 
@@ -1046,11 +1038,11 @@ public class StrmFileService {
         newUrl += "#" + ref;
       }
 
-      log.info("URL替换: {} -> {}", originalUrl, newUrl);
+      Log.infof("URL替换: %s -> %s", originalUrl, newUrl);
       return newUrl;
 
     } catch (Exception e) {
-      log.warn("URL替换失败，使用原始URL: {}, 错误: {}", originalUrl, e.getMessage());
+      Log.warnf("URL替换失败，使用原始URL: %s, 错误: %s", originalUrl, e.getMessage());
       return originalUrl;
     }
   }

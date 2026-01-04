@@ -1,34 +1,42 @@
+/*
+ * OStrm - Stream Management System
+ * @author hienao
+ * @date 2025-12-31
+ */
+
 package com.hienao.openlist2strm.service;
 
 import com.hienao.openlist2strm.config.PathConfiguration;
 import com.hienao.openlist2strm.entity.TaskConfig;
 import com.hienao.openlist2strm.exception.BusinessException;
 import com.hienao.openlist2strm.mapper.TaskConfigMapper;
+import io.quarkus.logging.Log;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 /**
- * 任务配置服务类
+ * 任务配置服务类 - Quarkus CDI 版本
  *
  * @author hienao
- * @since 2024-01-01
+ * @since 2025-12-31
  */
-@Slf4j
-@Service
-@RequiredArgsConstructor
+@ApplicationScoped
 public class TaskConfigService {
 
   private static final String TASK_CONFIG_ID_NULL_ERROR = "任务配置ID不能为空";
 
-  private final TaskConfigMapper taskConfigMapper;
-  private final QuartzSchedulerService quartzSchedulerService;
-  private final PathConfiguration pathConfiguration;
+  @Inject
+  TaskConfigMapper taskConfigMapper;
+
+  @Inject
+  SchedulerService schedulerService;
+
+  @Inject
+  PathConfiguration pathConfiguration;
 
   /**
    * 根据ID查询任务配置
@@ -50,7 +58,7 @@ public class TaskConfigService {
    * @return 任务配置信息
    */
   public TaskConfig getByTaskName(String taskName) {
-    if (!StringUtils.hasText(taskName)) {
+    if (taskName == null || taskName.trim().isEmpty()) {
       throw new BusinessException("任务名称不能为空");
     }
     return taskConfigMapper.selectByTaskName(taskName);
@@ -63,7 +71,7 @@ public class TaskConfigService {
    * @return 任务配置信息
    */
   public TaskConfig getByPath(String path) {
-    if (!StringUtils.hasText(path)) {
+    if (path == null || path.trim().isEmpty()) {
       throw new BusinessException("任务路径不能为空");
     }
     return taskConfigMapper.selectByPath(path);
@@ -111,7 +119,7 @@ public class TaskConfigService {
    * @param taskConfig 任务配置信息
    * @return 创建的任务配置
    */
-  @Transactional(rollbackFor = Exception.class)
+  @Transactional
   public TaskConfig createConfig(TaskConfig taskConfig) {
     validateConfig(taskConfig);
 
@@ -135,18 +143,17 @@ public class TaskConfigService {
       throw new BusinessException("创建任务配置失败");
     }
 
-    // 如果设置了定时任务表达式，添加到Quartz调度器
-    if (StringUtils.hasText(taskConfig.getCron()) && taskConfig.getIsActive()) {
+    // 如果设置了定时任务表达式，添加到调度器
+    if (taskConfig.getCron() != null && !taskConfig.getCron().trim().isEmpty() && taskConfig.getIsActive()) {
       try {
-        quartzSchedulerService.addScheduledTask(taskConfig);
-        log.info("添加定时任务到Quartz成功，任务名称: {}", taskConfig.getTaskName());
+        schedulerService.addScheduledTask(taskConfig);
+        Log.info("添加定时任务到调度器成功，任务名称: " + taskConfig.getTaskName());
       } catch (Exception e) {
-        log.error("添加定时任务到Quartz失败，任务名称: {}, 错误: {}", taskConfig.getTaskName(), e.getMessage(), e);
-        // 注意：这里不抛出异常，避免影响任务配置的创建
+        Log.error("添加定时任务到调度器失败，任务名称: " + taskConfig.getTaskName() + ", 错误: " + e.getMessage(), e);
       }
     }
 
-    log.info("创建任务配置成功，任务名称: {}, ID: {}", taskConfig.getTaskName(), taskConfig.getId());
+    Log.info("创建任务配置成功，任务名称: " + taskConfig.getTaskName() + ", ID: " + taskConfig.getId());
     return taskConfig;
   }
 
@@ -156,7 +163,7 @@ public class TaskConfigService {
    * @param taskConfig 任务配置信息
    * @return 更新的任务配置
    */
-  @Transactional(rollbackFor = Exception.class)
+  @Transactional
   public TaskConfig updateConfig(TaskConfig taskConfig) {
     if (taskConfig.getId() == null) {
       throw new BusinessException(TASK_CONFIG_ID_NULL_ERROR);
@@ -169,7 +176,7 @@ public class TaskConfigService {
     }
 
     // 如果更新了任务名称，检查是否与其他配置冲突
-    if (StringUtils.hasText(taskConfig.getTaskName())
+    if (taskConfig.getTaskName() != null && !taskConfig.getTaskName().trim().isEmpty()
         && !taskConfig.getTaskName().equals(existingConfig.getTaskName())) {
       TaskConfig conflictConfig = taskConfigMapper.selectByTaskName(taskConfig.getTaskName());
       if (conflictConfig != null && !conflictConfig.getId().equals(taskConfig.getId())) {
@@ -178,7 +185,7 @@ public class TaskConfigService {
     }
 
     // 如果更新了路径，检查是否与其他配置冲突
-    if (StringUtils.hasText(taskConfig.getPath())
+    if (taskConfig.getPath() != null && !taskConfig.getPath().trim().isEmpty()
         && !taskConfig.getPath().equals(existingConfig.getPath())) {
       TaskConfig conflictConfig = taskConfigMapper.selectByPath(taskConfig.getPath());
       if (conflictConfig != null && !conflictConfig.getId().equals(taskConfig.getId())) {
@@ -191,17 +198,16 @@ public class TaskConfigService {
       throw new BusinessException("更新任务配置失败");
     }
 
-    // 更新Quartz定时任务
+    // 更新定时任务
     try {
       TaskConfig updatedConfig = taskConfigMapper.selectById(taskConfig.getId());
-      quartzSchedulerService.updateScheduledTask(updatedConfig);
-      log.info("更新Quartz定时任务成功，任务ID: {}", taskConfig.getId());
+      schedulerService.updateScheduledTask(updatedConfig);
+      Log.info("更新调度器定时任务成功，任务ID: " + taskConfig.getId());
     } catch (Exception e) {
-      log.error("更新Quartz定时任务失败，任务ID: {}, 错误: {}", taskConfig.getId(), e.getMessage(), e);
-      // 注意：这里不抛出异常，避免影响任务配置的更新
+      Log.error("更新调度器定时任务失败，任务ID: " + taskConfig.getId() + ", 错误: " + e.getMessage(), e);
     }
 
-    log.info("更新任务配置成功，ID: {}", taskConfig.getId());
+    Log.info("更新任务配置成功，ID: " + taskConfig.getId());
     return taskConfigMapper.selectById(taskConfig.getId());
   }
 
@@ -210,7 +216,7 @@ public class TaskConfigService {
    *
    * @param id 主键ID
    */
-  @Transactional(rollbackFor = Exception.class)
+  @Transactional
   public void deleteConfig(Long id) {
     if (id == null) {
       throw new BusinessException(TASK_CONFIG_ID_NULL_ERROR);
@@ -226,16 +232,15 @@ public class TaskConfigService {
       throw new BusinessException("删除任务配置失败");
     }
 
-    // 删除Quartz定时任务
+    // 删除定时任务
     try {
-      quartzSchedulerService.removeScheduledTask(id);
-      log.info("删除Quartz定时任务成功，任务ID: {}", id);
+      schedulerService.removeScheduledTask(id);
+      Log.info("删除调度器定时任务成功，任务ID: " + id);
     } catch (Exception e) {
-      log.error("删除Quartz定时任务失败，任务ID: {}, 错误: {}", id, e.getMessage(), e);
-      // 注意：这里不抛出异常，避免影响任务配置的删除
+      Log.errorf("删除调度器定时任务失败，任务ID: " + id + ", 错误: " + e.getMessage(), e);
     }
 
-    log.info("删除任务配置成功，ID: {}, 任务名称: {}", id, existingConfig.getTaskName());
+    Log.infof("删除任务配置成功，ID: " + id + ", 任务名称: " + existingConfig.getTaskName());
   }
 
   /**
@@ -243,7 +248,7 @@ public class TaskConfigService {
    *
    * @param id 主键ID
    */
-  @Transactional(rollbackFor = Exception.class)
+  @Transactional
   public void deleteById(Long id) {
     deleteConfig(id);
   }
@@ -251,10 +256,10 @@ public class TaskConfigService {
   /**
    * 启用/禁用任务配置
    *
-   * @param id 主键ID
+   * @param id       主键ID
    * @param isActive 是否启用
    */
-  @Transactional(rollbackFor = Exception.class)
+  @Transactional
   public void updateActiveStatus(Long id, Boolean isActive) {
     if (id == null) {
       throw new BusinessException(TASK_CONFIG_ID_NULL_ERROR);
@@ -273,43 +278,42 @@ public class TaskConfigService {
       throw new BusinessException("更新任务配置状态失败");
     }
 
-    // 根据状态暂停或恢复Quartz定时任务
+    // 根据状态暂停或恢复定时任务
     try {
       if (isActive) {
         // 如果启用且有cron表达式，恢复或添加定时任务
-        if (StringUtils.hasText(existingConfig.getCron())) {
-          if (quartzSchedulerService.isScheduledTaskExists(id)) {
-            quartzSchedulerService.resumeScheduledTask(id);
-            log.info("恢复Quartz定时任务成功，任务ID: {}", id);
+        if (existingConfig.getCron() != null && !existingConfig.getCron().trim().isEmpty()) {
+          if (schedulerService.isScheduledTaskExists(id)) {
+            schedulerService.resumeScheduledTask(id);
+            Log.info("恢复调度器定时任务成功，任务ID: " + id);
           } else {
             // 重新获取最新的任务配置
             TaskConfig updatedConfig = taskConfigMapper.selectById(id);
-            quartzSchedulerService.addScheduledTask(updatedConfig);
-            log.info("添加Quartz定时任务成功，任务ID: {}", id);
+            schedulerService.addScheduledTask(updatedConfig);
+            Log.info("添加调度器定时任务成功，任务ID: " + id);
           }
         }
       } else {
         // 如果禁用，暂停定时任务
-        if (quartzSchedulerService.isScheduledTaskExists(id)) {
-          quartzSchedulerService.pauseScheduledTask(id);
-          log.info("暂停Quartz定时任务成功，任务ID: {}", id);
+        if (schedulerService.isScheduledTaskExists(id)) {
+          schedulerService.pauseScheduledTask(id);
+          Log.info("暂停调度器定时任务成功，任务ID: " + id);
         }
       }
     } catch (Exception e) {
-      log.error("更新Quartz定时任务状态失败，任务ID: {}, 错误: {}", id, e.getMessage(), e);
-      // 注意：这里不抛出异常，避免影响任务配置状态的更新
+      Log.errorf("更新调度器定时任务状态失败，任务ID: " + id + ", 错误: " + e.getMessage(), e);
     }
 
-    log.info("更新任务配置状态成功，ID: {}, 状态: {}", id, isActive ? "启用" : "禁用");
+    Log.infof("更新任务配置状态成功，ID: " + id + ", 状态: " + (isActive ? "启用" : "禁用"));
   }
 
   /**
    * 更新最后执行时间
    *
-   * @param id 主键ID
+   * @param id           主键ID
    * @param lastExecTime 最后执行时间戳
    */
-  @Transactional(rollbackFor = Exception.class)
+  @Transactional
   public void updateLastExecTime(Long id, Long lastExecTime) {
     if (id == null) {
       throw new BusinessException(TASK_CONFIG_ID_NULL_ERROR);
@@ -323,16 +327,16 @@ public class TaskConfigService {
       throw new BusinessException("更新任务执行时间失败");
     }
 
-    log.debug("更新任务执行时间成功，ID: {}, 时间: {}", id, lastExecTime);
+    Log.debugf("更新任务执行时间成功，ID: " + id + ", 时间: " + lastExecTime);
   }
 
   /**
    * 更新最后执行时间（LocalDateTime版本）
    *
-   * @param id 主键ID
+   * @param id           主键ID
    * @param lastExecTime 最后执行时间
    */
-  @Transactional(rollbackFor = Exception.class)
+  @Transactional
   public void updateLastExecTime(Long id, LocalDateTime lastExecTime) {
     if (id == null) {
       throw new BusinessException(TASK_CONFIG_ID_NULL_ERROR);
@@ -355,17 +359,11 @@ public class TaskConfigService {
     if (taskConfig == null) {
       throw new BusinessException("任务配置不能为空");
     }
-    if (!StringUtils.hasText(taskConfig.getTaskName())) {
+    if (taskConfig.getTaskName() == null || taskConfig.getTaskName().trim().isEmpty()) {
       throw new BusinessException("任务名称不能为空");
     }
-    if (!StringUtils.hasText(taskConfig.getPath())) {
+    if (taskConfig.getPath() == null || taskConfig.getPath().trim().isEmpty()) {
       throw new BusinessException("任务路径不能为空");
-    }
-
-    // 验证cron表达式格式（如果提供了的话）
-    if (StringUtils.hasText(taskConfig.getCron())) {
-      // 这里可以添加cron表达式格式验证逻辑
-      // 例如使用CronExpression.isValidExpression(taskConfig.getCron())
     }
   }
 
@@ -387,8 +385,8 @@ public class TaskConfigService {
     if (taskConfig.getIsIncrement() == null) {
       taskConfig.setIsIncrement(true);
     }
-    if (!StringUtils.hasText(taskConfig.getStrmPath())) {
-      taskConfig.setStrmPath(pathConfiguration.getStrm());
+    if (taskConfig.getStrmPath() == null || taskConfig.getStrmPath().trim().isEmpty()) {
+      taskConfig.setStrmPath(pathConfiguration.strm());
     }
     if (taskConfig.getLastExecTime() == null) {
       taskConfig.setLastExecTime(0L);

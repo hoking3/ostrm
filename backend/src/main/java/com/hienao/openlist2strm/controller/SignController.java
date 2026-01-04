@@ -14,308 +14,189 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * @author hienao
+ * @date 2025-12-31
  */
 
 package com.hienao.openlist2strm.controller;
 
-import com.hienao.openlist2strm.config.security.Jwt;
 import com.hienao.openlist2strm.dto.ApiResponse;
 import com.hienao.openlist2strm.dto.sign.ChangePasswordDto;
 import com.hienao.openlist2strm.dto.sign.SignInDto;
 import com.hienao.openlist2strm.dto.sign.SignUpDto;
+import com.hienao.openlist2strm.security.JwtService;
 import com.hienao.openlist2strm.service.SignService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import io.quarkus.security.Authenticated;
+import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import java.util.HashMap;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
+import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
-@RestController
-@RequestMapping("/api/auth")
-@RequiredArgsConstructor
+/**
+ * 认证管理控制器 - Quarkus JAX-RS 版本
+ *
+ * @author hienao
+ * @since 2025-12-31
+ */
+@Path("/api/auth")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
 @Tag(name = "认证管理", description = "用户认证相关接口")
 public class SignController {
 
-  private final SignService signService;
+    @Inject
+    SignService signService;
 
-  private final Jwt jwt;
+    @Inject
+    JwtService jwtService;
 
-  @ResponseStatus(HttpStatus.OK)
-  @PostMapping("/sign-in")
-  @Operation(summary = "用户登录", description = "用户登录接口，成功后返回JWT token")
-  @ApiResponses(
-      value = {
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "登录成功",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    schema = @Schema(implementation = ApiResponse.class),
-                    examples =
-                        @ExampleObject(
-                            value =
-                                "{\"code\": 200, \"message\": \"登录成功\", \"data\": {\"username\":"
-                                    + " \"admin\", \"token\": \"eyJ...\", \"expiresAt\":"
-                                    + " 1234567890}}"))),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "400",
-            description = "登录失败",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value = "{\"code\": 400, \"message\": \"用户名或密码错误\", \"data\": null}")))
-      })
-  ApiResponse<Map<String, Object>> signIn(
-      HttpServletRequest request,
-      HttpServletResponse response,
-      @RequestBody @Valid SignInDto signInDto) {
-    String username = signService.signIn(signInDto);
-    String token = jwt.makeToken(request, response, username);
-    Map<String, Object> data = new HashMap<>();
-    data.put("username", username);
-    data.put("token", token);
-    data.put("expiresAt", jwt.getExpiresAt(token));
-    return ApiResponse.success(data, "登录成功");
-  }
-
-  @ResponseStatus(HttpStatus.CREATED)
-  @PostMapping("/sign-up")
-  @Operation(summary = "用户注册", description = "用户注册接口")
-  @ApiResponses(
-      value = {
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "201",
-            description = "注册成功",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value = "{\"code\": 200, \"message\": \"注册成功\", \"data\": null}"))),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "400",
-            description = "注册失败",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value = "{\"code\": 400, \"message\": \"用户已存在\", \"data\": null}")))
-      })
-  ApiResponse<Void> signUp(@RequestBody @Valid SignUpDto signUpDto) {
-    signService.signUp(signUpDto);
-    return ApiResponse.success(null, "注册成功");
-  }
-
-  @ResponseStatus(HttpStatus.OK)
-  @GetMapping("/check-user")
-  @Operation(summary = "检查用户是否存在", description = "检查用户是否存在的接口")
-  @ApiResponses(
-      value = {
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "用户存在",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value =
-                                "{\"code\": 200, \"message\": \"用户存在\", \"data\": {\"exists\":"
-                                    + " true}}"))),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "404",
-            description = "用户不存在",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value =
-                                "{\"code\": 404, \"message\": \"用户不存在\", \"data\": {\"exists\":"
-                                    + " false}}")))
-      })
-  ApiResponse<Map<String, Object>> checkUser() {
-    boolean exists = signService.checkUserExists();
-    Map<String, Object> data = new HashMap<>();
-    data.put("exists", exists);
-    if (exists) {
-      return ApiResponse.success(data, "用户存在");
-    } else {
-      // 创建一个包含data的ApiResponse对象
-      return new ApiResponse<>(404, "用户不存在", data);
+    @POST
+    @Path("/sign-in")
+    @Operation(summary = "用户登录", description = "用户登录接口，成功后返回JWT token")
+    @APIResponses(value = {
+            @APIResponse(responseCode = "200", description = "登录成功", content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ApiResponse.class))),
+            @APIResponse(responseCode = "400", description = "登录失败")
+    })
+    public Response signIn(@Valid SignInDto signInDto) {
+        String username = signService.signIn(signInDto);
+        String token = jwtService.generateToken(username);
+        Map<String, Object> data = new HashMap<>();
+        data.put("username", username);
+        data.put("token", token);
+        data.put("expiresAt", jwtService.getExpiresAt(token));
+        return Response.ok(ApiResponse.success(data, "登录成功")).build();
     }
-  }
 
-  @ResponseStatus(HttpStatus.OK)
-  @PostMapping("/sign-out")
-  @Operation(summary = "用户登出", description = "用户登出接口，需要JWT认证")
-  @SecurityRequirement(name = "Bearer Authentication")
-  @ApiResponses(
-      value = {
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "登出成功",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value = "{\"code\": 200, \"message\": \"登出成功\", \"data\": null}"))),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "401",
-            description = "未授权",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value = "{\"code\": 401, \"message\": \"未授权访问\", \"data\": null}")))
-      })
-  ApiResponse<Void> signOut(HttpServletRequest request, HttpServletResponse response) {
-    jwt.removeToken(request, response);
-    return ApiResponse.success(null, "登出成功");
-  }
-
-  @ResponseStatus(HttpStatus.OK)
-  @PostMapping("/refresh")
-  @Operation(summary = "刷新Token", description = "刷新JWT token接口，需要JWT认证")
-  @SecurityRequirement(name = "Bearer Authentication")
-  @ApiResponses(
-      value = {
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "Token刷新成功",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value =
-                                "{\"code\": 200, \"message\": \"Token刷新成功\", \"data\": {\"token\":"
-                                    + " \"eyJ...\", \"expiresAt\": 1234567890}}"))),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "401",
-            description = "Token无效",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value =
-                                "{\"code\": 401, \"message\": \"Token无效，无法刷新\", \"data\": null}")))
-      })
-  ApiResponse<Map<String, Object>> refresh(
-      HttpServletRequest request, HttpServletResponse response) {
-    String oldToken = jwt.extract(request);
-    if (oldToken != null && jwt.verify(oldToken)) {
-      String username = jwt.getSubject(oldToken);
-      String newToken = jwt.makeToken(request, response, username);
-      Map<String, Object> data = new HashMap<>();
-      data.put("token", newToken);
-      data.put("expiresAt", jwt.getExpiresAt(newToken));
-      return ApiResponse.success(data, "Token刷新成功");
-    } else {
-      return ApiResponse.error(401, "Token无效，无法刷新");
+    @POST
+    @Path("/sign-up")
+    @Operation(summary = "用户注册", description = "用户注册接口")
+    @APIResponses(value = {
+            @APIResponse(responseCode = "201", description = "注册成功"),
+            @APIResponse(responseCode = "400", description = "注册失败")
+    })
+    public Response signUp(@Valid SignUpDto signUpDto) {
+        signService.signUp(signUpDto);
+        return Response.status(Response.Status.CREATED)
+                .entity(ApiResponse.success(null, "注册成功"))
+                .build();
     }
-  }
 
-  @ResponseStatus(HttpStatus.OK)
-  @GetMapping("/validate")
-  @Operation(summary = "验证Token", description = "验证JWT token是否有效，需要JWT认证")
-  @SecurityRequirement(name = "Bearer Authentication")
-  @ApiResponses(
-      value = {
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "Token有效",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value =
-                                "{\"code\": 200, \"message\": \"Token有效\", \"data\": {\"valid\":"
-                                    + " true, \"username\": \"user123\", \"expiresAt\":"
-                                    + " 1234567890}}"))),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "401",
-            description = "Token无效",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value =
-                                "{\"code\": 401, \"message\": \"Token无效\", \"data\": {\"valid\":"
-                                    + " false}}")))
-      })
-  ApiResponse<Map<String, Object>> validate(HttpServletRequest request) {
-    String token = jwt.extract(request);
-    Map<String, Object> data = new HashMap<>();
-
-    if (token != null && jwt.verify(token)) {
-      String username = jwt.getSubject(token);
-      data.put("valid", true);
-      data.put("username", username);
-      data.put("expiresAt", jwt.getExpiresAt(token));
-      data.put("issuedAt", jwt.getIssuedAt(token));
-      return ApiResponse.success(data, "Token有效");
-    } else {
-      data.put("valid", false);
-      return ApiResponse.error(401, "Token无效");
+    @GET
+    @Path("/check-user")
+    @Operation(summary = "检查用户是否存在", description = "检查用户是否存在的接口")
+    @APIResponses(value = {
+            @APIResponse(responseCode = "200", description = "用户存在"),
+            @APIResponse(responseCode = "404", description = "用户不存在")
+    })
+    public Response checkUser() {
+        boolean exists = signService.checkUserExists();
+        Map<String, Object> data = new HashMap<>();
+        data.put("exists", exists);
+        if (exists) {
+            return Response.ok(ApiResponse.success(data, "用户存在")).build();
+        } else {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity(new ApiResponse<>(404, "用户不存在", data))
+                    .build();
+        }
     }
-  }
 
-  @ResponseStatus(HttpStatus.OK)
-  @PostMapping("/change-password")
-  @Operation(summary = "修改密码", description = "修改用户密码接口，需要JWT认证")
-  @SecurityRequirement(name = "Bearer Authentication")
-  @ApiResponses(
-      value = {
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "200",
-            description = "密码修改成功",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value = "{\"code\": 200, \"message\": \"密码修改成功\", \"data\": null}"))),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "400",
-            description = "密码修改失败",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value = "{\"code\": 400, \"message\": \"原密码错误\", \"data\": null}"))),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-            responseCode = "401",
-            description = "未授权",
-            content =
-                @Content(
-                    mediaType = "application/json",
-                    examples =
-                        @ExampleObject(
-                            value = "{\"code\": 401, \"message\": \"未授权访问\", \"data\": null}")))
-      })
-  ApiResponse<Void> changePassword(@RequestBody @Valid ChangePasswordDto changePasswordDto) {
-    signService.changePassword(changePasswordDto);
-    return ApiResponse.success(null, "密码修改成功");
-  }
+    @POST
+    @Path("/sign-out")
+    @Authenticated
+    @Operation(summary = "用户登出", description = "用户登出接口，需要JWT认证")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @APIResponses(value = {
+            @APIResponse(responseCode = "200", description = "登出成功"),
+            @APIResponse(responseCode = "401", description = "未授权")
+    })
+    public Response signOut() {
+        // Quarkus JWT 是无状态的，客户端只需删除 token 即可
+        return Response.ok(ApiResponse.success(null, "登出成功")).build();
+    }
+
+    @POST
+    @Path("/refresh")
+    @Authenticated
+    @Operation(summary = "刷新Token", description = "刷新JWT token接口，需要JWT认证")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @APIResponses(value = {
+            @APIResponse(responseCode = "200", description = "Token刷新成功"),
+            @APIResponse(responseCode = "401", description = "Token无效")
+    })
+    public Response refresh(@Context HttpHeaders headers) {
+        String authHeader = headers.getHeaderString(HttpHeaders.AUTHORIZATION);
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String oldToken = authHeader.substring(7);
+            if (jwtService.verify(oldToken)) {
+                String username = jwtService.getSubject(oldToken);
+                String newToken = jwtService.generateToken(username);
+                Map<String, Object> data = new HashMap<>();
+                data.put("token", newToken);
+                data.put("expiresAt", jwtService.getExpiresAt(newToken));
+                return Response.ok(ApiResponse.success(data, "Token刷新成功")).build();
+            }
+        }
+        return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(ApiResponse.error(401, "Token无效，无法刷新"))
+                .build();
+    }
+
+    @GET
+    @Path("/validate")
+    @Authenticated
+    @Operation(summary = "验证Token", description = "验证JWT token是否有效，需要JWT认证")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @APIResponses(value = {
+            @APIResponse(responseCode = "200", description = "Token有效"),
+            @APIResponse(responseCode = "401", description = "Token无效")
+    })
+    public Response validate(@Context HttpHeaders headers) {
+        String authHeader = headers.getHeaderString(HttpHeaders.AUTHORIZATION);
+        Map<String, Object> data = new HashMap<>();
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            if (jwtService.verify(token)) {
+                String username = jwtService.getSubject(token);
+                data.put("valid", true);
+                data.put("username", username);
+                data.put("expiresAt", jwtService.getExpiresAt(token));
+                data.put("issuedAt", jwtService.getIssuedAt(token));
+                return Response.ok(ApiResponse.success(data, "Token有效")).build();
+            }
+        }
+        data.put("valid", false);
+        return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(ApiResponse.error(401, "Token无效"))
+                .build();
+    }
+
+    @POST
+    @Path("/change-password")
+    @Authenticated
+    @Operation(summary = "修改密码", description = "修改用户密码接口，需要JWT认证")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @APIResponses(value = {
+            @APIResponse(responseCode = "200", description = "密码修改成功"),
+            @APIResponse(responseCode = "400", description = "密码修改失败"),
+            @APIResponse(responseCode = "401", description = "未授权")
+    })
+    public Response changePassword(@Valid ChangePasswordDto changePasswordDto) {
+        signService.changePassword(changePasswordDto);
+        return Response.ok(ApiResponse.success(null, "密码修改成功")).build();
+    }
 }

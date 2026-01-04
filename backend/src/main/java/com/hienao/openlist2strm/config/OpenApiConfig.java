@@ -1,52 +1,25 @@
 /*
  * OStrm - Stream Management System
- * Copyright (C) 2024 OStrm Project
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * @author hienao
+ * @date 2025-12-31
  */
 
 package com.hienao.openlist2strm.config;
 
-import io.swagger.v3.oas.models.Components;
-import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.security.SecurityRequirement;
-import io.swagger.v3.oas.models.security.SecurityScheme;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import jakarta.ws.rs.core.Application;
+import org.eclipse.microprofile.openapi.annotations.OpenAPIDefinition;
+import org.eclipse.microprofile.openapi.annotations.enums.SecuritySchemeType;
+import org.eclipse.microprofile.openapi.annotations.info.Info;
+import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
+import org.eclipse.microprofile.openapi.annotations.security.SecurityScheme;
 
-@Configuration
-public class OpenApiConfig {
-
-  @Bean
-  public OpenAPI customOpenAPI() {
-    return new OpenAPI()
-        .info(
-            new Info()
-                .title("OStrm API")
-                .version("1.0")
-                .description("OStrm 单用户系统 API 文档"))
-        .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
-        .components(
-            new Components().addSecuritySchemes("Bearer Authentication", createAPIKeyScheme()));
-  }
-
-  private SecurityScheme createAPIKeyScheme() {
-    return new SecurityScheme()
-        .type(SecurityScheme.Type.HTTP)
-        .bearerFormat("JWT")
-        .scheme("bearer")
-        .description("请在此处输入JWT token，格式：Bearer {token}");
-  }
+/**
+ * OpenAPI 配置 - Quarkus MicroProfile OpenAPI 版本
+ *
+ * @author hienao
+ * @since 2025-12-31
+ */
+@OpenAPIDefinition(info = @Info(title = "OStrm API", version = "1.0", description = "OStrm 单用户系统 API 文档"), security = @SecurityRequirement(name = "bearerAuth"))
+@SecurityScheme(securitySchemeName = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT", description = "请在此处输入JWT token")
+public class OpenApiConfig extends Application {
 }

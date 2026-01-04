@@ -1,3 +1,9 @@
+/*
+ * OStrm - Stream Management System
+ * @author hienao
+ * @date 2025-12-31
+ */
+
 package com.hienao.openlist2strm.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,113 +12,90 @@ import com.hienao.openlist2strm.dto.tmdb.TmdbMovieDetail;
 import com.hienao.openlist2strm.dto.tmdb.TmdbSearchResponse;
 import com.hienao.openlist2strm.dto.tmdb.TmdbTvDetail;
 import com.hienao.openlist2strm.exception.BusinessException;
+import io.quarkus.logging.Log;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.net.InetSocketAddress;
-import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * TMDB API 服务
+ * TMDB API 服务 - Quarkus CDI 版本
  *
  * @author hienao
- * @since 2024-01-01
+ * @since 2025-12-31
  */
-@Slf4j
-@Service
-@RequiredArgsConstructor
+@ApplicationScoped
 public class TmdbApiService {
 
-  private final ObjectMapper objectMapper;
-  private final SystemConfigService systemConfigService;
+  @Inject
+  ObjectMapper objectMapper;
 
-  /** 创建配置了代理的RestTemplate */
-  private RestTemplate createRestTemplate() {
+  @Inject
+  SystemConfigService systemConfigService;
+
+  private HttpClient createHttpClient() {
     Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
     String proxyHost = (String) tmdbConfig.get("proxyHost");
     String proxyPortStr = (String) tmdbConfig.get("proxyPort");
+    Integer timeout = (Integer) tmdbConfig.getOrDefault("timeout", 30);
 
-    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+    HttpClient.Builder builder = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(timeout))
+        .followRedirects(HttpClient.Redirect.NORMAL);
 
-    // 配置代理
-    if (proxyHost != null
-        && !proxyHost.trim().isEmpty()
-        && proxyPortStr != null
-        && !proxyPortStr.trim().isEmpty()) {
+    if (proxyHost != null && !proxyHost.trim().isEmpty()
+        && proxyPortStr != null && !proxyPortStr.trim().isEmpty()) {
       try {
         int proxyPort = Integer.parseInt(proxyPortStr.trim());
-        Proxy proxy =
-            new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyHost.trim(), proxyPort));
-        factory.setProxy(proxy);
-        log.info("TMDB API 使用代理: {}:{}", proxyHost.trim(), proxyPort);
+        builder.proxy(ProxySelector.of(new InetSocketAddress(proxyHost.trim(), proxyPort)));
+        Log.info("TMDB API 使用代理: " + proxyHost.trim() + ":" + proxyPort);
       } catch (NumberFormatException e) {
-        log.warn("代理端口配置无效: {}, 将不使用代理", proxyPortStr);
+        Log.warnf("代理端口配置无效: " + proxyPortStr + ", 将不使用代理");
       }
     }
 
-    // 设置超时时间
-    Integer timeout = (Integer) tmdbConfig.getOrDefault("timeout", 30);
-    factory.setConnectTimeout(timeout * 1000);
-    factory.setReadTimeout(timeout * 1000);
-
-    return new RestTemplate(factory);
+    return builder.build();
   }
 
-  /** 记录请求详细信息 */
   private void logRequestDetails(String method, String url, Map<String, String> params) {
-    log.info("TMDB API 请求 - 方法: {}, URL: {}", method, url);
+    Log.infof("TMDB API 请求 - 方法: " + method + ", URL: " + url);
     if (params != null && !params.isEmpty()) {
-      log.info("TMDB API 请求参数: {}", params);
+      Log.info("TMDB API 请求参数: " + params);
     }
   }
 
-  /** 记录响应详细信息 */
   private void logResponseDetails(String method, int statusCode, String responseBody) {
-    log.info("TMDB API 响应 - 方法: {}, 状态码: {}", method, statusCode);
+    Log.infof("TMDB API 响应 - 方法: " + method + ", 状态码: " + statusCode);
     if (responseBody != null) {
-      // 限制响应体日志长度，避免日志过长
-      String logBody =
-          responseBody.length() > 1000
-              ? responseBody.substring(0, 1000) + "... (truncated)"
-              : responseBody;
-      log.info("TMDB API 响应体: {}", logBody);
+      String logBody = responseBody.length() > 1000
+          ? responseBody.substring(0, 1000) + "... (truncated)"
+          : responseBody;
+      Log.debug("TMDB API 响应体: " + logBody);
     }
   }
 
-  /** 记录错误详细信息 */
   private void logErrorDetails(String method, String url, Exception e, String responseBody) {
-    log.error("TMDB API 请求失败 - 方法: {}, URL: {}, 错误: {}", method, url, e.getMessage());
+    Log.errorf("TMDB API 请求失败 - 方法: " + method + ", URL: " + url + ", 错误: " + e.getMessage());
     if (responseBody != null) {
-      log.error("TMDB API 错误响应体: {}", responseBody);
+      Log.error("TMDB API 错误响应体: " + responseBody);
     }
-    log.error("TMDB API 错误堆栈:", e);
   }
 
-  /** 记录搜索结果为空的情况（刮削失败） */
   private void logEmptySearchResult(String method, String query, String year, int resultCount) {
-    log.warn(
-        "TMDB 搜索结果为空 - 方法: {}, 查询: '{}', 年份: {}, 结果数量: {}",
-        method,
-        query,
-        year != null ? year : "未指定",
-        resultCount);
+    Log.warn("TMDB 搜索结果为空 - 方法: " + method + ", 查询: '" + query
+        + "', 年份: " + (year != null ? year : "未指定") + ", 结果数量: " + resultCount);
   }
 
-  /**
-   * 搜索电影
-   *
-   * @param query 搜索关键词
-   * @param year 年份（可选）
-   * @return 搜索结果
-   */
+  @SuppressWarnings("unchecked")
   public TmdbSearchResponse searchMovies(String query, String year) {
     Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
     String apiKey = (String) tmdbConfig.get("apiKey");
@@ -121,7 +104,7 @@ public class TmdbApiService {
       throw new BusinessException("TMDB API Key 未配置");
     }
 
-    RestTemplate restTemplate = createRestTemplate();
+    HttpClient httpClient = createHttpClient();
     String responseBody = null;
     String url = null;
 
@@ -129,20 +112,18 @@ public class TmdbApiService {
       String baseUrl = (String) tmdbConfig.getOrDefault("baseUrl", "https://api.themoviedb.org/3");
       String language = (String) tmdbConfig.getOrDefault("language", "zh-CN");
 
-      UriComponentsBuilder builder =
-          UriComponentsBuilder.fromHttpUrl(baseUrl + "/search/movie")
-              .queryParam("api_key", apiKey)
-              .queryParam("language", language)
-              .queryParam("query", query);
+      StringBuilder urlBuilder = new StringBuilder(baseUrl)
+          .append("/search/movie?api_key=").append(URLEncoder.encode(apiKey, StandardCharsets.UTF_8))
+          .append("&language=").append(URLEncoder.encode(language, StandardCharsets.UTF_8))
+          .append("&query=").append(URLEncoder.encode(query, StandardCharsets.UTF_8));
 
       if (year != null && !year.trim().isEmpty()) {
-        builder.queryParam("year", year);
+        urlBuilder.append("&year=").append(URLEncoder.encode(year, StandardCharsets.UTF_8));
       }
 
-      url = builder.toUriString();
+      url = urlBuilder.toString();
 
-      // 记录请求参数
-      Map<String, String> requestParams = new java.util.HashMap<>();
+      Map<String, String> requestParams = new HashMap<>();
       requestParams.put("query", query);
       requestParams.put("language", language);
       if (year != null && !year.trim().isEmpty()) {
@@ -150,34 +131,33 @@ public class TmdbApiService {
       }
       logRequestDetails("GET", url, requestParams);
 
-      HttpHeaders headers = new HttpHeaders();
-      headers.set("User-Agent", AppConstants.USER_AGENT);
-      HttpEntity<String> entity = new HttpEntity<>(headers);
+      HttpRequest request = HttpRequest.newBuilder()
+          .uri(URI.create(url))
+          .header("User-Agent", AppConstants.USER_AGENT)
+          .timeout(Duration.ofSeconds(30))
+          .GET()
+          .build();
 
-      ResponseEntity<String> response =
-          restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-      responseBody = response.getBody();
+      HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      responseBody = response.body();
 
-      // 记录响应详情
-      logResponseDetails("GET", response.getStatusCode().value(), responseBody);
+      logResponseDetails("GET", response.statusCode(), responseBody);
 
-      if (!response.getStatusCode().is2xxSuccessful()) {
-        throw new BusinessException("TMDB API 请求失败，状态码: " + response.getStatusCode());
+      if (response.statusCode() < 200 || response.statusCode() >= 300) {
+        throw new BusinessException("TMDB API 请求失败，状态码: " + response.statusCode());
       }
 
       if (responseBody == null || responseBody.isEmpty()) {
         throw new BusinessException("TMDB API 返回空响应");
       }
 
-      TmdbSearchResponse searchResponse =
-          objectMapper.readValue(responseBody, TmdbSearchResponse.class);
-      int resultCount =
-          searchResponse.getResults() != null ? searchResponse.getResults().size() : 0;
+      TmdbSearchResponse searchResponse = objectMapper.readValue(responseBody, TmdbSearchResponse.class);
+      int resultCount = searchResponse.getResults() != null ? searchResponse.getResults().size() : 0;
 
       if (resultCount == 0) {
         logEmptySearchResult("searchMovies", query, year, resultCount);
       } else {
-        log.info("搜索电影 '{}' 找到 {} 个结果", query, resultCount);
+        Log.info("搜索电影 '" + query + "' 找到 " + resultCount + " 个结果");
       }
 
       return searchResponse;
@@ -188,13 +168,7 @@ public class TmdbApiService {
     }
   }
 
-  /**
-   * 搜索电视剧
-   *
-   * @param query 搜索关键词
-   * @param year 年份（可选）
-   * @return 搜索结果
-   */
+  @SuppressWarnings("unchecked")
   public TmdbSearchResponse searchTvShows(String query, String year) {
     Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
     String apiKey = (String) tmdbConfig.get("apiKey");
@@ -203,7 +177,7 @@ public class TmdbApiService {
       throw new BusinessException("TMDB API Key 未配置");
     }
 
-    RestTemplate restTemplate = createRestTemplate();
+    HttpClient httpClient = createHttpClient();
     String responseBody = null;
     String url = null;
 
@@ -211,20 +185,18 @@ public class TmdbApiService {
       String baseUrl = (String) tmdbConfig.getOrDefault("baseUrl", "https://api.themoviedb.org/3");
       String language = (String) tmdbConfig.getOrDefault("language", "zh-CN");
 
-      UriComponentsBuilder builder =
-          UriComponentsBuilder.fromHttpUrl(baseUrl + "/search/tv")
-              .queryParam("api_key", apiKey)
-              .queryParam("language", language)
-              .queryParam("query", query);
+      StringBuilder urlBuilder = new StringBuilder(baseUrl)
+          .append("/search/tv?api_key=").append(URLEncoder.encode(apiKey, StandardCharsets.UTF_8))
+          .append("&language=").append(URLEncoder.encode(language, StandardCharsets.UTF_8))
+          .append("&query=").append(URLEncoder.encode(query, StandardCharsets.UTF_8));
 
       if (year != null && !year.trim().isEmpty()) {
-        builder.queryParam("first_air_date_year", year);
+        urlBuilder.append("&first_air_date_year=").append(URLEncoder.encode(year, StandardCharsets.UTF_8));
       }
 
-      url = builder.toUriString();
+      url = urlBuilder.toString();
 
-      // 记录请求参数
-      Map<String, String> requestParams = new java.util.HashMap<>();
+      Map<String, String> requestParams = new HashMap<>();
       requestParams.put("query", query);
       requestParams.put("language", language);
       if (year != null && !year.trim().isEmpty()) {
@@ -232,34 +204,33 @@ public class TmdbApiService {
       }
       logRequestDetails("GET", url, requestParams);
 
-      HttpHeaders headers = new HttpHeaders();
-      headers.set("User-Agent", AppConstants.USER_AGENT);
-      HttpEntity<String> entity = new HttpEntity<>(headers);
+      HttpRequest request = HttpRequest.newBuilder()
+          .uri(URI.create(url))
+          .header("User-Agent", AppConstants.USER_AGENT)
+          .timeout(Duration.ofSeconds(30))
+          .GET()
+          .build();
 
-      ResponseEntity<String> response =
-          restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-      responseBody = response.getBody();
+      HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      responseBody = response.body();
 
-      // 记录响应详情
-      logResponseDetails("GET", response.getStatusCode().value(), responseBody);
+      logResponseDetails("GET", response.statusCode(), responseBody);
 
-      if (!response.getStatusCode().is2xxSuccessful()) {
-        throw new BusinessException("TMDB API 请求失败，状态码: " + response.getStatusCode());
+      if (response.statusCode() < 200 || response.statusCode() >= 300) {
+        throw new BusinessException("TMDB API 请求失败，状态码: " + response.statusCode());
       }
 
       if (responseBody == null || responseBody.isEmpty()) {
         throw new BusinessException("TMDB API 返回空响应");
       }
 
-      TmdbSearchResponse searchResponse =
-          objectMapper.readValue(responseBody, TmdbSearchResponse.class);
-      int resultCount =
-          searchResponse.getResults() != null ? searchResponse.getResults().size() : 0;
+      TmdbSearchResponse searchResponse = objectMapper.readValue(responseBody, TmdbSearchResponse.class);
+      int resultCount = searchResponse.getResults() != null ? searchResponse.getResults().size() : 0;
 
       if (resultCount == 0) {
         logEmptySearchResult("searchTvShows", query, year, resultCount);
       } else {
-        log.info("搜索电视剧 '{}' 找到 {} 个结果", query, resultCount);
+        Log.info("搜索电视剧 '" + query + "' 找到 " + resultCount + " 个结果");
       }
 
       return searchResponse;
@@ -270,12 +241,7 @@ public class TmdbApiService {
     }
   }
 
-  /**
-   * 获取电影详情
-   *
-   * @param movieId 电影ID
-   * @return 电影详情
-   */
+  @SuppressWarnings("unchecked")
   public TmdbMovieDetail getMovieDetail(Integer movieId) {
     Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
     String apiKey = (String) tmdbConfig.get("apiKey");
@@ -284,7 +250,7 @@ public class TmdbApiService {
       throw new BusinessException("TMDB API Key 未配置");
     }
 
-    RestTemplate restTemplate = createRestTemplate();
+    HttpClient httpClient = createHttpClient();
     String responseBody = null;
     String url = null;
 
@@ -292,31 +258,29 @@ public class TmdbApiService {
       String baseUrl = (String) tmdbConfig.getOrDefault("baseUrl", "https://api.themoviedb.org/3");
       String language = (String) tmdbConfig.getOrDefault("language", "zh-CN");
 
-      url =
-          UriComponentsBuilder.fromHttpUrl(baseUrl + "/movie/" + movieId)
-              .queryParam("api_key", apiKey)
-              .queryParam("language", language)
-              .toUriString();
+      url = baseUrl + "/movie/" + movieId
+          + "?api_key=" + URLEncoder.encode(apiKey, StandardCharsets.UTF_8)
+          + "&language=" + URLEncoder.encode(language, StandardCharsets.UTF_8);
 
-      // 记录请求参数
-      Map<String, String> requestParams = new java.util.HashMap<>();
+      Map<String, String> requestParams = new HashMap<>();
       requestParams.put("movieId", String.valueOf(movieId));
       requestParams.put("language", language);
       logRequestDetails("GET", url, requestParams);
 
-      HttpHeaders headers = new HttpHeaders();
-      headers.set("User-Agent", AppConstants.USER_AGENT);
-      HttpEntity<String> entity = new HttpEntity<>(headers);
+      HttpRequest request = HttpRequest.newBuilder()
+          .uri(URI.create(url))
+          .header("User-Agent", AppConstants.USER_AGENT)
+          .timeout(Duration.ofSeconds(30))
+          .GET()
+          .build();
 
-      ResponseEntity<String> response =
-          restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-      responseBody = response.getBody();
+      HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      responseBody = response.body();
 
-      // 记录响应详情
-      logResponseDetails("GET", response.getStatusCode().value(), responseBody);
+      logResponseDetails("GET", response.statusCode(), responseBody);
 
-      if (!response.getStatusCode().is2xxSuccessful()) {
-        throw new BusinessException("TMDB API 请求失败，状态码: " + response.getStatusCode());
+      if (response.statusCode() < 200 || response.statusCode() >= 300) {
+        throw new BusinessException("TMDB API 请求失败，状态码: " + response.statusCode());
       }
 
       if (responseBody == null || responseBody.isEmpty()) {
@@ -324,7 +288,7 @@ public class TmdbApiService {
       }
 
       TmdbMovieDetail movieDetail = objectMapper.readValue(responseBody, TmdbMovieDetail.class);
-      log.info("获取电影详情成功: {} ({})", movieDetail.getTitle(), movieDetail.getId());
+      Log.info("获取电影详情成功: " + movieDetail.getTitle() + " (" + movieDetail.getId() + ")");
 
       return movieDetail;
 
@@ -334,12 +298,7 @@ public class TmdbApiService {
     }
   }
 
-  /**
-   * 获取电视剧详情
-   *
-   * @param tvId 电视剧ID
-   * @return 电视剧详情
-   */
+  @SuppressWarnings("unchecked")
   public TmdbTvDetail getTvDetail(Integer tvId) {
     Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
     String apiKey = (String) tmdbConfig.get("apiKey");
@@ -348,7 +307,7 @@ public class TmdbApiService {
       throw new BusinessException("TMDB API Key 未配置");
     }
 
-    RestTemplate restTemplate = createRestTemplate();
+    HttpClient httpClient = createHttpClient();
     String responseBody = null;
     String url = null;
 
@@ -356,31 +315,29 @@ public class TmdbApiService {
       String baseUrl = (String) tmdbConfig.getOrDefault("baseUrl", "https://api.themoviedb.org/3");
       String language = (String) tmdbConfig.getOrDefault("language", "zh-CN");
 
-      url =
-          UriComponentsBuilder.fromHttpUrl(baseUrl + "/tv/" + tvId)
-              .queryParam("api_key", apiKey)
-              .queryParam("language", language)
-              .toUriString();
+      url = baseUrl + "/tv/" + tvId
+          + "?api_key=" + URLEncoder.encode(apiKey, StandardCharsets.UTF_8)
+          + "&language=" + URLEncoder.encode(language, StandardCharsets.UTF_8);
 
-      // 记录请求参数
-      Map<String, String> requestParams = new java.util.HashMap<>();
+      Map<String, String> requestParams = new HashMap<>();
       requestParams.put("tvId", String.valueOf(tvId));
       requestParams.put("language", language);
       logRequestDetails("GET", url, requestParams);
 
-      HttpHeaders headers = new HttpHeaders();
-      headers.set("User-Agent", AppConstants.USER_AGENT);
-      HttpEntity<String> entity = new HttpEntity<>(headers);
+      HttpRequest request = HttpRequest.newBuilder()
+          .uri(URI.create(url))
+          .header("User-Agent", AppConstants.USER_AGENT)
+          .timeout(Duration.ofSeconds(30))
+          .GET()
+          .build();
 
-      ResponseEntity<String> response =
-          restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-      responseBody = response.getBody();
+      HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      responseBody = response.body();
 
-      // 记录响应详情
-      logResponseDetails("GET", response.getStatusCode().value(), responseBody);
+      logResponseDetails("GET", response.statusCode(), responseBody);
 
-      if (!response.getStatusCode().is2xxSuccessful()) {
-        throw new BusinessException("TMDB API 请求失败，状态码: " + response.getStatusCode());
+      if (response.statusCode() < 200 || response.statusCode() >= 300) {
+        throw new BusinessException("TMDB API 请求失败，状态码: " + response.statusCode());
       }
 
       if (responseBody == null || responseBody.isEmpty()) {
@@ -388,7 +345,7 @@ public class TmdbApiService {
       }
 
       TmdbTvDetail tvDetail = objectMapper.readValue(responseBody, TmdbTvDetail.class);
-      log.info("获取电视剧详情成功: {} ({})", tvDetail.getName(), tvDetail.getId());
+      Log.info("获取电视剧详情成功: " + tvDetail.getName() + " (" + tvDetail.getId() + ")");
 
       return tvDetail;
 
@@ -398,23 +355,15 @@ public class TmdbApiService {
     }
   }
 
-  /**
-   * 构建图片完整URL
-   *
-   * @param imagePath 图片路径
-   * @param size 图片尺寸
-   * @return 完整的图片URL
-   */
+  @SuppressWarnings("unchecked")
   public String buildImageUrl(String imagePath, String size) {
     if (imagePath == null || imagePath.trim().isEmpty()) {
       return null;
     }
 
     Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
-    String imageBaseUrl =
-        (String) tmdbConfig.getOrDefault("imageBaseUrl", "https://image.tmdb.org/t/p");
+    String imageBaseUrl = (String) tmdbConfig.getOrDefault("imageBaseUrl", "https://image.tmdb.org/t/p");
 
-    // 确保路径以 / 开头
     if (!imagePath.startsWith("/")) {
       imagePath = "/" + imagePath;
     }
@@ -422,60 +371,40 @@ public class TmdbApiService {
     return imageBaseUrl + "/" + size + imagePath;
   }
 
-  /**
-   * 构建海报图片URL
-   *
-   * @param posterPath 海报路径
-   * @return 海报图片URL
-   */
   public String buildPosterUrl(String posterPath) {
     Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
     String posterSize = (String) tmdbConfig.getOrDefault("posterSize", "w500");
     return buildImageUrl(posterPath, posterSize);
   }
 
-  /**
-   * 构建背景图片URL
-   *
-   * @param backdropPath 背景图片路径
-   * @return 背景图片URL
-   */
   public String buildBackdropUrl(String backdropPath) {
     Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
     String backdropSize = (String) tmdbConfig.getOrDefault("backdropSize", "w1280");
     return buildImageUrl(backdropPath, backdropSize);
   }
 
-  /**
-   * 验证TMDB API Key是否有效
-   *
-   * @param apiKey API Key
-   * @return 验证结果
-   */
   public boolean validateApiKey(String apiKey) {
     if (apiKey == null || apiKey.trim().isEmpty()) {
       return false;
     }
 
     try {
-      RestTemplate restTemplate = createRestTemplate();
-      String baseUrl = "https://api.themoviedb.org/3";
-      String url =
-          UriComponentsBuilder.fromHttpUrl(baseUrl + "/configuration")
-              .queryParam("api_key", apiKey)
-              .toUriString();
+      HttpClient httpClient = createHttpClient();
+      String url = "https://api.themoviedb.org/3/configuration?api_key="
+          + URLEncoder.encode(apiKey, StandardCharsets.UTF_8);
 
-      HttpHeaders headers = new HttpHeaders();
-      headers.set("User-Agent", AppConstants.USER_AGENT);
-      HttpEntity<String> entity = new HttpEntity<>(headers);
+      HttpRequest request = HttpRequest.newBuilder()
+          .uri(URI.create(url))
+          .header("User-Agent", AppConstants.USER_AGENT)
+          .timeout(Duration.ofSeconds(30))
+          .GET()
+          .build();
 
-      ResponseEntity<String> response =
-          restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-
-      return response.getStatusCode().is2xxSuccessful();
+      HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      return response.statusCode() >= 200 && response.statusCode() < 300;
 
     } catch (Exception e) {
-      log.warn("验证TMDB API Key失败: {}", e.getMessage());
+      Log.warn("验证TMDB API Key失败: " + e.getMessage());
       return false;
     }
   }

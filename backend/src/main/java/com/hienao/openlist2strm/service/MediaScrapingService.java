@@ -8,6 +8,9 @@ import com.hienao.openlist2strm.dto.tmdb.TmdbTvDetail;
 import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.util.MediaFileParser;
 import com.hienao.openlist2strm.util.TmdbIdExtractor;
+import io.quarkus.logging.Log;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,9 +20,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 
 /**
  * 媒体刮削服务 整合TMDB API、NFO生成、图片下载等功能 支持从路径中提取TMDB ID直接获取媒体信息
@@ -27,18 +27,23 @@ import org.springframework.stereotype.Service;
  * @author hienao
  * @since 2024-01-01
  */
-@Slf4j
-@Service
-@RequiredArgsConstructor
+@ApplicationScoped
 public class MediaScrapingService {
 
-  private final TmdbApiService tmdbApiService;
-  private final NfoGeneratorService nfoGeneratorService;
-  private final CoverImageService coverImageService;
-  private final SystemConfigService systemConfigService;
-  private final AiFileNameRecognitionService aiFileNameRecognitionService;
-  private final OpenlistApiService openlistApiService;
-  private final DataReportService dataReportService;
+  @Inject
+  TmdbApiService tmdbApiService;
+  @Inject
+  NfoGeneratorService nfoGeneratorService;
+  @Inject
+  CoverImageService coverImageService;
+  @Inject
+  SystemConfigService systemConfigService;
+  @Inject
+  AiFileNameRecognitionService aiFileNameRecognitionService;
+  @Inject
+  OpenlistApiService openlistApiService;
+  @Inject
+  DataReportService dataReportService;
 
   /**
    * 执行媒体刮削
@@ -69,7 +74,7 @@ public class MediaScrapingService {
       List<OpenlistApiService.OpenlistFile> directoryFiles,
       String fullFilePath) {
     try {
-      log.info("开始处理媒体文件: {}", fileName);
+      Log.infof("开始处理媒体文件: %s", fileName);
 
       // 获取配置选项
       Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
@@ -89,13 +94,13 @@ public class MediaScrapingService {
       if (useExistingScrapingInfo
           && copyExistingScrapingInfo(
               openlistConfig, fileName, relativePath, saveDirectory, directoryFiles)) {
-        log.info("已复制现有刮削信息，跳过后续处理: {}", fileName);
+        Log.infof("已复制现有刮削信息，跳过后续处理: %s", fileName);
         return;
       }
 
       // 检查刮削是否启用
       if (!scrapingEnabled) {
-        log.info("刮削功能已禁用，跳过刮削: {}", fileName);
+        Log.infof("刮削功能已禁用，跳过刮削: %s", fileName);
         return;
       }
 
@@ -103,7 +108,7 @@ public class MediaScrapingService {
       Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
       String tmdbApiKey = (String) tmdbConfig.getOrDefault("apiKey", "");
       if (tmdbApiKey == null || tmdbApiKey.trim().isEmpty()) {
-        log.warn("TMDB API Key未配置，跳过刮削功能: {}", fileName);
+        Log.warnf("TMDB API Key未配置，跳过刮削功能: %s", fileName);
         return;
       }
 
@@ -126,11 +131,11 @@ public class MediaScrapingService {
 
       // 解析文件名
       MediaInfo mediaInfo = MediaFileParser.parse(fileName, directoryPath, movieRegexps, tvDirRegexps, tvFileRegexps);
-      log.debug("正则解析媒体信息: {}", mediaInfo);
+      Log.debugf("正则解析媒体信息: %s", mediaInfo);
 
       // 如果路径中有TMDB ID，直接使用TMDB ID获取信息，跳过文件名解析
       if (tmdbId != null) {
-        log.info("检测到路径中的TMDB ID: {}, 直接从TMDB获取信息", tmdbId);
+        Log.infof("检测到路径中的TMDB ID: %s, 直接从TMDB获取信息", tmdbId);
 
         // 根据文件扩展名判断媒体类型
         boolean isMovie = MediaFileParser.isVideoFile(fileName);
@@ -140,7 +145,7 @@ public class MediaScrapingService {
             // 直接获取电影详情
             TmdbMovieDetail movieDetail = tmdbApiService.getMovieDetail(tmdbId);
             if (movieDetail != null) {
-              log.info("直接获取电影详情成功: {} ({})", movieDetail.getTitle(), movieDetail.getId());
+              Log.infof("直接获取电影详情成功: %s (%s)", movieDetail.getTitle(), movieDetail.getId());
 
               // 创建MediaInfo对象
               mediaInfo = new MediaInfo()
@@ -165,7 +170,7 @@ public class MediaScrapingService {
             // 直接获取电视剧详情
             TmdbTvDetail tvDetail = tmdbApiService.getTvDetail(tmdbId);
             if (tvDetail != null) {
-              log.info("直接获取电视剧详情成功: {} ({})", tvDetail.getName(), tvDetail.getId());
+              Log.infof("直接获取电视剧详情成功: %s (%s)", tvDetail.getName(), tvDetail.getId());
               // 创建MediaInfo对象
               mediaInfo = new MediaInfo()
                   .setType(MediaInfo.MediaType.TV_SHOW)
@@ -191,11 +196,11 @@ public class MediaScrapingService {
                   if (matcher.find()) {
                     com.hienao.openlist2strm.util.MediaFileParser.extractNamedGroups(
                         matcher, mediaInfo);
-                    log.debug("从文件名中提取季集信息成功: {}", mediaInfo);
+                    Log.debugf("从文件名中提取季集信息成功: %s", mediaInfo);
                     break;
                   }
                 } catch (Exception e) {
-                  log.warn("无效的电视剧文件正则表达式: '{}', 错误: {}", regex, e.getMessage());
+                  Log.warnf("无效的电视剧文件正则表达式: '%s', 错误: %s", regex, e.getMessage());
                 }
               }
 
@@ -206,14 +211,14 @@ public class MediaScrapingService {
             }
           }
         } catch (Exception e) {
-          log.error("使用TMDB ID直接获取信息失败: {}", tmdbId, e);
+          Log.errorf(e, "使用TMDB ID直接获取信息失败: %s", tmdbId);
           // 继续使用常规的文件名解析方式
         }
       }
 
       // 如果正则解析置信度低，尝试使用AI
       if (mediaInfo.getConfidence() < 70) {
-        log.info("正则解析置信度低 ({}%)，尝试使用 AI 识别: {}", mediaInfo.getConfidence(), fileName);
+        Log.infof("正则解析置信度低 (%s%)，尝试使用 AI 识别: %s", mediaInfo.getConfidence(), fileName);
 
         // 上报正则匹配失败事件
         Map<String, Object> regFailProperties = new HashMap<>();
@@ -231,7 +236,7 @@ public class MediaScrapingService {
             if (aiResult.isNewFormat()) {
               // 新格式：直接从AI结果构建MediaInfo
               mediaInfo = aiResult.toMediaInfo(fileName);
-              log.info("使用 AI 识别结果（新格式）重新解析: {}", mediaInfo);
+              Log.infof("使用 AI 识别结果（新格式）重新解析: %s", mediaInfo);
             } else if (aiResult.isLegacyFormat()) {
               // 旧格式：使用filename字段重新解析
               mediaInfo = MediaFileParser.parse(
@@ -240,10 +245,10 @@ public class MediaScrapingService {
                   movieRegexps,
                   tvDirRegexps,
                   tvFileRegexps);
-              log.info("使用 AI 识别结果（旧格式）重新解析: {}", mediaInfo);
+              Log.infof("使用 AI 识别结果（旧格式）重新解析: %s", mediaInfo);
             }
           } else if (aiResult != null && !aiResult.isSuccess()) {
-            log.info("AI 无法识别文件名: {}, 原因: {}", fileName, aiResult.getReason());
+            Log.infof("AI 无法识别文件名: %s, 原因: %s", fileName, aiResult.getReason());
 
             // 上报AI识别失败事件
             Map<String, Object> aiFailProperties = new HashMap<>();
@@ -253,7 +258,7 @@ public class MediaScrapingService {
             dataReportService.reportEvent("ai_match_fail", aiFailProperties);
           } else {
             // AI服务调用失败或返回null
-            log.warn("AI识别服务调用失败: {}", fileName);
+            Log.warnf("AI识别服务调用失败: %s", fileName);
 
             // 上报AI识别失败事件
             Map<String, Object> aiFailProperties = new HashMap<>();
@@ -266,8 +271,7 @@ public class MediaScrapingService {
       }
 
       if (mediaInfo.getConfidence() < 70) {
-        log.warn(
-            "最终解析置信度过低 ({}%)，跳过刮削: {}", mediaInfo.getConfidence(), mediaInfo.getOriginalFileName());
+        Log.warnf("最终解析置信度过低 (%s%)，跳过刮削: %s", mediaInfo.getConfidence(), mediaInfo.getOriginalFileName());
         return;
       }
 
@@ -276,7 +280,7 @@ public class MediaScrapingService {
 
       // 检查是否已刮削（增量模式下跳过已刮削的文件）
       if (isAlreadyScraped(saveDirectory, baseFileName, mediaInfo)) {
-        log.info("文件已刮削，跳过: {}", fileName);
+        Log.infof("文件已刮削，跳过: %s", fileName);
         return;
       }
 
@@ -286,7 +290,7 @@ public class MediaScrapingService {
       } else if (mediaInfo.isTvShow()) {
         scrapTvShow(mediaInfo, saveDirectory, baseFileName);
       } else {
-        log.warn("未知媒体类型，跳过刮削: {}", fileName);
+        Log.warnf("未知媒体类型，跳过刮削: %s", fileName);
 
         // 上报媒体类型匹配失败事件
         Map<String, Object> mediaTypeFailProperties = new HashMap<>();
@@ -298,7 +302,7 @@ public class MediaScrapingService {
       }
 
     } catch (Exception e) {
-      log.error("刮削媒体文件失败: {}", fileName, e);
+      Log.errorf(e, "刮削媒体文件失败: %s", fileName);
     }
   }
 
@@ -306,7 +310,7 @@ public class MediaScrapingService {
   private void scrapMovieWithDirectInfo(
       MediaInfo mediaInfo, String saveDirectory, String baseFileName, TmdbMovieDetail movieDetail) {
     try {
-      log.info("使用直接获取的电影信息进行刮削: {} ({})", movieDetail.getTitle(), movieDetail.getId());
+      Log.infof("使用直接获取的电影信息进行刮削: %s (%s)", movieDetail.getTitle(), movieDetail.getId());
 
       // 生成NFO文件
       Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
@@ -322,10 +326,10 @@ public class MediaScrapingService {
       String backdropUrl = tmdbApiService.buildBackdropUrl(movieDetail.getBackdropPath());
       coverImageService.downloadImages(posterUrl, backdropUrl, saveDirectory, baseFileName);
 
-      log.info("直接TMDB ID刮削完成: {}", movieDetail.getTitle());
+      Log.infof("直接TMDB ID刮削完成: %s", movieDetail.getTitle());
 
     } catch (Exception e) {
-      log.error("使用直接获取的电影信息刮削失败: {}", movieDetail.getTitle(), e);
+      Log.errorf(e, "使用直接获取的电影信息刮削失败: %s", movieDetail.getTitle());
     }
   }
 
@@ -333,7 +337,7 @@ public class MediaScrapingService {
   private void scrapTvShowWithDirectInfo(
       MediaInfo mediaInfo, String saveDirectory, String baseFileName, TmdbTvDetail tvDetail) {
     try {
-      log.info("使用直接获取的电视剧信息进行刮削: {} ({})", tvDetail.getName(), tvDetail.getId());
+      Log.infof("使用直接获取的电视剧信息进行刮削: %s (%s)", tvDetail.getName(), tvDetail.getId());
 
       // 生成NFO文件
       Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
@@ -349,10 +353,10 @@ public class MediaScrapingService {
       String backdropUrl = tmdbApiService.buildBackdropUrl(tvDetail.getBackdropPath());
       coverImageService.downloadImages(posterUrl, backdropUrl, saveDirectory, baseFileName);
 
-      log.info("直接TMDB ID刮削完成: {}", tvDetail.getName());
+      Log.infof("直接TMDB ID刮削完成: %s", tvDetail.getName());
 
     } catch (Exception e) {
-      log.error("使用直接获取的电视剧信息刮削失败: {}", tvDetail.getName(), e);
+      Log.errorf(e, "使用直接获取的电视剧信息刮削失败: %s", tvDetail.getName());
     }
   }
 
@@ -363,10 +367,7 @@ public class MediaScrapingService {
       TmdbSearchResponse searchResult = tmdbApiService.searchMovies(mediaInfo.getSearchQuery(), mediaInfo.getYear());
 
       if (searchResult.getResults() == null || searchResult.getResults().isEmpty()) {
-        log.warn(
-            "刮削失败 - 未找到匹配的电影: {} (年份: {}), TMDB搜索返回空结果",
-            mediaInfo.getSearchQuery(),
-            mediaInfo.getYear());
+        Log.warnf("刮削失败 - 未找到匹配的电影: %s (年份: %s), TMDB搜索返回空结果", mediaInfo.getSearchQuery(), mediaInfo.getYear());
         return;
       }
 
@@ -374,17 +375,13 @@ public class MediaScrapingService {
       TmdbSearchResponse.TmdbSearchResult bestMatch = selectBestMovieMatch(searchResult.getResults(), mediaInfo);
 
       if (bestMatch == null) {
-        log.warn(
-            "刮削失败 - 未找到合适的电影匹配: {} (年份: {}), 搜索到 {} 个结果但无合适匹配",
-            mediaInfo.getSearchQuery(),
-            mediaInfo.getYear(),
-            searchResult.getResults().size());
+        Log.warnf("刮削失败 - 未找到合适的电影匹配: %s (年份: %s), 搜索到 %s 个结果但无合适匹配", mediaInfo.getSearchQuery(), mediaInfo.getYear(), searchResult.getResults().size());
         return;
       }
 
       // 获取详细信息
       TmdbMovieDetail movieDetail = tmdbApiService.getMovieDetail(bestMatch.getId());
-      log.info("找到匹配电影: {} ({})", movieDetail.getTitle(), movieDetail.getId());
+      Log.infof("找到匹配电影: %s (%s)", movieDetail.getTitle(), movieDetail.getId());
 
       // 生成NFO文件
       Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
@@ -401,7 +398,7 @@ public class MediaScrapingService {
       coverImageService.downloadImages(posterUrl, backdropUrl, saveDirectory, baseFileName);
 
     } catch (Exception e) {
-      log.error("刮削电影失败: {}", mediaInfo.getSearchQuery(), e);
+      Log.errorf(e, "刮削电影失败: %s", mediaInfo.getSearchQuery());
     }
   }
 
@@ -412,10 +409,7 @@ public class MediaScrapingService {
       TmdbSearchResponse searchResult = tmdbApiService.searchTvShows(mediaInfo.getSearchQuery(), mediaInfo.getYear());
 
       if (searchResult.getResults() == null || searchResult.getResults().isEmpty()) {
-        log.warn(
-            "刮削失败 - 未找到匹配的电视剧: {} (年份: {}), TMDB搜索返回空结果",
-            mediaInfo.getSearchQuery(),
-            mediaInfo.getYear());
+        Log.warnf("刮削失败 - 未找到匹配的电视剧: %s (年份: %s), TMDB搜索返回空结果", mediaInfo.getSearchQuery(), mediaInfo.getYear());
         return;
       }
 
@@ -423,17 +417,13 @@ public class MediaScrapingService {
       TmdbSearchResponse.TmdbSearchResult bestMatch = selectBestTvMatch(searchResult.getResults(), mediaInfo);
 
       if (bestMatch == null) {
-        log.warn(
-            "刮削失败 - 未找到合适的电视剧匹配: {} (年份: {}), 搜索到 {} 个结果但无合适匹配",
-            mediaInfo.getSearchQuery(),
-            mediaInfo.getYear(),
-            searchResult.getResults().size());
+        Log.warnf("刮削失败 - 未找到合适的电视剧匹配: %s (年份: %s), 搜索到 %s 个结果但无合适匹配", mediaInfo.getSearchQuery(), mediaInfo.getYear(), searchResult.getResults().size());
         return;
       }
 
       // 获取详细信息
       TmdbTvDetail tvDetail = tmdbApiService.getTvDetail(bestMatch.getId());
-      log.info("找到匹配电视剧: {} ({})", tvDetail.getName(), tvDetail.getId());
+      Log.infof("找到匹配电视剧: %s (%s)", tvDetail.getName(), tvDetail.getId());
 
       // 生成NFO文件
       Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
@@ -450,7 +440,7 @@ public class MediaScrapingService {
       coverImageService.downloadImages(posterUrl, backdropUrl, saveDirectory, baseFileName);
 
     } catch (Exception e) {
-      log.error("刮削电视剧失败: {}", mediaInfo.getSearchQuery(), e);
+      Log.errorf(e, "刮削电视剧失败: %s", mediaInfo.getSearchQuery());
     }
   }
 
@@ -536,7 +526,7 @@ public class MediaScrapingService {
       Path parent = path.getParent();
       return parent == null ? "" : parent.toString();
     } catch (Exception e) {
-      log.warn("无法从相对路径中提取目录: {}", relativePath, e);
+      Log.warnf(e, "无法从相对路径中提取目录: %s", relativePath);
       return "";
     }
   }
@@ -584,7 +574,7 @@ public class MediaScrapingService {
       // 确保保存目录存在
       File saveDir = new File(saveDirectory);
       if (!saveDir.exists()) {
-        log.debug("保存目录不存在，需要刮削: {}", saveDirectory);
+        Log.debugf("保存目录不存在，需要刮削: %s", saveDirectory);
         return false;
       }
 
@@ -600,7 +590,7 @@ public class MediaScrapingService {
       return false;
 
     } catch (Exception e) {
-      log.warn("检查刮削状态时出错，继续刮削: {}", baseFileName, e);
+      Log.warnf(e, "检查刮削状态时出错，继续刮削: %s", baseFileName);
       return false;
     }
   }
@@ -618,12 +608,12 @@ public class MediaScrapingService {
       if (saveDir.exists() && saveDir.isDirectory()) {
         File[] nfoFiles = saveDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".nfo"));
         if (nfoFiles == null || nfoFiles.length == 0) {
-          log.debug("目录中没有NFO文件，需要刮削: {}", saveDirectory);
+          Log.debugf("目录中没有NFO文件，需要刮削: %s", saveDirectory);
           return false;
         }
-        log.debug("目录中存在NFO文件，视为已刮削: {}", saveDirectory);
+        Log.debugf("目录中存在NFO文件，视为已刮削: %s", saveDirectory);
       } else {
-        log.debug("保存目录不存在，需要刮削: {}", saveDirectory);
+        Log.debugf("保存目录不存在，需要刮削: %s", saveDirectory);
         return false;
       }
     }
@@ -632,7 +622,7 @@ public class MediaScrapingService {
     if (downloadPoster) {
       String posterPath = saveDirectory + "/" + baseFileName + "-poster.jpg";
       if (!new File(posterPath).exists()) {
-        log.debug("电影海报文件不存在，需要刮削: {}", posterPath);
+        Log.debugf("电影海报文件不存在，需要刮削: %s", posterPath);
         return false;
       }
     }
@@ -641,12 +631,12 @@ public class MediaScrapingService {
     if (downloadBackdrop) {
       String backdropPath = saveDirectory + "/" + baseFileName + "-fanart.jpg";
       if (!new File(backdropPath).exists()) {
-        log.debug("电影背景图文件不存在，需要刮削: {}", backdropPath);
+        Log.debugf("电影背景图文件不存在，需要刮削: %s", backdropPath);
         return false;
       }
     }
 
-    log.debug("电影所有刮削文件都已存在，跳过刮削: {}", baseFileName);
+    Log.debugf("电影所有刮削文件都已存在，跳过刮削: %s", baseFileName);
     return true;
   }
 
@@ -663,12 +653,12 @@ public class MediaScrapingService {
       if (saveDir.exists() && saveDir.isDirectory()) {
         File[] nfoFiles = saveDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".nfo"));
         if (nfoFiles == null || nfoFiles.length == 0) {
-          log.debug("目录中没有NFO文件，需要刮削: {}", saveDirectory);
+          Log.debugf("目录中没有NFO文件，需要刮削: %s", saveDirectory);
           return false;
         }
-        log.debug("目录中存在NFO文件，视为已刮削: {}", saveDirectory);
+        Log.debugf("目录中存在NFO文件，视为已刮削: %s", saveDirectory);
       } else {
-        log.debug("保存目录不存在，需要刮削: {}", saveDirectory);
+        Log.debugf("保存目录不存在，需要刮削: %s", saveDirectory);
         return false;
       }
     }
@@ -677,7 +667,7 @@ public class MediaScrapingService {
     if (downloadPoster) {
       String episodePosterPath = saveDirectory + "/" + baseFileName + "-thumb.jpg";
       if (!new File(episodePosterPath).exists()) {
-        log.debug("剧集海报文件不存在，需要刮削: {}", episodePosterPath);
+        Log.debugf("剧集海报文件不存在，需要刮削: %s", episodePosterPath);
         return false;
       }
     }
@@ -686,7 +676,7 @@ public class MediaScrapingService {
     if (downloadPoster) {
       String tvShowPosterPath = saveDirectory + "/poster.jpg";
       if (!new File(tvShowPosterPath).exists()) {
-        log.debug("电视剧海报文件不存在，需要刮削: {}", tvShowPosterPath);
+        Log.debugf("电视剧海报文件不存在，需要刮削: %s", tvShowPosterPath);
         return false;
       }
     }
@@ -694,12 +684,12 @@ public class MediaScrapingService {
     if (downloadBackdrop) {
       String tvShowBackdropPath = saveDirectory + "/fanart.jpg";
       if (!new File(tvShowBackdropPath).exists()) {
-        log.debug("电视剧背景图文件不存在，需要刮削: {}", tvShowBackdropPath);
+        Log.debugf("电视剧背景图文件不存在，需要刮削: %s", tvShowBackdropPath);
         return false;
       }
     }
 
-    log.debug("电视剧集所有刮削文件都已存在，跳过刮削: {}", baseFileName);
+    Log.debugf("电视剧集所有刮削文件都已存在，跳过刮削: %s", baseFileName);
     return true;
   }
 
@@ -757,19 +747,15 @@ public class MediaScrapingService {
 
       boolean result = hasVideoFiles && allVideoFilesScraped;
       if (result) {
-        log.debug("目录已完全刮削: {}", directoryPath);
+        Log.debugf("目录已完全刮削: %s", directoryPath);
       } else {
-        log.debug(
-            "目录需要刮削: {} (hasVideoFiles: {}, allScraped: {})",
-            directoryPath,
-            hasVideoFiles,
-            allVideoFilesScraped);
+        Log.debugf("目录需要刮削: %s (hasVideoFiles: %s, allScraped: %s)", directoryPath, hasVideoFiles, allVideoFilesScraped);
       }
 
       return result;
 
     } catch (Exception e) {
-      log.warn("检查目录刮削状态时出错: {}", directoryPath, e);
+      Log.warnf(e, "检查目录刮削状态时出错: %s", directoryPath);
       return false;
     }
   }
@@ -815,9 +801,9 @@ public class MediaScrapingService {
       List<OpenlistApiService.OpenlistFile> files;
       if (directoryFiles != null) {
         files = directoryFiles;
-        log.debug("使用传入的目录文件列表，避免重复API调用");
+        Log.debug("使用传入的目录文件列表，避免重复API调用");
       } else {
-        log.debug("目录文件列表为空，跳过字幕文件复制");
+        Log.debug("目录文件列表为空，跳过字幕文件复制");
         return;
       }
 
@@ -848,15 +834,15 @@ public class MediaScrapingService {
 
               // 写入字幕文件
               Files.write(targetFile, subtitleContent);
-              log.info("已复制字幕文件: {} -> {}", file.getPath(), targetFile);
+              Log.infof("已复制字幕文件: %s -> %s", file.getPath(), targetFile);
             } else {
-              log.debug("字幕文件内容为空: {}", file.getPath());
+              Log.debugf("字幕文件内容为空: %s", file.getPath());
             }
           }
         }
       }
     } catch (Exception e) {
-      log.warn("复制字幕文件失败: {}", fileName, e);
+      Log.warnf(e, "复制字幕文件失败: %s", fileName);
     }
   }
 
@@ -889,7 +875,7 @@ public class MediaScrapingService {
         dirPath = "/";
       }
 
-      log.debug("[DEBUG] 构建文件路径 - relativePath: {}, dirPath: {}", relativePath, dirPath);
+      Log.debugf("[DEBUG] 构建文件路径 - relativePath: %s, dirPath: %s", relativePath, dirPath);
 
       boolean foundScrapingInfo = false;
 
@@ -897,9 +883,9 @@ public class MediaScrapingService {
       List<OpenlistApiService.OpenlistFile> files;
       if (directoryFiles != null) {
         files = directoryFiles;
-        log.debug("使用传入的目录文件列表，避免重复API调用");
+        Log.debug("使用传入的目录文件列表，避免重复API调用");
       } else {
-        log.debug("目录文件列表为空，跳过刮削信息复制");
+        Log.debug("目录文件列表为空，跳过刮削信息复制");
         return false;
       }
 
@@ -910,7 +896,7 @@ public class MediaScrapingService {
 
           // 检查是否是NFO文件：只要后缀是.nfo就复制
           if (fileName_lower.endsWith(".nfo")) {
-            log.debug("准备复制NFO文件: {} (使用OpenlistFile对象)", file.getName());
+            Log.debugf("准备复制NFO文件: %s (使用OpenlistFile对象)", file.getName());
 
             // 刮削文件下载场景：不进行URL编码，避免认证问题
             byte[] nfoContent = openlistApiService.getFileContent(openlistConfig, file, false);
@@ -918,14 +904,10 @@ public class MediaScrapingService {
               Path targetNfoFile = Paths.get(saveDirectory, file.getName());
               Files.createDirectories(targetNfoFile.getParent());
               Files.write(targetNfoFile, nfoContent);
-              log.info(
-                  "已复制NFO文件: {} -> {} (大小: {} bytes)",
-                  file.getName(),
-                  targetNfoFile,
-                  nfoContent.length);
+              Log.infof("已复制NFO文件: %s -> %s (大小: %s bytes)", file.getName(), targetNfoFile, nfoContent.length);
               foundScrapingInfo = true;
             } else {
-              log.debug("NFO文件内容为空: {}", file.getName());
+              Log.debugf("NFO文件内容为空: %s", file.getName());
             }
           }
         }
@@ -948,27 +930,22 @@ public class MediaScrapingService {
           }
 
           if (isImageFile) {
-            log.debug("准备复制图片文件: {} (使用OpenlistFile对象)", file.getName());
+            Log.debugf("准备复制图片文件: %s (使用OpenlistFile对象)", file.getName());
 
             // 刮削文件下载场景：不进行URL编码，避免认证问题
             byte[] imageContent = openlistApiService.getFileContent(openlistConfig, file, false);
             if (imageContent != null && imageContent.length > 0) {
               // 检查文件内容是否真的是图片（简单检查前几个字节）
               String contentType = detectFileType(imageContent);
-              log.debug("图片文件内容类型检测: {} -> {}", file.getName(), contentType);
+              Log.debugf("图片文件内容类型检测: %s -> %s", file.getName(), contentType);
 
               Path targetImageFile = Paths.get(saveDirectory, file.getName());
               Files.createDirectories(targetImageFile.getParent());
               Files.write(targetImageFile, imageContent);
-              log.info(
-                  "已复制刮削图片: {} -> {} (大小: {} bytes, 类型: {})",
-                  file.getName(),
-                  targetImageFile,
-                  imageContent.length,
-                  contentType);
+              Log.infof("已复制刮削图片: %s -> %s (大小: %s bytes, 类型: %s)", file.getName(), targetImageFile, imageContent.length, contentType);
               foundScrapingInfo = true;
             } else {
-              log.debug("刮削图片内容为空: {}", file.getName());
+              Log.debugf("刮削图片内容为空: %s", file.getName());
             }
           }
         }
@@ -979,7 +956,7 @@ public class MediaScrapingService {
 
       return foundScrapingInfo;
     } catch (Exception e) {
-      log.warn("复制已存在刮削信息失败: {}", fileName, e);
+      Log.warnf(e, "复制已存在刮削信息失败: %s", fileName);
       return false;
     }
   }

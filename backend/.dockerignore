@@ -138,6 +138,7 @@ fabric.properties
 ### Gradle template
 .gradle
 **/build/
+!build/*-runner
 !src/**/build/
 
 # Ignore Gradle GUI config

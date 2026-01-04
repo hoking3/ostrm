@@ -1,3 +1,9 @@
+/*
+ * OStrm - Stream Management System
+ * @author hienao
+ * @date 2025-12-31
+ */
+
 package com.hienao.openlist2strm.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,7 +12,11 @@ import com.hienao.openlist2strm.dto.sign.ChangePasswordDto;
 import com.hienao.openlist2strm.dto.sign.SignInDto;
 import com.hienao.openlist2strm.dto.sign.SignUpDto;
 import com.hienao.openlist2strm.exception.BusinessException;
-import jakarta.annotation.PostConstruct;
+import io.quarkus.logging.Log;
+import io.quarkus.runtime.StartupEvent;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
+import jakarta.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.security.MessageDigest;
@@ -14,23 +24,28 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 
-@Slf4j
-@Service
-@RequiredArgsConstructor
+/**
+ * 用户认证服务 - Quarkus CDI 版本
+ *
+ * @author hienao
+ * @since 2025-12-31
+ */
+@ApplicationScoped
 public class SignService {
 
   private static final String PWD_KEY = "pwd";
   private static final String CONTAINER_INSTANCE_ID_KEY = "containerInstanceId";
-  private final ObjectMapper objectMapper;
-  private final PathConfiguration pathConfiguration;
+
+  @Inject
+  ObjectMapper objectMapper;
+
+  @Inject
+  PathConfiguration pathConfiguration;
 
   /** 获取用户信息文件路径 */
   private String getUserInfoFilePath() {
-    return pathConfiguration.getUserInfo();
+    return pathConfiguration.userInfo();
   }
 
   /**
@@ -39,12 +54,11 @@ public class SignService {
    * @author hienao
    * @since 2024-01-01
    */
-  @PostConstruct
-  public void initializeContainerInstanceId() {
+  void onStart(@Observes StartupEvent ev) {
     try {
       ensureContainerInstanceId();
     } catch (Exception e) {
-      log.error("初始化容器实例ID失败", e);
+      Log.errorf("初始化容器实例ID失败", e);
     }
   }
 
@@ -67,9 +81,9 @@ public class SignService {
 
       // 保存到文件
       objectMapper.writeValue(userFile, userInfo);
-      log.info("用户注册成功: {}", signUpDto.getUsername());
+      Log.info("用户注册成功: " + signUpDto.getUsername());
     } catch (IOException e) {
-      log.error("保存用户信息失败", e);
+      Log.errorf("保存用户信息失败", e);
       throw new BusinessException("注册失败", e);
     }
   }
@@ -87,7 +101,7 @@ public class SignService {
       throw new BusinessException("密码错误");
     }
 
-    log.info("用户登录成功: {}", signInDto.getUsername());
+    Log.info("用户登录成功: " + signInDto.getUsername());
     return storedUsername;
   }
 
@@ -106,9 +120,9 @@ public class SignService {
     try {
       File userFile = new File(getUserInfoFilePath());
       objectMapper.writeValue(userFile, userInfo);
-      log.info("密码修改成功");
+      Log.info("密码修改成功");
     } catch (IOException e) {
-      log.error("修改密码失败", e);
+      Log.errorf("修改密码失败", e);
       throw new BusinessException("修改密码失败", e);
     }
   }
@@ -120,6 +134,7 @@ public class SignService {
     }
 
     try {
+      @SuppressWarnings("unchecked")
       Map<String, String> userInfo = objectMapper.readValue(userFile, Map.class);
       String username = userInfo.get("username");
       String password = userInfo.get("pwd");
@@ -130,7 +145,7 @@ public class SignService {
           && password != null
           && !password.trim().isEmpty();
     } catch (IOException e) {
-      log.error("读取用户信息失败", e);
+      Log.errorf("读取用户信息失败", e);
       return false;
     }
   }
@@ -149,7 +164,9 @@ public class SignService {
 
       if (userFile.exists()) {
         // 读取现有配置
-        userInfo = objectMapper.readValue(userFile, Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, String> existing = objectMapper.readValue(userFile, Map.class);
+        userInfo = existing;
       } else {
         // 创建新配置
         userFile.getParentFile().mkdirs();
@@ -167,13 +184,13 @@ public class SignService {
 
         // 保存到文件
         objectMapper.writeValue(userFile, userInfo);
-        log.info("生成新的容器实例ID: {}", containerInstanceId);
+        Log.info("生成新的容器实例ID: " + containerInstanceId);
       } else {
-        log.info("容器实例ID已存在: {}", userInfo.get(CONTAINER_INSTANCE_ID_KEY));
+        Log.info("容器实例ID已存在: " + userInfo.get(CONTAINER_INSTANCE_ID_KEY));
       }
 
     } catch (IOException e) {
-      log.error("处理容器实例ID失败", e);
+      Log.errorf("处理容器实例ID失败", e);
       throw new BusinessException("初始化容器实例ID失败", e);
     }
   }
@@ -193,10 +210,11 @@ public class SignService {
     }
 
     try {
+      @SuppressWarnings("unchecked")
       Map<String, String> userInfo = objectMapper.readValue(userFile, Map.class);
       return userInfo.get(CONTAINER_INSTANCE_ID_KEY);
     } catch (IOException e) {
-      log.error("读取容器实例ID失败", e);
+      Log.errorf("读取容器实例ID失败", e);
       return null;
     }
   }
@@ -209,6 +227,7 @@ public class SignService {
    * @author hienao
    * @since 2024-01-01
    */
+  @SuppressWarnings("unchecked")
   private Map<String, String> readUserInfoOrThrow() {
     File userFile = new File(getUserInfoFilePath());
 
@@ -219,7 +238,7 @@ public class SignService {
     try {
       return objectMapper.readValue(userFile, Map.class);
     } catch (IOException e) {
-      log.error("读取用户信息失败", e);
+      Log.errorf("读取用户信息失败", e);
       throw new BusinessException("读取用户信息失败", e);
     }
   }

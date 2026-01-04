@@ -1,16 +1,27 @@
+/*
+ * OStrm - Stream Management System
+ * @author hienao
+ * @date 2025-12-31
+ */
+
 package com.hienao.openlist2strm.validation;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-import org.quartz.CronExpression;
+import java.util.regex.Pattern;
 
 /**
- * Cron表达式验证器
+ * Cron 表达式验证器 - 不依赖 Quartz
  *
  * @author hienao
- * @since 2024-01-01
+ * @since 2025-12-31
  */
 public class CronExpressionValidator implements ConstraintValidator<ValidCronExpression, String> {
+
+  // 简化的 Cron 表达式正则（支持 5-7 个字段）
+  private static final Pattern CRON_PATTERN = Pattern.compile(
+      "^(\\*|([0-9]|[1-5][0-9])(-([0-9]|[1-5][0-9]))?(,([0-9]|[1-5][0-9])(-([0-9]|[1-5][0-9]))?)*(/[0-9]+)?|\\?)" +
+          "(\\s+(\\*|([0-9]|[1-5][0-9])(-([0-9]|[1-5][0-9]))?(,([0-9]|[1-5][0-9])(-([0-9]|[1-5][0-9]))?)*(/[0-9]+)?|\\?)){4,6}$");
 
   @Override
   public boolean isValid(String cronExpression, ConstraintValidatorContext context) {
@@ -19,62 +30,36 @@ public class CronExpressionValidator implements ConstraintValidator<ValidCronExp
       return true;
     }
 
-    // 尝试直接验证 Quartz 格式
-    if (CronExpression.isValidExpression(cronExpression)) {
-      return true;
+    String expression = cronExpression.trim();
+    String[] parts = expression.split("\\s+");
+
+    // Cron 表达式应有 5-7 个字段
+    if (parts.length < 5 || parts.length > 7) {
+      setErrorMessage(context, "定时任务表达式格式不正确");
+      return false;
     }
 
-    // 如果不是 Quartz 格式，尝试转换为 Quartz 格式
-    String convertedExpression = convertToQuartzFormat(cronExpression);
-    if (convertedExpression != null && CronExpression.isValidExpression(convertedExpression)) {
-      return true;
+    // 基本格式验证
+    for (String part : parts) {
+      if (!isValidCronField(part)) {
+        setErrorMessage(context, "定时任务表达式格式不正确");
+        return false;
+      }
     }
 
-    // 验证失败，禁用默认错误信息，设置简洁的错误信息
-    context.disableDefaultConstraintViolation();
-    context.buildConstraintViolationWithTemplate("定时任务表达式格式不正确").addConstraintViolation();
-
-    return false;
+    return true;
   }
 
-  /**
-   * 将 Unix Cron 格式转换为 Quartz Cron 格式 Unix Cron: 分 时 日 月 周 (5个字段) Quartz Cron: 秒 分 时 日 月 周 (6个字段)
-   */
-  private String convertToQuartzFormat(String cronExpression) {
-    if (cronExpression == null || cronExpression.trim().isEmpty()) {
-      return null;
+  private boolean isValidCronField(String field) {
+    if (field == null || field.isEmpty()) {
+      return false;
     }
+    // 允许的字符: 数字、*、?、-、/、,、以及 L、W、#（Quartz 扩展）
+    return field.matches("^[0-9*?\\-/,LW#]+$");
+  }
 
-    String[] parts = cronExpression.trim().split("\\s+");
-
-    // 如果是 5 个字段，转换为 6 个字段的 Quartz 格式
-    if (parts.length == 5) {
-      // Unix格式: 分 时 日 月 周
-      // Quartz格式: 秒 分 时 日 月 周
-      // 需要将周几字段转换为 Quartz 格式
-      String minute = parts[0];
-      String hour = parts[1];
-      String day = parts[2];
-      String month = parts[3];
-      String week = parts[4];
-
-      // 在 Quartz 中，如果指定了周几，日期字段应该用 ?
-      if (!week.equals("*")) {
-        return "0 " + minute + " " + hour + " ? " + month + " " + week;
-      } else {
-        return "0 " + minute + " " + hour + " " + day + " " + month + " ?";
-      }
-    }
-
-    // 如果是 6 个字段但最后一个不是问号，尝试修复
-    if (parts.length == 6) {
-      // 检查是否是 Unix 格式的 6 个字段（周几字段不是问号）
-      if (!parts[5].equals("?")) {
-        // 如果是 6 个字段但格式不对，返回 null
-        return null;
-      }
-    }
-
-    return null;
+  private void setErrorMessage(ConstraintValidatorContext context, String message) {
+    context.disableDefaultConstraintViolation();
+    context.buildConstraintViolationWithTemplate(message).addConstraintViolation();
   }
 }
