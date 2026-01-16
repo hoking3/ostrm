@@ -398,10 +398,12 @@ main() {
             show_status
             ;;
         stop|down)
+            check_dependencies
             $DOCKER_COMPOSE down
             print_success "服务已停止"
             ;;
         restart)
+            check_dependencies
             $DOCKER_COMPOSE restart
             print_success "服务已重启"
             ;;
@@ -414,21 +416,27 @@ main() {
             build_image true
             ;;
         logs)
+            check_dependencies
             show_logs false
             ;;
         logs-f)
+            check_dependencies
             show_logs true
             ;;
         status)
+            check_dependencies
             show_status
             ;;
         exec)
+            check_dependencies
             exec_container $1
             ;;
         clean)
+            check_dependencies
             cleanup false
             ;;
         clean-all)
+            check_dependencies
             cleanup true
             ;;
         backup)

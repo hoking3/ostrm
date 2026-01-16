@@ -6,3 +6,6 @@ docs/.vitepress/cache
 llmdoc/
 .claude/
 tmp/
+strm/
+data/
+logs/
