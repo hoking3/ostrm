@@ -373,18 +373,20 @@ public class StrmFileService {
       log.info("开始清理STRM目录: {}", strmPath);
 
       // 递归删除目录下的所有文件和子目录
-      Files.walk(strmPath)
-          .sorted((path1, path2) -> path2.compareTo(path1)) // 先删除子文件/目录，再删除父目录
-          .filter(path -> !path.equals(strmPath)) // 保留根目录本身
-          .forEach(
-              path -> {
-                try {
-                  Files.delete(path);
-                  log.debug("删除: {}", path);
-                } catch (IOException e) {
-                  log.warn("删除文件/目录失败: {}" + ERROR_SUFFIX + "{}", path, e.getMessage());
-                }
-              });
+      try (java.util.stream.Stream<Path> pathStream = Files.walk(strmPath)) {
+        pathStream
+            .sorted((path1, path2) -> path2.compareTo(path1)) // 先删除子文件/目录，再删除父目录
+            .filter(path -> !path.equals(strmPath)) // 保留根目录本身
+            .forEach(
+                path -> {
+                  try {
+                    Files.delete(path);
+                    log.debug("删除: {}", path);
+                  } catch (IOException e) {
+                    log.warn("删除文件/目录失败: {}" + ERROR_SUFFIX + "{}", path, e.getMessage());
+                  }
+                });
+      }
 
       log.info("STRM目录清理完成: {}", strmPath);
 
@@ -510,14 +512,17 @@ public class StrmFileService {
 
       // 检查是否需要删除电视剧公共文件（当目录中没有其他视频文件时）
       try {
-        boolean hasOtherVideoFiles = Files.list(parentDir)
-            .anyMatch(
-                path -> {
-                  String fileName = path.getFileName().toString().toLowerCase();
-                  return !fileName.equals(strmFileName.toLowerCase())
-                      && (fileName.endsWith(".strm")
-                          || isVideoFileWithDefaultExtensions(fileName));
-                });
+        boolean hasOtherVideoFiles;
+        try (java.util.stream.Stream<Path> stream = Files.list(parentDir)) {
+          hasOtherVideoFiles = stream
+              .anyMatch(
+                  path -> {
+                    String fileName = path.getFileName().toString().toLowerCase();
+                    return !fileName.equals(strmFileName.toLowerCase())
+                        && (fileName.endsWith(".strm")
+                            || isVideoFileWithDefaultExtensions(fileName));
+                  });
+        }
 
         if (!hasOtherVideoFiles) {
           // 删除电视剧公共文件
@@ -580,22 +585,26 @@ public class StrmFileService {
    */
   private void cleanEmptyDirectories(Path rootPath) {
     try {
-      Files.walk(rootPath)
-          .filter(Files::isDirectory)
-          .filter(path -> !path.equals(rootPath)) // 不删除根目录
-          .sorted((path1, path2) -> path2.compareTo(path1)) // 先删除子目录
-          .forEach(
-              dir -> {
-                try {
-                  // 检查目录是否为空
-                  if (Files.list(dir).findAny().isEmpty()) {
-                    Files.delete(dir);
-                    log.debug("删除空目录: {}", dir);
+      try (java.util.stream.Stream<Path> walkStream = Files.walk(rootPath)) {
+        walkStream
+            .filter(Files::isDirectory)
+            .filter(path -> !path.equals(rootPath)) // 不删除根目录
+            .sorted((path1, path2) -> path2.compareTo(path1)) // 先删除子目录
+            .forEach(
+                dir -> {
+                  try {
+                    // 检查目录是否为空
+                    try (java.util.stream.Stream<Path> listStream = Files.list(dir)) {
+                      if (listStream.findAny().isEmpty()) {
+                        Files.delete(dir);
+                        log.debug("删除空目录: {}", dir);
+                      }
+                    }
+                  } catch (IOException e) {
+                    log.debug("检查或删除目录失败: {}, 错误: {}", dir, e.getMessage());
                   }
-                } catch (IOException e) {
-                  log.debug("检查或删除目录失败: {}, 错误: {}", dir, e.getMessage());
-                }
-              });
+                });
+      }
     } catch (IOException e) {
       log.warn("清理空目录失败: {}, 错误: {}", rootPath, e.getMessage());
     }
@@ -607,8 +616,8 @@ public class StrmFileService {
    * @param directory 目录路径
    */
   private void cleanExtraScrapingFiles(Path directory) {
-    try {
-      Files.list(directory)
+    try (java.util.stream.Stream<Path> stream = Files.list(directory)) {
+      stream
           .filter(Files::isRegularFile)
           .filter(
               path -> {
@@ -645,8 +654,8 @@ public class StrmFileService {
    * @return 是否为空
    */
   private boolean isDirectoryEmpty(Path directory) {
-    try {
-      return Files.list(directory).findAny().isEmpty();
+    try (java.util.stream.Stream<Path> stream = Files.list(directory)) {
+      return stream.findAny().isEmpty();
     } catch (IOException e) {
       log.warn("检查目录是否为空失败: {}, 错误: {}", directory, e.getMessage());
       return false;
@@ -684,10 +693,16 @@ public class StrmFileService {
       }
 
       // 检查目录中是否还有STRM文件或子目录
-      boolean hasStrmFiles = Files.list(directoryPath)
-          .anyMatch(path -> path.toString().toLowerCase().endsWith(".strm"));
+      boolean hasStrmFiles;
+      try (java.util.stream.Stream<Path> stream = Files.list(directoryPath)) {
+        hasStrmFiles = stream
+            .anyMatch(path -> path.toString().toLowerCase().endsWith(".strm"));
+      }
 
-      boolean hasSubDirectories = Files.list(directoryPath).anyMatch(Files::isDirectory);
+      boolean hasSubDirectories;
+      try (java.util.stream.Stream<Path> stream = Files.list(directoryPath)) {
+        hasSubDirectories = stream.anyMatch(Files::isDirectory);
+      }
 
       if (hasStrmFiles) {
         log.debug("目录 {} 包含STRM文件，不应删除", directoryPath);
@@ -753,8 +768,9 @@ public class StrmFileService {
       }
 
       // 清理目录中的孤立STRM文件
-      Files.list(directoryPath)
-          .filter(Files::isRegularFile)
+      try (java.util.stream.Stream<Path> stream = Files.list(directoryPath)) {
+        stream
+            .filter(Files::isRegularFile)
           .filter(path -> path.toString().toLowerCase().endsWith(".strm"))
           .forEach(
               strmFile -> {
@@ -779,6 +795,7 @@ public class StrmFileService {
                   }
                 }
               });
+      }
 
       // 检查目录是否需要删除（内部无STRM文件）
       boolean shouldDelete = shouldDeleteDirectory(directoryPath);
@@ -792,7 +809,10 @@ public class StrmFileService {
       } else if (shouldDelete) {
         try {
           // 再次确认目录内容
-          List<Path> remainingFiles = Files.list(directoryPath).collect(java.util.stream.Collectors.toList());
+          List<Path> remainingFiles;
+          try (java.util.stream.Stream<Path> stream = Files.list(directoryPath)) {
+            remainingFiles = stream.collect(java.util.stream.Collectors.toList());
+          }
 
           if (remainingFiles.isEmpty()) {
             // 删除空目录
@@ -950,10 +970,13 @@ public class StrmFileService {
       log.debug("验证并清理目录: {} -> OpenList路径: {}", strmDirectoryPath, openlistRelativePath);
 
       // 获取当前STRM目录下的所有子目录
-      List<Path> subDirectories = Files.list(strmDirectoryPath)
-          .filter(Files::isDirectory)
-          .sorted()
-          .collect(java.util.stream.Collectors.toList());
+      List<Path> subDirectories;
+      try (java.util.stream.Stream<Path> stream = Files.list(strmDirectoryPath)) {
+        subDirectories = stream
+            .filter(Files::isDirectory)
+            .sorted()
+            .collect(java.util.stream.Collectors.toList());
+      }
 
       // 深度优先：先处理所有子目录
       for (Path subDir : subDirectories) {
