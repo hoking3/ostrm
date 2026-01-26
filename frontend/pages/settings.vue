@@ -174,42 +174,6 @@
 
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="flex items-center p-4 bg-gray-50 rounded-xl">
-                  <input
-                    id="generateNfo"
-                    v-model="scrapingConfig.generateNfo"
-                    type="checkbox"
-                    class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label for="generateNfo" class="ml-3 block text-sm font-semibold text-gray-900">
-                    生成 NFO 文件
-                  </label>
-                </div>
-
-                <div class="flex items-center p-4 bg-gray-50 rounded-xl">
-                  <input
-                    id="downloadPoster"
-                    v-model="scrapingConfig.downloadPoster"
-                    type="checkbox"
-                    class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label for="downloadPoster" class="ml-3 block text-sm font-semibold text-gray-900">
-                    下载海报图片
-                  </label>
-                </div>
-
-                <div class="flex items-center p-4 bg-gray-50 rounded-xl">
-                  <input
-                    id="downloadBackdrop"
-                    v-model="scrapingConfig.downloadBackdrop"
-                    type="checkbox"
-                    class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label for="downloadBackdrop" class="ml-3 block text-sm font-semibold text-gray-900">
-                    下载背景图片
-                  </label>
-                </div>
-
-                <div class="flex items-center p-4 bg-gray-50 rounded-xl">
                    <input
                      id="keepSubtitleFiles"
                      v-model="scrapingConfig.keepSubtitleFiles"
@@ -236,21 +200,6 @@
                        优先使用已存在的刮削信息
                      </label>
                      <p class="text-xs text-gray-500 mt-1">无论是否启用刮削功能，都会尝试复制媒体文件同级目录的NFO文件和刮削图片，复制成功后跳过后续处理</p>
-                   </div>
-                 </div>
-
-                <div class="flex items-center p-4 bg-gray-50 rounded-xl">
-                   <input
-                     id="overwriteExisting"
-                     v-model="scrapingConfig.overwriteExisting"
-                     type="checkbox"
-                     class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                   />
-                   <div class="ml-3">
-                     <label for="overwriteExisting" class="block text-sm font-semibold text-gray-900">
-                        覆盖已存在的刮削内容
-                      </label>
-                     <p class="text-xs text-gray-500 mt-1">当NFO文件和图片已存在时，是否覆盖重新下载</p>
                    </div>
                  </div>
               </div>
@@ -538,12 +487,8 @@ const tmdbConfig = ref({
 })
 const scrapingConfig = ref({
   enabled: true,
-  generateNfo: true,
-  downloadPoster: true,
-  downloadBackdrop: false,
   keepSubtitleFiles: false,
-  useExistingScrapingInfo: false,
-  overwriteExisting: false
+  useExistingScrapingInfo: false
 })
 const aiConfig = ref({
   enabled: false,
@@ -607,9 +552,6 @@ const loadCurrentSettings = async () => {
       if (config.scraping && typeof config.scraping === 'object') {
         scrapingConfig.value = {
           enabled: config.scraping.enabled !== false,
-          generateNfo: config.scraping.generateNfo !== false,
-          downloadPoster: config.scraping.downloadPoster !== false,
-          downloadBackdrop: config.scraping.downloadBackdrop === true,
           keepSubtitleFiles: config.scraping.keepSubtitleFiles === true,
           useExistingScrapingInfo: config.scraping.useExistingScrapingInfo === true
         }
@@ -676,12 +618,8 @@ const saveSettings = async () => {
       },
       scraping: {
         enabled: scrapingConfig.value.enabled,
-        generateNfo: scrapingConfig.value.generateNfo,
-        downloadPoster: scrapingConfig.value.downloadPoster,
-        downloadBackdrop: scrapingConfig.value.downloadBackdrop,
         keepSubtitleFiles: scrapingConfig.value.keepSubtitleFiles,
-        useExistingScrapingInfo: scrapingConfig.value.useExistingScrapingInfo,
-        overwriteExisting: scrapingConfig.value.overwriteExisting
+        useExistingScrapingInfo: scrapingConfig.value.useExistingScrapingInfo
       },
       ai: {
         enabled: aiConfig.value.enabled,

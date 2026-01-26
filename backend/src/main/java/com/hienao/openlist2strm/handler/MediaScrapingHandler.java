@@ -228,13 +228,9 @@ public class MediaScrapingHandler implements FileProcessorHandler {
   private void scrapMovieWithDetail(MediaInfo mediaInfo, String saveDirectory,
       String baseFileName, TmdbMovieDetail movieDetail) {
 
-    Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-    boolean generateNfo = (Boolean) scrapingConfig.getOrDefault("generateNfo", true);
-
-    if (generateNfo) {
-      String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
-      nfoGeneratorService.generateMovieNfo(movieDetail, mediaInfo, nfoFilePath);
-    }
+    // 生成NFO文件（始终执行）
+    String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
+    nfoGeneratorService.generateMovieNfo(movieDetail, mediaInfo, nfoFilePath);
 
     // 下载图片
     String posterUrl = tmdbApiService.buildPosterUrl(movieDetail.getPosterPath());
@@ -279,13 +275,9 @@ public class MediaScrapingHandler implements FileProcessorHandler {
   private void scrapTvShowWithDetail(MediaInfo mediaInfo, String saveDirectory,
       String baseFileName, TmdbTvDetail tvDetail) {
 
-    Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-    boolean generateNfo = (Boolean) scrapingConfig.getOrDefault("generateNfo", true);
-
-    if (generateNfo) {
-      String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
-      nfoGeneratorService.generateTvShowNfo(tvDetail, mediaInfo, nfoFilePath);
-    }
+    // 生成NFO文件（始终执行）
+    String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
+    nfoGeneratorService.generateTvShowNfo(tvDetail, mediaInfo, nfoFilePath);
 
     // 下载图片
     String posterUrl = tmdbApiService.buildPosterUrl(tvDetail.getPosterPath());

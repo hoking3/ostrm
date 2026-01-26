@@ -4,6 +4,7 @@ import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
 import com.hienao.openlist2strm.service.OpenlistApiService;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -260,8 +261,12 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
     // 删除 NFO 文件
     Path nfoFile = parentDir.resolve(baseName + ".nfo");
     if (Files.exists(nfoFile)) {
-      Files.delete(nfoFile);
-      nfoCount.incrementAndGet();
+      try {
+        Files.delete(nfoFile);
+        nfoCount.incrementAndGet();
+      } catch (IOException e) {
+        log.warn("删除NFO文件失败: {}", nfoFile, e);
+      }
     }
 
     // 删除图片文件
@@ -269,8 +274,12 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
     for (String ext : imageExtensions) {
       Path imageFile = parentDir.resolve(baseName + ext);
       if (Files.exists(imageFile)) {
-        Files.delete(imageFile);
-        imageCount.incrementAndGet();
+        try {
+          Files.delete(imageFile);
+          imageCount.incrementAndGet();
+        } catch (IOException e) {
+          log.warn("删除图片文件失败: {}", imageFile, e);
+        }
       }
     }
 
@@ -279,8 +288,12 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
     for (String ext : subtitleExtensions) {
       Path subtitleFile = parentDir.resolve(baseName + ext);
       if (Files.exists(subtitleFile)) {
-        Files.delete(subtitleFile);
-        subtitleCount.incrementAndGet();
+        try {
+          Files.delete(subtitleFile);
+          subtitleCount.incrementAndGet();
+        } catch (IOException e) {
+          log.warn("删除字幕文件失败: {}", subtitleFile, e);
+        }
       }
     }
 

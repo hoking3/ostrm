@@ -125,17 +125,9 @@ public class CoverImageService {
       Files.createDirectories(parentDir);
     }
 
-    // 检查同名文件是否已存在
+    // 文件存在时直接覆盖（始终覆盖）
     if (Files.exists(savePath)) {
-      Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-      boolean overwriteExisting = (Boolean) scrapingConfig.getOrDefault("overwriteExisting", false);
-
-      if (!overwriteExisting) {
-        log.info("检测到同名图片文件已存在，跳过下载: {}", saveFilePath);
-        return;
-      } else {
-        log.info("同名图片文件已存在，但允许覆盖，继续下载: {}", saveFilePath);
-      }
+      log.debug("图片文件已存在，覆盖下载: {}", saveFilePath);
     }
 
     try {
@@ -209,32 +201,6 @@ public class CoverImageService {
   }
 
   /**
-   * 检查图片是否需要下载
-   *
-   * @param imageUrl 图片URL
-   * @param saveFilePath 保存文件路径
-   * @return 是否需要下载
-   */
-  private boolean shouldDownloadImage(String imageUrl, String saveFilePath) {
-    if (imageUrl == null || imageUrl.trim().isEmpty()) {
-      return false;
-    }
-
-    Path savePath = Paths.get(saveFilePath);
-
-    // 如果文件不存在，需要下载
-    if (!Files.exists(savePath)) {
-      return true;
-    }
-
-    // 检查配置是否允许覆盖
-    Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-    boolean overwriteExisting = (Boolean) scrapingConfig.getOrDefault("overwriteExisting", false);
-
-    return overwriteExisting;
-  }
-
-  /**
    * 批量下载图片
    *
    * @param posterUrl 海报URL
@@ -244,17 +210,13 @@ public class CoverImageService {
    */
   public void downloadImages(
       String posterUrl, String backdropUrl, String saveDirectory, String fileName) {
-    Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-    boolean downloadPoster = (Boolean) scrapingConfig.getOrDefault("downloadPoster", true);
-    boolean downloadBackdrop = (Boolean) scrapingConfig.getOrDefault("downloadBackdrop", false);
-
-    // 下载海报
-    if (downloadPoster && posterUrl != null && !posterUrl.trim().isEmpty()) {
+    // 下载海报（始终执行）
+    if (posterUrl != null && !posterUrl.trim().isEmpty()) {
       downloadPoster(posterUrl, saveDirectory, fileName);
     }
 
-    // 下载背景图片
-    if (downloadBackdrop && backdropUrl != null && !backdropUrl.trim().isEmpty()) {
+    // 下载背景图片（始终执行）
+    if (backdropUrl != null && !backdropUrl.trim().isEmpty()) {
       downloadBackdrop(backdropUrl, saveDirectory, fileName);
     }
   }

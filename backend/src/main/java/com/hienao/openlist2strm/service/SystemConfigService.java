@@ -194,13 +194,9 @@ public class SystemConfigService {
     // 刮削配置
     Map<String, Object> scrapConfig = new HashMap<>();
     scrapConfig.put("enabled", true); // 是否启用刮削功能
-    scrapConfig.put("generateNfo", true); // 是否生成NFO文件
-    scrapConfig.put("downloadPoster", true); // 是否下载海报
-    scrapConfig.put("downloadBackdrop", false); // 是否下载背景图
     scrapConfig.put("nfoFormat", "kodi"); // NFO格式：kodi, jellyfin, emby
     scrapConfig.put("keepSubtitleFiles", false); // 是否保留字幕文件
     scrapConfig.put("useExistingScrapingInfo", false); // 是否优先使用已存在的刮削信息
-    scrapConfig.put("overwriteExisting", false); // 是否覆盖已存在的NFO和图片文件
     defaultConfig.put("scraping", scrapConfig);
 
     // AI 识别配置
@@ -403,5 +399,16 @@ public class SystemConfigService {
       log.error("创建配置目录失败: {}", getConfigDirectoryPath(), e);
       throw new RuntimeException("创建配置目录失败", e);
     }
+  }
+
+  /**
+   * 获取功能开关配置
+   *
+   * @return 功能开关配置Map
+   */
+  @SuppressWarnings("unchecked")
+  public Map<String, Object> getFeatureFlags() {
+    Map<String, Object> systemConfig = getSystemConfig();
+    return (Map<String, Object>) systemConfig.getOrDefault("featureFlags", new HashMap<>());
   }
 }

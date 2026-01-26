@@ -54,10 +54,6 @@ public class TaskExecutionService {
   private final FileProcessorChain fileProcessorChain;
   private final Executor taskSubmitExecutor;
 
-  // 特性开关：是否使用新的 Handler 链处理方式
-  private static final String FEATURE_FLAG_USE_HANDLER_CHAIN = "useHandlerChain";
-  private static final boolean DEFAULT_USE_HANDLER_CHAIN = false; // 默认使用原有实现
-
   /**
    * 提交任务到线程池执行
    *
@@ -203,16 +199,9 @@ public class TaskExecutionService {
       // 1. 获取OpenList配置
       OpenlistConfig openlistConfig = getOpenlistConfig(taskConfig);
 
-      // 2. 检查是否使用新的 Handler 链处理方式
-      if (isUseHandlerChainEnabled()) {
-        log.info("使用 Handler 链处理方式执行任务");
-        executeTaskWithHandlerChain(taskConfig, openlistConfig, isIncrement);
-        return;
-      }
-
-      // 3. 使用原有的处理方式（Legacy 模式）
-      log.info("使用原有的处理方式执行任务");
-      executeTaskWithLegacyMode(taskConfig, openlistConfig, isIncrement);
+      // 2. 使用 Handler 链处理方式执行任务
+      log.info("使用 Handler 链处理方式执行任务");
+      executeTaskWithHandlerChain(taskConfig, openlistConfig, isIncrement);
 
     } catch (Exception e) {
       log.error("任务执行失败: {}, 错误: {}", taskConfig.getTaskName(), e.getMessage(), e);
@@ -351,138 +340,6 @@ public class TaskExecutionService {
       return fileName.substring(0, lastDotIndex);
     }
     return fileName;
-  }
-
-  /**
-   * 使用原有方式执行任务（Legacy 模式）
-   */
-  private void executeTaskWithLegacyMode(TaskConfig taskConfig, OpenlistConfig openlistConfig, boolean isIncrement) {
-    // 原有实现保持不变...
-
-      // 2. 如果是全量执行，先清空STRM目录
-      if (!isIncrement) {
-        log.info("全量执行模式，开始清理STRM目录: {}", taskConfig.getStrmPath());
-        strmFileService.clearStrmDirectory(taskConfig.getStrmPath());
-      }
-
-      // 3. 使用内存优化的文件处理方式
-      log.info("开始处理文件，使用内存优化策略");
-
-      // 如果启用了刮削功能，先进行目录级别的优化检查
-      boolean needScrap = Boolean.TRUE.equals(taskConfig.getNeedScrap());
-
-      // 使用分批处理减少内存占用
-      List<OpenlistApiService.OpenlistFile> allFiles = processFilesWithMemoryOptimization(openlistConfig, taskConfig,
-          isIncrement, needScrap);
-
-      log.info("处理完成，共处理 {} 个文件/目录", allFiles.size());
-
-      // 4. 过滤并处理视频文件
-      int processedCount = 0;
-      int scrapSkippedCount = 0;
-
-      for (OpenlistApiService.OpenlistFile file : allFiles) {
-        if ("file".equals(file.getType()) && strmFileService.isVideoFile(file.getName())) {
-          try {
-            // 计算相对路径
-            String relativePath = strmFileService.calculateRelativePath(taskConfig.getPath(), file.getPath());
-
-            // 构建包含sign参数的文件URL
-            String fileUrlWithSign = buildFileUrlWithSign(file.getUrl(), file.getSign());
-
-            // 生成STRM文件（增量模式下强制重新生成）
-            strmFileService.generateStrmFile(
-                taskConfig.getStrmPath(),
-                relativePath,
-                file.getName(),
-                fileUrlWithSign,
-                isIncrement, // 增量模式下强制重新生成
-                taskConfig.getRenameRegex(),
-                openlistConfig);
-
-            // 如果启用了刮削功能，执行媒体刮削
-            if (needScrap) {
-              try {
-                // 构建完整的保存目录路径
-                String saveDirectory = buildScrapSaveDirectory(taskConfig.getStrmPath(), relativePath);
-
-                // 检查是否需要刮削（在增量模式下检查NFO文件是否已存在）
-                boolean needScrapFile = needScrapFile(
-                    file.getName(),
-                    taskConfig.getRenameRegex(),
-                    taskConfig.getStrmPath(),
-                    relativePath,
-                    isIncrement);
-
-                if (needScrapFile) {
-                  // 检查目录是否已完全刮削（仅在增量模式下进行目录级别检查）
-                  if (isIncrement && mediaScrapingService.isDirectoryFullyScraped(saveDirectory)) {
-                    log.debug("目录已完全刮削，跳过: {}", saveDirectory);
-                    scrapSkippedCount++;
-                  } else {
-                    // 过滤出当前视频文件所在目录的文件
-                    String currentDirectory = file.getPath().substring(0, file.getPath().lastIndexOf('/') + 1);
-                    List<OpenlistApiService.OpenlistFile> currentDirFiles = allFiles.stream()
-                        .filter(
-                            f -> f.getPath().startsWith(currentDirectory)
-                                && f.getPath()
-                                    .substring(currentDirectory.length())
-                                    .indexOf('/') == -1)
-                        .collect(java.util.stream.Collectors.toList());
-
-                    mediaScrapingService.scrapMedia(
-                        openlistConfig,
-                        file.getName(),
-                        taskConfig.getStrmPath(),
-                        relativePath,
-                        currentDirFiles,
-                        file.getPath());
-                  }
-                } else {
-                  log.debug("NFO文件已存在，跳过刮削: {}", file.getName());
-                  scrapSkippedCount++;
-                }
-              } catch (Exception scrapException) {
-                log.error(
-                    "刮削文件失败: {}, 错误: {}",
-                    file.getName(),
-                    scrapException.getMessage(),
-                    scrapException);
-                // 刮削失败不影响STRM文件生成，继续处理
-              }
-            }
-
-            processedCount++;
-
-          } catch (Exception e) {
-            log.error("处理文件失败: {}, 错误: {}", file.getName(), e.getMessage(), e);
-            // 继续处理其他文件，不中断整个任务
-          }
-        }
-      }
-
-      if (needScrap && scrapSkippedCount > 0) {
-        log.info("跳过了 {} 个已刮削目录中的文件", scrapSkippedCount);
-      }
-
-      // 5. 如果是增量执行，清理孤立的STRM文件（源文件已不存在的STRM文件）
-      if (isIncrement) {
-        log.info("增量执行模式，开始清理孤立的STRM文件");
-        int cleanedCount = strmFileService.cleanOrphanedStrmFiles(
-            taskConfig.getStrmPath(),
-            allFiles,
-            taskConfig.getPath(),
-            taskConfig.getRenameRegex(),
-            openlistConfig);
-        log.info("清理了 {} 个孤立的STRM文件", cleanedCount);
-      }
-
-      log.info("任务执行完成: {}, 处理了 {} 个视频文件", taskConfig.getTaskName(), processedCount);
-
-    } catch (Exception e) {
-      log.error("任务执行失败: {}, 错误: {}", taskConfig.getTaskName(), e.getMessage(), e);
-      throw new BusinessException("任务执行失败: " + e.getMessage(), e);
-    }
   }
 
   /**
@@ -826,26 +683,6 @@ public class TaskExecutionService {
     } catch (Exception e) {
       log.warn("检查NFO文件是否存在时发生错误: {}, 默认进行刮削", e.getMessage());
       return true;
-    }
-  }
-
-  /**
-   * 检查是否启用了 Handler 链处理方式
-   *
-   * @return 是否启用 Handler 链
-   */
-  private boolean isUseHandlerChainEnabled() {
-    try {
-      // 从系统配置中获取特性开关
-      Map<String, Object> featureFlags = systemConfigService.getFeatureFlags();
-      if (featureFlags != null && featureFlags.containsKey(FEATURE_FLAG_USE_HANDLER_CHAIN)) {
-        return Boolean.TRUE.equals(featureFlags.get(FEATURE_FLAG_USE_HANDLER_CHAIN));
-      }
-      // 如果配置中没有设置，返回默认值
-      return DEFAULT_USE_HANDLER_CHAIN;
-    } catch (Exception e) {
-      log.warn("获取特性开关配置失败，使用默认值: {}", e.getMessage());
-      return DEFAULT_USE_HANDLER_CHAIN;
     }
   }
 

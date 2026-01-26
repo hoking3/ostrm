@@ -316,14 +316,9 @@ public class MediaScrapingService {
     try {
       log.info("使用直接获取的电影信息进行刮削: {} ({})", movieDetail.getTitle(), movieDetail.getId());
 
-      // 生成NFO文件
-      Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-      boolean generateNfo = (Boolean) scrapingConfig.getOrDefault("generateNfo", true);
-
-      if (generateNfo) {
-        String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
-        nfoGeneratorService.generateMovieNfo(movieDetail, mediaInfo, nfoFilePath);
-      }
+      // 生成NFO文件（始终执行）
+      String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
+      nfoGeneratorService.generateMovieNfo(movieDetail, mediaInfo, nfoFilePath);
 
       // 下载图片
       String posterUrl = tmdbApiService.buildPosterUrl(movieDetail.getPosterPath());
@@ -343,14 +338,9 @@ public class MediaScrapingService {
     try {
       log.info("使用直接获取的电视剧信息进行刮削: {} ({})", tvDetail.getName(), tvDetail.getId());
 
-      // 生成NFO文件
-      Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-      boolean generateNfo = (Boolean) scrapingConfig.getOrDefault("generateNfo", true);
-
-      if (generateNfo) {
-        String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
-        nfoGeneratorService.generateTvShowNfo(tvDetail, mediaInfo, nfoFilePath);
-      }
+      // 生成NFO文件（始终执行）
+      String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
+      nfoGeneratorService.generateTvShowNfo(tvDetail, mediaInfo, nfoFilePath);
 
       // 下载图片
       String posterUrl = tmdbApiService.buildPosterUrl(tvDetail.getPosterPath());
@@ -394,14 +384,9 @@ public class MediaScrapingService {
       TmdbMovieDetail movieDetail = tmdbApiService.getMovieDetail(bestMatch.getId());
       log.info("找到匹配电影: {} ({})", movieDetail.getTitle(), movieDetail.getId());
 
-      // 生成NFO文件
-      Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-      boolean generateNfo = (Boolean) scrapingConfig.getOrDefault("generateNfo", true);
-
-      if (generateNfo) {
-        String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
-        nfoGeneratorService.generateMovieNfo(movieDetail, mediaInfo, nfoFilePath);
-      }
+      // 生成NFO文件（始终执行）
+      String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
+      nfoGeneratorService.generateMovieNfo(movieDetail, mediaInfo, nfoFilePath);
 
       // 下载图片
       String posterUrl = tmdbApiService.buildPosterUrl(movieDetail.getPosterPath());
@@ -443,14 +428,9 @@ public class MediaScrapingService {
       TmdbTvDetail tvDetail = tmdbApiService.getTvDetail(bestMatch.getId());
       log.info("找到匹配电视剧: {} ({})", tvDetail.getName(), tvDetail.getId());
 
-      // 生成NFO文件
-      Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-      boolean generateNfo = (Boolean) scrapingConfig.getOrDefault("generateNfo", true);
-
-      if (generateNfo) {
-        String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
-        nfoGeneratorService.generateTvShowNfo(tvDetail, mediaInfo, nfoFilePath);
-      }
+      // 生成NFO文件（始终执行）
+      String nfoFilePath = Paths.get(saveDirectory, baseFileName + ".nfo").toString();
+      nfoGeneratorService.generateTvShowNfo(tvDetail, mediaInfo, nfoFilePath);
 
       // 下载图片
       String posterUrl = tmdbApiService.buildPosterUrl(tvDetail.getPosterPath());
@@ -584,11 +564,6 @@ public class MediaScrapingService {
    */
   private boolean isAlreadyScraped(String saveDirectory, String baseFileName, MediaInfo mediaInfo) {
     try {
-      Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-      boolean generateNfo = (Boolean) scrapingConfig.getOrDefault("generateNfo", true);
-      boolean downloadPoster = (Boolean) scrapingConfig.getOrDefault("downloadPoster", true);
-      boolean downloadBackdrop = (Boolean) scrapingConfig.getOrDefault("downloadBackdrop", false);
-
       // 确保保存目录存在
       File saveDir = new File(saveDirectory);
       if (!saveDir.exists()) {
@@ -598,11 +573,9 @@ public class MediaScrapingService {
 
       // 检查单个文件的刮削文件
       if (mediaInfo.isMovie()) {
-        return isMovieScraped(
-            saveDirectory, baseFileName, generateNfo, downloadPoster, downloadBackdrop);
+        return isMovieScraped(saveDirectory, baseFileName);
       } else if (mediaInfo.isTvShow()) {
-        return isTvShowEpisodeScraped(
-            saveDirectory, baseFileName, generateNfo, downloadPoster, downloadBackdrop);
+        return isTvShowEpisodeScraped(saveDirectory, baseFileName);
       }
 
       return false;
@@ -614,44 +587,32 @@ public class MediaScrapingService {
   }
 
   /** 检查电影是否已刮削 */
-  private boolean isMovieScraped(
-      String saveDirectory,
-      String baseFileName,
-      boolean generateNfo,
-      boolean downloadPoster,
-      boolean downloadBackdrop) {
+  private boolean isMovieScraped(String saveDirectory, String baseFileName) {
     // 检查 NFO 文件 - 如果目录中存在任何NFO文件就视为已刮削
-    if (generateNfo) {
-      File saveDir = new File(saveDirectory);
-      if (saveDir.exists() && saveDir.isDirectory()) {
-        File[] nfoFiles = saveDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".nfo"));
-        if (nfoFiles == null || nfoFiles.length == 0) {
-          log.debug("目录中没有NFO文件，需要刮削: {}", saveDirectory);
-          return false;
-        }
-        log.debug("目录中存在NFO文件，视为已刮削: {}", saveDirectory);
-      } else {
-        log.debug("保存目录不存在，需要刮削: {}", saveDirectory);
+    File saveDir = new File(saveDirectory);
+    if (saveDir.exists() && saveDir.isDirectory()) {
+      File[] nfoFiles = saveDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".nfo"));
+      if (nfoFiles == null || nfoFiles.length == 0) {
+        log.debug("目录中没有NFO文件，需要刮削: {}", saveDirectory);
         return false;
       }
+    } else {
+      log.debug("保存目录不存在，需要刮削: {}", saveDirectory);
+      return false;
     }
 
     // 检查海报文件
-    if (downloadPoster) {
-      String posterPath = saveDirectory + "/" + baseFileName + "-poster.jpg";
-      if (!new File(posterPath).exists()) {
-        log.debug("电影海报文件不存在，需要刮削: {}", posterPath);
-        return false;
-      }
+    String posterPath = saveDirectory + "/" + baseFileName + "-poster.jpg";
+    if (!new File(posterPath).exists()) {
+      log.debug("电影海报文件不存在，需要刮削: {}", posterPath);
+      return false;
     }
 
     // 检查背景图文件
-    if (downloadBackdrop) {
-      String backdropPath = saveDirectory + "/" + baseFileName + "-fanart.jpg";
-      if (!new File(backdropPath).exists()) {
-        log.debug("电影背景图文件不存在，需要刮削: {}", backdropPath);
-        return false;
-      }
+    String backdropPath = saveDirectory + "/" + baseFileName + "-fanart.jpg";
+    if (!new File(backdropPath).exists()) {
+      log.debug("电影背景图文件不存在，需要刮削: {}", backdropPath);
+      return false;
     }
 
     log.debug("电影所有刮削文件都已存在，跳过刮削: {}", baseFileName);
@@ -659,52 +620,38 @@ public class MediaScrapingService {
   }
 
   /** 检查电视剧集是否已刮削 */
-  private boolean isTvShowEpisodeScraped(
-      String saveDirectory,
-      String baseFileName,
-      boolean generateNfo,
-      boolean downloadPoster,
-      boolean downloadBackdrop) {
+  private boolean isTvShowEpisodeScraped(String saveDirectory, String baseFileName) {
     // 检查NFO文件 - 如果目录中存在任何NFO文件就视为已刮削
-    if (generateNfo) {
-      File saveDir = new File(saveDirectory);
-      if (saveDir.exists() && saveDir.isDirectory()) {
-        File[] nfoFiles = saveDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".nfo"));
-        if (nfoFiles == null || nfoFiles.length == 0) {
-          log.debug("目录中没有NFO文件，需要刮削: {}", saveDirectory);
-          return false;
-        }
-        log.debug("目录中存在NFO文件，视为已刮削: {}", saveDirectory);
-      } else {
-        log.debug("保存目录不存在，需要刮削: {}", saveDirectory);
+    File saveDir = new File(saveDirectory);
+    if (saveDir.exists() && saveDir.isDirectory()) {
+      File[] nfoFiles = saveDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".nfo"));
+      if (nfoFiles == null || nfoFiles.length == 0) {
+        log.debug("目录中没有NFO文件，需要刮削: {}", saveDirectory);
         return false;
       }
+    } else {
+      log.debug("保存目录不存在，需要刮削: {}", saveDirectory);
+      return false;
     }
 
-    // 检查剧集海报文件
-    if (downloadPoster) {
-      String episodePosterPath = saveDirectory + "/" + baseFileName + "-thumb.jpg";
-      if (!new File(episodePosterPath).exists()) {
-        log.debug("剧集海报文件不存在，需要刮削: {}", episodePosterPath);
-        return false;
-      }
+    // 检查剧集缩略图文件
+    String episodeThumbPath = saveDirectory + "/" + baseFileName + "-thumb.jpg";
+    if (!new File(episodeThumbPath).exists()) {
+      log.debug("剧集缩略图文件不存在，需要刮削: {}", episodeThumbPath);
+      return false;
     }
 
     // 检查电视剧海报和背景图（在剧集目录的父目录或当前目录）
-    if (downloadPoster) {
-      String tvShowPosterPath = saveDirectory + "/poster.jpg";
-      if (!new File(tvShowPosterPath).exists()) {
-        log.debug("电视剧海报文件不存在，需要刮削: {}", tvShowPosterPath);
-        return false;
-      }
+    String tvShowPosterPath = saveDirectory + "/poster.jpg";
+    if (!new File(tvShowPosterPath).exists()) {
+      log.debug("电视剧海报文件不存在，需要刮削: {}", tvShowPosterPath);
+      return false;
     }
 
-    if (downloadBackdrop) {
-      String tvShowBackdropPath = saveDirectory + "/fanart.jpg";
-      if (!new File(tvShowBackdropPath).exists()) {
-        log.debug("电视剧背景图文件不存在，需要刮削: {}", tvShowBackdropPath);
-        return false;
-      }
+    String tvShowBackdropPath = saveDirectory + "/fanart.jpg";
+    if (!new File(tvShowBackdropPath).exists()) {
+      log.debug("电视剧背景图文件不存在，需要刮削: {}", tvShowBackdropPath);
+      return false;
     }
 
     log.debug("电视剧集所有刮削文件都已存在，跳过刮削: {}", baseFileName);
