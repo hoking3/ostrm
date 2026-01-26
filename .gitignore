@@ -9,3 +9,5 @@ tmp/
 strm/
 data/
 logs/
+.vscode/
+.agent/
