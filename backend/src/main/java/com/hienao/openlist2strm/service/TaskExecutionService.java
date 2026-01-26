@@ -21,11 +21,14 @@ package com.hienao.openlist2strm.service;
 import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.entity.TaskConfig;
 import com.hienao.openlist2strm.exception.BusinessException;
+import com.hienao.openlist2strm.handler.FileProcessorChain;
+import com.hienao.openlist2strm.handler.context.FileProcessingContext;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -47,7 +50,13 @@ public class TaskExecutionService {
   private final OpenlistApiService openlistApiService;
   private final StrmFileService strmFileService;
   private final MediaScrapingService mediaScrapingService;
+  private final SystemConfigService systemConfigService;
+  private final FileProcessorChain fileProcessorChain;
   private final Executor taskSubmitExecutor;
+
+  // 特性开关：是否使用新的 Handler 链处理方式
+  private static final String FEATURE_FLAG_USE_HANDLER_CHAIN = "useHandlerChain";
+  private static final boolean DEFAULT_USE_HANDLER_CHAIN = false; // 默认使用原有实现
 
   /**
    * 提交任务到线程池执行
@@ -193,6 +202,162 @@ public class TaskExecutionService {
     try {
       // 1. 获取OpenList配置
       OpenlistConfig openlistConfig = getOpenlistConfig(taskConfig);
+
+      // 2. 检查是否使用新的 Handler 链处理方式
+      if (isUseHandlerChainEnabled()) {
+        log.info("使用 Handler 链处理方式执行任务");
+        executeTaskWithHandlerChain(taskConfig, openlistConfig, isIncrement);
+        return;
+      }
+
+      // 3. 使用原有的处理方式（Legacy 模式）
+      log.info("使用原有的处理方式执行任务");
+      executeTaskWithLegacyMode(taskConfig, openlistConfig, isIncrement);
+
+    } catch (Exception e) {
+      log.error("任务执行失败: {}, 错误: {}", taskConfig.getTaskName(), e.getMessage(), e);
+      throw new BusinessException("任务执行失败: " + e.getMessage(), e);
+    }
+  }
+
+  /**
+   * 使用 Handler 链执行任务（新方式）
+   */
+  private void executeTaskWithHandlerChain(
+      TaskConfig taskConfig,
+      OpenlistConfig openlistConfig,
+      boolean isIncrement) {
+
+    // 1. 如果是全量执行，先清空STRM目录
+    if (!isIncrement) {
+      log.info("全量执行模式，开始清理STRM目录: {}", taskConfig.getStrmPath());
+      strmFileService.clearStrmDirectory(taskConfig.getStrmPath());
+    }
+
+    // 2. 创建处理上下文
+    FileProcessingContext context = FileProcessingContext.builder()
+        .openlistConfig(openlistConfig)
+        .taskConfig(taskConfig)
+        .build();
+
+    // 3. 获取目录文件列表
+    List<OpenlistApiService.OpenlistFile> allFiles = openlistApiService.getAllFilesRecursively(
+        openlistConfig, taskConfig.getPath());
+    context.setAttribute("discoveredFiles", allFiles);
+    context.getStats().setTotalFiles(allFiles.size());
+
+    log.info("发现 {} 个文件/目录", allFiles.size());
+
+    // 4. 过滤出视频文件
+    List<OpenlistApiService.OpenlistFile> videoFiles = allFiles.stream()
+        .filter(f -> "file".equals(f.getType()))
+        .filter(f -> strmFileService.isVideoFile(f.getName()))
+        .toList();
+
+    // 5. 获取配置
+    Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
+    boolean needScrap = Boolean.TRUE.equals(taskConfig.getNeedScrap());
+
+    // 6. 处理每个视频文件
+    int processedCount = 0;
+    int scrapSkippedCount = 0;
+
+    for (OpenlistApiService.OpenlistFile videoFile : videoFiles) {
+      // 构建单个文件的上下文
+      FileProcessingContext fileContext = createFileContext(
+          context, videoFile, openlistConfig, scrapingConfig);
+
+      // 执行处理器链
+      fileProcessorChain.execute(fileContext);
+
+      // 更新统计
+      if (fileContext.getStats().getProcessedFiles() > 0) {
+        processedCount++;
+      }
+      if (fileContext.getStats().getSkippedFiles() > 0) {
+        scrapSkippedCount++;
+      }
+    }
+
+    log.info("Handler 链处理完成: 处理 {} 个视频文件, 跳过 {} 个", processedCount, scrapSkippedCount);
+
+    // 7. 增量模式下清理孤立文件
+    if (isIncrement) {
+      log.info("增量执行模式，开始清理孤立的STRM文件");
+      int cleanedCount = strmFileService.cleanOrphanedStrmFiles(
+          taskConfig.getStrmPath(),
+          allFiles,
+          taskConfig.getPath(),
+          taskConfig.getRenameRegex(),
+          openlistConfig);
+      log.info("清理了 {} 个孤立的STRM文件", cleanedCount);
+    }
+  }
+
+  /**
+   * 创建单个文件的处理上下文
+   */
+  private FileProcessingContext createFileContext(
+      FileProcessingContext parentContext,
+      OpenlistApiService.OpenlistFile videoFile,
+      OpenlistConfig openlistConfig,
+      Map<String, Object> scrapingConfig) {
+
+    // 计算相对路径
+    String relativePath = strmFileService.calculateRelativePath(
+        parentContext.getTaskConfig().getPath(), videoFile.getPath());
+
+    // 构建保存目录
+    String saveDirectory = buildScrapSaveDirectory(
+        parentContext.getTaskConfig().getStrmPath(), relativePath);
+
+    // 获取基础文件名
+    String baseFileName = removeExtension(videoFile.getName());
+
+    // 获取当前目录的所有文件
+    String currentDirectory = videoFile.getPath()
+        .substring(0, videoFile.getPath().lastIndexOf('/') + 1);
+
+    List<OpenlistApiService.OpenlistFile> directoryFiles = parentContext.getAttribute("discoveredFiles");
+    List<OpenlistApiService.OpenlistFile> currentDirFiles = directoryFiles.stream()
+        .filter(f -> f.getPath().startsWith(currentDirectory))
+        .filter(f -> {
+          String subPath = f.getPath().substring(currentDirectory.length());
+          return subPath.isEmpty() || !subPath.contains("/");
+        })
+        .toList();
+
+    return FileProcessingContext.builder()
+        .openlistConfig(openlistConfig)
+        .taskConfig(parentContext.getTaskConfig())
+        .currentFile(videoFile)
+        .relativePath(relativePath)
+        .saveDirectory(saveDirectory)
+        .baseFileName(baseFileName)
+        .directoryFiles(currentDirFiles)
+        .attributes(scrapingConfig != null ? new java.util.HashMap<>(scrapingConfig) : new java.util.HashMap<>())
+        .build();
+  }
+
+  /**
+   * 移除文件扩展名
+   */
+  private String removeExtension(String fileName) {
+    if (fileName == null || fileName.isEmpty()) {
+      return fileName;
+    }
+    int lastDotIndex = fileName.lastIndexOf('.');
+    if (lastDotIndex > 0) {
+      return fileName.substring(0, lastDotIndex);
+    }
+    return fileName;
+  }
+
+  /**
+   * 使用原有方式执行任务（Legacy 模式）
+   */
+  private void executeTaskWithLegacyMode(TaskConfig taskConfig, OpenlistConfig openlistConfig, boolean isIncrement) {
+    // 原有实现保持不变...
 
       // 2. 如果是全量执行，先清空STRM目录
       if (!isIncrement) {
@@ -661,6 +826,26 @@ public class TaskExecutionService {
     } catch (Exception e) {
       log.warn("检查NFO文件是否存在时发生错误: {}, 默认进行刮削", e.getMessage());
       return true;
+    }
+  }
+
+  /**
+   * 检查是否启用了 Handler 链处理方式
+   *
+   * @return 是否启用 Handler 链
+   */
+  private boolean isUseHandlerChainEnabled() {
+    try {
+      // 从系统配置中获取特性开关
+      Map<String, Object> featureFlags = systemConfigService.getFeatureFlags();
+      if (featureFlags != null && featureFlags.containsKey(FEATURE_FLAG_USE_HANDLER_CHAIN)) {
+        return Boolean.TRUE.equals(featureFlags.get(FEATURE_FLAG_USE_HANDLER_CHAIN));
+      }
+      // 如果配置中没有设置，返回默认值
+      return DEFAULT_USE_HANDLER_CHAIN;
+    } catch (Exception e) {
+      log.warn("获取特性开关配置失败，使用默认值: {}", e.getMessage());
+      return DEFAULT_USE_HANDLER_CHAIN;
     }
   }
 

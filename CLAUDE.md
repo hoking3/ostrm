@@ -28,6 +28,19 @@ Ostrm is a modern full-stack application that converts file lists into STRM stre
 │   └── src/main/java/com/hienao/openlist2strm/
 │       ├── controller/  # REST API controllers (auth, config, tasks)
 │       ├── service/     # Business logic layer
+│       ├── handler/     # File processing chain (Chain of Responsibility pattern)
+│       │   ├── FileProcessorHandler.java     # Handler interface
+│       │   ├── FileProcessorChain.java       # Chain executor
+│       │   ├── FileDiscoveryHandler.java     # Order: 10 - Discover files
+│       │   ├── FileFilterHandler.java        # Order: 20 - Filter video files
+│       │   ├── StrmGenerationHandler.java    # Order: 30 - Generate STRM files
+│       │   ├── NfoDownloadHandler.java       # Order: 40 - Download NFO (priority: local > OpenList > scraping)
+│       │   ├── ImageDownloadHandler.java     # Order: 41 - Download images
+│       │   ├── SubtitleCopyHandler.java      # Order: 42 - Copy subtitles (prevent duplicate download)
+│       │   ├── MediaScrapingHandler.java     # Order: 50 - Media scraping fallback
+│       │   ├── OrphanCleanupHandler.java     # Order: 60 - Clean orphan files
+│       │   ├── context/                      # Shared context
+│       │   └── FileProcessingContext.java    # Processing context
 │       ├── mapper/      # MyBatis data access layer
 │       ├── entity/      # Database entities
 │       ├── job/         # Quartz scheduled jobs
