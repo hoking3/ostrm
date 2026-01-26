@@ -32,7 +32,6 @@ ostrm/
 │       ├── config/          # 配置类
 │       └── util/            # 工具类
 ├── docs/                    # 项目文档
-├── llmdoc/                  # 文档索引
 ├── docker-compose.yml       # Docker 编排文件
 ├── Dockerfile              # Docker 镜像构建文件
 └── README.md               # 项目说明

@@ -46,11 +46,6 @@ Ostrm is a modern full-stack application that converts file lists into STRM stre
 │       ├── job/         # Quartz scheduled jobs
 │       ├── config/      # Spring configuration classes
 │       └── security/    # JWT authentication configuration
-├── llmdoc/            # Comprehensive documentation system
-│   ├── architecture/   # System architecture documents
-│   ├── guides/        # Development and deployment guides
-│   ├── sop/           # Standard operating procedures
-│   └── agent/         # Analysis reports and technical deep-dives
 ├── .github/           # GitHub Actions CI/CD workflows
 ├── docker-compose.yml # Container orchestration
 └── dev-docker.sh      # Enhanced development environment script
@@ -82,12 +77,6 @@ Ostrm is a modern full-stack application that converts file lists into STRM stre
 - URL encoding control and Base URL replacement for network adaptation
 - Multi-platform container deployment with health checks
 
-**Documentation System**:
-- Comprehensive llmdoc/ documentation with architecture analysis
-- Developer guides for environment setup and contribution
-- CI/CD automation documentation with GitHub Actions
-- Standard operating procedures for releases and maintenance
-
 ### Database
 
 - **SQLite 3.47.1.0**: Primary database with file storage and WAL mode
@@ -113,24 +102,6 @@ Main endpoints:
 - Request validation with Bean Validation annotations
 - Rate limiting and CORS configuration for security
 - Comprehensive logging with structured JSON output
-
-## Documentation System Navigation
-
-### Main Documentation
-- **[CLAUDE.md](CLAUDE.md)** - Project overview and development guidelines (this file)
-- **[llmdoc/index.md](llmdoc/index.md)** - Complete documentation system entry point
-- **[System Architecture Overview](llmdoc/architecture/system-architecture-overview.md)** - Detailed architecture design
-- **[CI/CD Automation Process](llmdoc/guides/ci-cd-automation-process.md)** - Continuous integration and deployment guide
-- **[Development Environment Setup](llmdoc/guides/development-environment-setup.md)** - Complete environment configuration
-
-### Analysis Reports
-- **[Project Changes Analysis](llmdoc/agent/project-changes-analysis.md)** - Recent architectural and technical changes
-- **[Development Experience Optimization](llmdoc/agent/development-experience-optimization.md)** - Tool improvements and best practices
-- **[Documentation Integration Analysis](llmdoc/agent/documentation-system-integration.md)** - Documentation strategy and maintenance
-
-### Standard Procedures
-- **[Project Release Process](llmdoc/sop/project-release-process.md)** - Version release and update procedures
-- **[Database Backup & Recovery](llmdoc/sop/database-backup-recovery.md)** - Data protection and disaster recovery
 
 ## Development Environment Setup
 
@@ -416,7 +387,6 @@ docker run -d \
 - **Enhanced Dev Scripts**: Improved `dev-docker.sh` with better health checks and error handling
 - **Hot Reload Stability**: Fixed container file synchronization issues for reliable development
 - **Code Quality Tools**: Integrated PMD, Spotless, and comprehensive testing frameworks
-- **Documentation System**: Complete llmdoc/ documentation with architecture analysis and guides
 - **Multi-Platform Development**: Full support for ARM64 and AMD64 development environments
 
 ## Important Notes
