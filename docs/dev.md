@@ -25,6 +25,18 @@ ostrm/
 │   └── src/main/java/com/hienao/openlist2strm/
 │       ├── controller/      # REST API 控制器
 │       ├── service/         # 业务逻辑层
+│       ├── handler/         # 文件处理器链（责任链模式）
+│       │   ├── FileProcessorHandler.java     # 处理器接口
+│       │   ├── FileProcessorChain.java       # 链执行器
+│       │   ├── FileDiscoveryHandler.java     # Order: 10 - 文件发现
+│       │   ├── FileFilterHandler.java        # Order: 20 - 文件过滤
+│       │   ├── StrmGenerationHandler.java    # Order: 30 - STRM生成
+│       │   ├── NfoDownloadHandler.java       # Order: 40 - NFO下载
+│       │   ├── ImageDownloadHandler.java     # Order: 41 - 图片下载
+│       │   ├── SubtitleCopyHandler.java      # Order: 42 - 字幕复制
+│       │   ├── MediaScrapingHandler.java     # Order: 50 - 媒体刮削
+│       │   ├── OrphanCleanupHandler.java     # Order: 60 - 孤立文件清理
+│       │   └── context/                      # 共享上下文
 │       ├── mapper/          # MyBatis 数据访问层
 │       ├── entity/          # 数据库实体
 │       ├── dto/             # 数据传输对象
@@ -34,7 +46,7 @@ ostrm/
 ├── docs/                    # 项目文档
 ├── docker-compose.yml       # Docker 编排文件
 ├── Dockerfile              # Docker 镜像构建文件
-└── README.md               # 项目说明
+└── dev-docker.sh           # 开发环境脚本
 ```
 
 ## 开发环境搭建
@@ -64,7 +76,42 @@ mkdir -p ./data/config ./data/db ./logs ./strm
 
 ### 启动开发环境
 
-#### 使用 Docker Compose（推荐）
+#### 使用 dev-docker.sh（推荐）
+```bash
+# 初始化开发环境（包含依赖检查、环境配置、镜像构建）
+./dev-docker.sh install
+
+# 启动完整环境
+./dev-docker.sh start
+
+# 开发模式启动（支持热重载）
+./dev-docker.sh start-dev
+
+# 查看服务状态
+./dev-docker.sh status
+
+# 实时查看日志
+./dev-docker.sh logs-f
+
+# 进入容器进行调试
+./dev-docker.sh exec
+
+# 执行健康检查
+./dev-docker.sh health
+
+# 备份数据
+./dev-docker.sh backup
+
+# 停止服务
+./dev-docker.sh stop
+
+# 深度清理（删除镜像和卷）
+./dev-docker.sh clean-all
+```
+
+**注意**：Windows 用户建议使用 Git Bash 运行 `dev-docker.sh`。
+
+#### 使用 Docker Compose
 ```bash
 # 启动所有服务
 docker-compose up -d
@@ -95,6 +142,7 @@ npm run dev
 - **前端开发服务器**: `http://localhost:3000`
 - **后端 API**: `http://localhost:8080`
 - **API 文档**: `http://localhost:8080/swagger-ui.html`
+- **主应用**: `http://localhost:3111`
 
 ## 开发指南
 
@@ -172,6 +220,18 @@ export const useTaskApi = () => {
 backend/src/main/java/com/hienao/openlist2strm/
 ├── controller/          # REST 控制器
 ├── service/             # 业务逻辑层
+├── handler/             # 文件处理器链（责任链模式）
+│   ├── FileProcessorHandler.java     # 处理器接口
+│   ├── FileProcessorChain.java       # 链执行器
+│   ├── FileDiscoveryHandler.java     # Order: 10 - 文件发现
+│   ├── FileFilterHandler.java        # Order: 20 - 文件过滤
+│   ├── StrmGenerationHandler.java    # Order: 30 - STRM文件生成
+│   ├── NfoDownloadHandler.java       # Order: 40 - NFO文件下载
+│   ├── ImageDownloadHandler.java     # Order: 41 - 图片文件下载
+│   ├── SubtitleCopyHandler.java      # Order: 42 - 字幕文件复制
+│   ├── MediaScrapingHandler.java     # Order: 50 - 媒体刮削
+│   ├── OrphanCleanupHandler.java     # Order: 60 - 孤立文件清理
+│   └── context/                      # 共享上下文
 ├── mapper/              # MyBatis 映射器
 ├── entity/              # 数据库实体
 ├── dto/                 # 数据传输对象
@@ -186,7 +246,21 @@ backend/src/main/java/com/hienao/openlist2strm/
 **代码风格：**
 - 使用 Java 编程语言
 - 遵循 Spring Boot 最佳实践
-- 使用分层架构（Controller → Service → Mapper）
+- 使用分层架构（Controller → Service → Handler → Mapper）
+
+**处理器链设计：**
+系统采用责任链模式处理文件，使用 `@Order` 注解定义执行顺序：
+
+| Order | 处理器 | 功能 |
+|-------|--------|------|
+| 10 | FileDiscoveryHandler | 文件发现 |
+| 20 | FileFilterHandler | 文件过滤 |
+| 30 | StrmGenerationHandler | STRM 文件生成 |
+| 40 | NfoDownloadHandler | NFO 文件下载（优先级：本地 > OpenList > 刮削） |
+| 41 | ImageDownloadHandler | 图片文件下载（海报、背景图、缩略图） |
+| 42 | SubtitleCopyHandler | 字幕文件复制 |
+| 50 | MediaScrapingHandler | 媒体刮削 |
+| 60 | OrphanCleanupHandler | 孤立文件清理 |
 
 **API 设计：**
 - 使用 RESTful API 设计原则
@@ -200,6 +274,30 @@ backend/src/main/java/com/hienao/openlist2strm/
 - 数据库迁移使用 Flyway
 
 #### 示例代码
+
+**Handler 接口：**
+```java
+public interface FileProcessorHandler {
+    ProcessingResult process(FileProcessingContext context);
+    Set<FileType> getHandledTypes();
+}
+
+// 处理器示例
+@Component
+@Order(42)
+public class SubtitleCopyHandler implements FileProcessorHandler {
+    @Override
+    public ProcessingResult process(FileProcessingContext context) {
+        // 处理字幕文件下载
+        return ProcessingResult.SUCCESS;
+    }
+
+    @Override
+    public Set<FileType> getHandledTypes() {
+        return Set.of(FileType.SUBTITLE, FileType.VIDEO);
+    }
+}
+```
 
 **Controller 层：**
 ```java
@@ -335,7 +433,6 @@ cd backend
 #### 使用 Docker 进行集成测试
 项目提供了完整的 Docker 集成测试脚本，可以构建完整的镜像并部署测试：
 
-**Linux/macOS：**
 ```bash
 # 初始化开发环境（包含依赖检查、环境配置、镜像构建）
 ./dev-docker.sh install
@@ -368,54 +465,24 @@ cd backend
 ./dev-docker.sh clean-all
 ```
 
-**Windows：**
-```bat
-REM 初始化开发环境
-dev-docker.bat install
-
-REM 启动完整环境
-dev-docker.bat start
-
-REM 开发模式启动
-dev-docker.bat start-dev
-
-REM 查看服务状态
-dev-docker.bat status
-
-REM 实时查看日志
-dev-docker.bat logs-f
-
-REM 进入容器进行调试
-dev-docker.bat exec
-
-REM 执行健康检查
-dev-docker.bat health
-
-REM 停止服务
-dev-docker.bat stop
-
-REM 深度清理
-dev-docker.bat clean-all
-```
-
 #### Docker 集成测试特性
 
 **高级开发脚本功能：**
-- 🔍 **依赖检查**：自动检查 Docker、docker-compose 等依赖
-- 📁 **环境配置**：自动创建必要的目录和配置文件
-- 🏗️ **镜像构建**：支持缓存和无缓存构建
-- 🚀 **服务管理**：启动、停止、重启服务
-- 💚 **健康检查**：自动检测服务启动状态
-- 📊 **状态监控**：实时查看服务状态和日志
-- 🔧 **调试支持**：进入容器内部进行调试
-- 💾 **数据备份**：一键备份配置和数据
-- 🧹 **环境清理**：支持普通清理和深度清理
+- 依赖检查：自动检查 Docker、docker-compose 等依赖
+- 环境配置：自动创建必要的目录和配置文件
+- 镜像构建：支持缓存和无缓存构建
+- 服务管理：启动、停止、重启服务
+- 健康检查：自动检测服务启动状态
+- 状态监控：实时查看服务状态和日志
+- 调试支持：进入容器内部进行调试
+- 数据备份：一键备份配置和数据
+- 环境清理：支持普通清理和深度清理
 
 **开发模式特性：**
-- 🔄 **热重载支持**：前端和后端代码修改自动重载
-- 📡 **多端口映射**：同时暴露前端、后端和代理端口
-- 📝 **调试日志**：启用详细的调试日志
-- 📂 **源码挂载**：本地源码直接挂载到容器中
+- 热重载支持：前端和后端代码修改自动重载
+- 多端口映射：同时暴露前端、后端和代理端口
+- 调试日志：启用详细的调试日志
+- 源码挂载：本地源码直接挂载到容器中
 
 **端口映射：**
 - `3111:80` - 主应用端口（Nginx 代理）
@@ -443,13 +510,14 @@ dev-docker.bat clean-all
 - 遵循 Java 编码规范
 - 使用 Spring Boot 最佳实践
 - 采用分层架构设计
+- 处理器链模式处理文件
 
 ### 提交前检查
 在提交代码前，请确保：
-- ✅ 所有测试通过
-- ✅ 代码能够正常编译和运行
-- ✅ 功能测试正常
-- ✅ 遵循项目的代码风格
+- 所有测试通过
+- 代码能够正常编译和运行
+- 功能测试正常
+- 遵循项目的代码风格
 
 ## 贡献流程
 
@@ -536,16 +604,16 @@ git push origin feature/your-feature-name
 ## 社区参与
 
 ### 获取帮助
-- 📖 查看 [项目文档](https://github.com/hienao/ostrm/blob/main/README.md)
-- 💬 在 [GitHub Discussions](https://github.com/hienao/ostrm/discussions) 中讨论
-- 🐛 在 [GitHub Issues](https://github.com/hienao/ostrm/issues) 中报告问题
+- 查看 [项目文档](https://github.com/hienao/ostrm/blob/main/README.md)
+- 在 [GitHub Discussions](https://github.com/hienao/ostrm/discussions) 中讨论
+- 在 [GitHub Issues](https://github.com/hienao/ostrm/issues) 中报告问题
 
 ### 贡献方式
-- 🐛 报告 Bug
-- 💡 提出新功能建议
-- 📝 改进文档
-- 🔧 提交代码
-- 🌍 协助翻译
+- 报告 Bug
+- 提出新功能建议
+- 改进文档
+- 提交代码
+- 协助翻译
 
 ### 行为准则
 请阅读并遵守项目的 [行为准则](https://github.com/hienao/ostrm/blob/main/CODE_OF_CONDUCT)。

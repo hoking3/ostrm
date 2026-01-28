@@ -1,22 +1,25 @@
-## Context
+## 上下文
 
 ### 当前状态
 
-在任务执行流程中，`FileProcessorChain` 按顺序执行各个 Handler，但处理器匹配逻辑存在问题：
+在任务执行流程中，`FileProcessorChain` 按顺序执行各个 Handler，但存在以下问题：
 
-1. **处理器类型匹配问题**：`FileProcessorChain.supports()` 方法会根据当前文件类型匹配处理器
+1. **处理器类型匹配问题**：
+   - `FileProcessorChain.supports()` 方法会根据当前文件类型匹配处理器
    - 处理视频文件时，只调用 `getHandledTypes()` 包含 `VIDEO` 的处理器
-   - `SubtitleCopyHandler` (Order 42) 的 `getHandledTypes()` 返回 `SUBTITLE`
-   - `ImageDownloadHandler` (Order 41) 的 `getHandledTypes()` 返回 `IMAGE`
+   - `SubtitleCopyHandler` (Order 42) 只返回 `SUBTITLE` 类型
+   - `ImageDownloadHandler` (Order 41) 只返回 `IMAGE` 类型
    - 结果：这两个处理器在处理视频文件时被跳过
 
-2. **图片下载逻辑限制**：`ImageDownloadHandler` 只查找特定命名的图片文件
+2. **图片下载逻辑限制**：
+   - `ImageDownloadHandler` 只查找特定命名的图片文件
    - 期望：`{baseFileName}-poster.jpg`、`{baseFileName}-fanart.jpg`、`{baseFileName}-thumb.jpg`
    - 实际：用户使用任意命名的图片文件（如 `FomalhautABC.jpeg`）
 
-3. **配置依赖问题**：`SubtitleCopyHandler` 依赖 `scrapingConfig.keepSubtitleFiles` 配置
-   - 默认值为 `false`
-   - 配置可能未被正确保存或传递
+3. **配置依赖问题**：
+   - `SubtitleCopyHandler` 依赖 `scrapingConfig.keepSubtitleFiles` 配置
+   - 配置通过 Map 传递，可能存在嵌套层级问题
+   - 默认值为 `false`，导致字幕下载被禁用
 
 ### 约束条件
 
@@ -25,21 +28,21 @@
 - 修改应尽量小而集中
 - 需要兼容现有的任务配置和文件结构
 
-## Goals / Non-Goals
+## 目标 / 非目标
 
-**Goals:**
+**目标**：
 - 修复字幕文件下载问题，在处理视频文件时自动下载同目录的字幕
 - 修复图片文件下载问题，支持下载任意命名的本地图片
-- 移除字幕下载的配置依赖，改为默认启用
-- 添加配置验证日志，确保配置正确读取
+- 修复配置读取问题，直接从 context.attributes 获取配置值
+- 添加 URL 编码支持，解决中文路径下载问题
 
-**Non-Goals:**
+**非目标**：
 - 不改变 Handler 链的整体架构
 - 不修改 NFO 文件的下载逻辑
 - 不引入新的外部依赖
 - 不改变现有的 API 接口或数据库结构
 
-## Decisions
+## 设计决策
 
 ### 决策 1：处理器匹配逻辑
 
@@ -69,24 +72,28 @@
 **最终选择**：方案 B
 - 优先查找 `{baseFileName}-poster.jpg` 等特定格式
 - 如果不存在，降级下载同目录下任意图片文件
-- 使用 `useExistingScrapingInfo` 配置控制是否启用
+- 保留原文件名，不强制重命名为特定格式
 
-### 决策 3：字幕下载配置
+### 决策 3：配置读取方式
 
-**方案 A**：移除配置依赖，默认启用字幕下载
-- 优点：简单，用户无需配置
-- 缺点：可能不符合所有用户需求
+**方案 A**：修复 `SystemConfigService.saveSystemConfig` 的 Map 合并逻辑
+- 使用递归方式合并嵌套 Map
 
-**方案 B**：添加独立的任务配置项
-- 优点：灵活可控
-- 缺点：需要新增配置项
+**方案 B**：直接从 `FileProcessingContext.attributes` 获取配置值
+- 绕过配置传递问题
+- 更直接可靠
 
-**最终选择**：方案 A + 配置验证
-- 移除对 `scrapingConfig.keepSubtitleFiles` 的依赖
-- 默认启用字幕下载
-- 添加配置验证日志，确保配置正确读取
+**最终选择**：方案 B
+- `SubtitleCopyHandler` 使用 `context.getAttribute("keepSubtitleFiles")`
+- `ImageDownloadHandler` 使用 `context.getAttribute("useExistingScrapingInfo")`
 
-## Risks / Trade-offs
+### 决策 4：URL 编码
+
+**方案**：使用 `UrlEncoder.encodeUrlSmart()` 方法
+- 智能编码：仅对 URL 路径部分编码，保留协议和主机
+- 处理中文、空格等特殊字符
+
+## 风险与权衡
 
 | 风险 | 可能性 | 影响 | 缓解措施 |
 |------|--------|------|----------|
@@ -94,7 +101,20 @@
 | 字幕下载与预期不符 | 低 | 中 | 默认启用，添加配置验证日志 |
 | 回归问题 | 低 | 中 | 审查修改，确保不影响其他处理器 |
 
-## Migration Plan
+## 处理器执行顺序
+
+| Order | 处理器 | 功能 |
+|-------|--------|------|
+| 10 | FileDiscoveryHandler | 文件发现 |
+| 20 | FileFilterHandler | 文件过滤 |
+| 30 | StrmGenerationHandler | STRM 文件生成 |
+| 40 | NfoDownloadHandler | NFO 文件下载（优先级：本地 > OpenList > 刮削） |
+| 41 | ImageDownloadHandler | 图片文件下载（海报、背景图、缩略图） |
+| 42 | SubtitleCopyHandler | 字幕文件复制 |
+| 50 | MediaScrapingHandler | 媒体刮削 |
+| 60 | OrphanCleanupHandler | 孤立文件清理 |
+
+## 部署与回滚
 
 ### 部署步骤
 1. 提交代码修改到 feature 分支
@@ -106,7 +126,7 @@
 - 如果发现问题，可以通过 Docker 镜像回滚到 previous 版本
 - 数据库无需修改，回滚不影响数据
 
-## Open Questions
+## 待解决问题
 
 1. 是否需要限制下载的图片文件数量（如只下载 1 张海报、1 张背景图）？
 2. 是否需要支持配置排除特定扩展名的图片文件？

@@ -673,6 +673,191 @@ private void cleanOrphanedScrapingFiles(Path strmFile) {
 }
 ```
 
+### 8. 文件处理器链阶段
+
+#### 8.1 处理器链执行机制
+
+系统采用责任链模式处理视频文件的相关资源（NFO、图片、字幕），通过 `@Order` 注解定义执行顺序：
+
+```java
+// FileProcessorChain.java - 处理器链执行
+public ProcessingResult executeChain(FileProcessingContext context) {
+    ProcessingResult finalResult = ProcessingResult.SUCCESS;
+
+    for (FileProcessorHandler handler : handlers) {
+        if (handler.supports(context.getCurrentFile().getType())) {
+            ProcessingResult result = handler.process(context);
+            if (result == ProcessingResult.FAILED) {
+                finalResult = ProcessingResult.FAILED;
+            }
+        }
+    }
+
+    return finalResult;
+}
+```
+
+#### 8.2 处理器执行顺序
+
+| Order | 处理器 | 处理内容 |
+|-------|--------|----------|
+| 10 | FileDiscoveryHandler | 文件发现 |
+| 20 | FileFilterHandler | 文件过滤 |
+| 30 | StrmGenerationHandler | STRM文件生成 |
+| 40 | NfoDownloadHandler | NFO文件下载 |
+| 41 | ImageDownloadHandler | 图片文件下载（海报、背景图、缩略图） |
+| 42 | SubtitleCopyHandler | 字幕文件复制 |
+| 50 | MediaScrapingHandler | 媒体刮削（备选方案） |
+| 60 | OrphanCleanupHandler | 孤立文件清理 |
+
+#### 8.3 图片文件下载处理器
+
+```java
+// ImageDownloadHandler.java - 处理海报、背景图、缩略图
+public ProcessingResult process(FileProcessingContext context) {
+    // 1. 检查配置是否启用
+    if (!isImageScrapingEnabled(context)) {
+        context.getStats().incrementSkipped();
+        return ProcessingResult.SKIPPED;
+    }
+
+    // 2. 按优先级处理图片文件
+    //    优先级1：检查本地是否存在
+    //    优先级2：从OpenList下载
+    //    优先级3：跳过（由MediaScrapingHandler处理）
+
+    // 3. 处理特定命名的图片文件
+    processImage(context, "-poster.jpg", "海报");
+    processImage(context, "-fanart.jpg", "背景图");
+    processImage(context, "-thumb.jpg", "缩略图");
+
+    // 4. 降级处理：下载任意命名的图片文件
+    processArbitraryImages(context);
+
+    return ProcessingResult.SUCCESS;
+}
+
+// 图片下载URL编码处理
+private boolean downloadArbitraryImage(...) {
+    String downloadUrl = imageFile.getUrl();
+    if (imageFile.getSign() != null && !imageFile.getSign().isEmpty()) {
+        downloadUrl = downloadUrl + "?sign=" + imageFile.getSign();
+    }
+    // 使用智能URL编码处理中文路径
+    downloadUrl = UrlEncoder.encodeUrlSmart(downloadUrl);
+
+    byte[] content = openlistApiService.downloadWithEncodedUrl(
+        context.getOpenlistConfig(), imageFile, downloadUrl);
+    // ...
+}
+```
+
+#### 8.4 字幕文件复制处理器
+
+```java
+// SubtitleCopyHandler.java - 处理字幕文件下载
+public ProcessingResult process(FileProcessingContext context) {
+    // 1. 检查配置是否启用保留字幕
+    if (!isKeepSubtitleEnabled(context)) {
+        context.getStats().incrementSkipped();
+        return ProcessingResult.SKIPPED;
+    }
+
+    // 2. 获取同目录下的字幕文件
+    List<OpenlistFile> subtitleFiles = directoryFiles.stream()
+        .filter(f -> "file".equals(f.getType()))
+        .filter(f -> isSubtitleFile(f.getName()))
+        .filter(f -> f.getPath().startsWith(currentDirectory))
+        .filter(f -> !downloadedSubtitles.contains(f.getName().toLowerCase()))
+        .collect(Collectors.toList());
+
+    // 3. 下载每个字幕文件
+    for (OpenlistFile subtitleFile : subtitleFiles) {
+        if (copySubtitleFile(context, subtitleFile)) {
+            downloadedSubtitles.add(subtitleFile.getName().toLowerCase());
+        }
+    }
+
+    return ProcessingResult.SUCCESS;
+}
+
+// 支持的字幕格式
+private static final Set<String> SUBTITLE_EXTENSIONS = Set.of(
+    ".srt", ".ass", ".vtt", ".ssa", ".sub", ".idx"
+);
+
+// URL编码处理
+private boolean copySubtitleFile(...) {
+    String downloadUrl = subtitleFile.getUrl();
+    if (subtitleFile.getSign() != null && !subtitleFile.getSign().isEmpty()) {
+        downloadUrl = downloadUrl + "?sign=" + subtitleFile.getSign();
+    }
+    // 使用智能URL编码处理中文路径
+    downloadUrl = UrlEncoder.encodeUrlSmart(downloadUrl);
+
+    byte[] content = openlistApiService.downloadWithEncodedUrl(
+        context.getOpenlistConfig(), subtitleFile, downloadUrl);
+    // ...
+}
+```
+
+#### 8.5 智能URL编码
+
+```java
+// UrlEncoder.java - 智能URL编码处理中文和特殊字符
+public static String encodeUrlSmart(String url) {
+    if (url == null || url.isEmpty()) {
+        return url;
+    }
+
+    try {
+        URL parsedUrl = new URL(url);
+        String protocol = parsedUrl.getProtocol();
+        String host = parsedUrl.getHost();
+        String path = parsedUrl.getPath();
+        String query = parsedUrl.getQuery();
+
+        // 仅对路径部分进行编码，保留协议和主机
+        String encodedPath = URLEncoder.encode(path, StandardCharsets.UTF_8.name())
+            .replace("%2F", "/")
+            .replace("%3A", ":")
+            .replace("%40", "@");
+
+        StringBuilder encodedUrl = new StringBuilder();
+        encodedUrl.append(protocol).append("://").append(host).append(encodedPath);
+
+        if (query != null && !query.isEmpty()) {
+            encodedUrl.append("?").append(query);
+        }
+
+        return encodedUrl.toString();
+    } catch (Exception e) {
+        log.warn("URL编码失败: {}", url, e);
+        return url;
+    }
+}
+```
+
+#### 8.6 配置读取机制
+
+```java
+// FileProcessingContext.java - 通过属性传递配置
+public Object getAttribute(String key) {
+    return attributes.get(key);
+}
+
+// 在处理器中使用
+private boolean isKeepSubtitleEnabled(FileProcessingContext context) {
+    Object keepSubtitleValue = context.getAttribute("keepSubtitleFiles");
+    return Boolean.TRUE.equals(keepSubtitleValue);
+}
+
+private boolean isImageScrapingEnabled(FileProcessingContext context) {
+    Object useExistingValue = context.getAttribute("useExistingScrapingInfo");
+    return Boolean.TRUE.equals(useExistingValue);
+}
+```
+
 ## 关键设计模式
 
 ### 1. 内存优化策略
@@ -712,5 +897,5 @@ private void cleanOrphanedScrapingFiles(Path strmFile) {
 OpenList文件树遍历是一个复杂的多阶段流程，涉及API交互、文件过滤、URL处理、文件生成、媒体刮削和增量清理等多个环节。系统通过内存优化、增量处理、智能编码和错误处理等策略，实现了高效、稳定、可靠的STRM文件生成和管理。
 
 ---
-*文档生成时间: 2026-01-26*
-*分析代码版本: v2.2.6*
+*文档生成时间: 2026-01-29*
+*分析代码版本: v2.3.0*

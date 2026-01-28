@@ -1,360 +1,359 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文档为 Claude Code (claude.ai/code) 提供代码仓库的操作指南。
 
-## Project Overview
+## 项目概述
 
-Ostrm is a modern full-stack application that converts file lists into STRM streaming media files (formerly OpenList to Stream project). The project features containerized architecture with multi-platform deployment, complete user authentication, task scheduling, and media scraping capabilities.
+Ostrm 是一个现代化的全栈应用程序，用于将文件列表转换为 STRM 流媒体文件（原 OpenList to Stream 项目）。项目采用容器化架构，支持多平台部署，具备完整的用户认证、任务调度和媒体刮削功能。
 
-- **Frontend**: Nuxt.js 3.13.0 + Vue 3.4.0 + Tailwind CSS 3.4.15
-- **Backend**: Spring Boot 3.3.9 + Gradle 8.12.1 + Java 21
-- **Database**: SQLite 3.47.1.0 with Flyway 11.4.0 migrations
+- **前端**: Nuxt.js 3.13.0 + Vue 3.4.0 + Tailwind CSS 3.4.15
+- **后端**: Spring Boot 3.3.9 + Gradle 8.12.1 + Java 21
+- **数据库**: SQLite 3.47.1.0 + Flyway 11.4.0 数据库迁移
 - **DevOps**: Docker + Docker Compose + GitHub Actions CI/CD
-- **Architecture**: Multi-stage containerized deployment with hot reload support
+- **架构**: 多阶段容器化部署，支持热重载
 
+## 项目架构
 
-## Architecture
-
-### High-Level Structure
+### 总体结构
 ```
-├── frontend/           # Nuxt.js 3.13.0 frontend application
-│   ├── pages/         # Auto-routed Vue pages (7 main pages)
-│   ├── components/    # Reusable Vue components (AppHeader, etc.)
-│   ├── middleware/    # Route middleware (auth.js, guest.js)
-│   ├── stores/        # Pinia state management
-│   ├── plugins/       # Nuxt plugins and utilities
-│   └── assets/        # Tailwind CSS styling and static assets
-├── backend/           # Spring Boot 3.3.9 backend application
+├── frontend/           # Nuxt.js 3.13.0 前端应用
+│   ├── pages/         # 自动路由页面（7个主要页面）
+│   ├── components/    # 可复用 Vue 组件
+│   ├── middleware/    # 路由中间件（auth.js, guest.js）
+│   ├── stores/        # Pinia 状态管理
+│   ├── plugins/       # Nuxt 插件和工具
+│   └── assets/        # Tailwind CSS 样式和静态资源
+├── backend/           # Spring Boot 3.3.9 后端应用
 │   └── src/main/java/com/hienao/openlist2strm/
-│       ├── controller/  # REST API controllers (auth, config, tasks)
-│       ├── service/     # Business logic layer
-│       ├── handler/     # File processing chain (Chain of Responsibility pattern)
-│       │   ├── FileProcessorHandler.java     # Handler interface
-│       │   ├── FileProcessorChain.java       # Chain executor
-│       │   ├── FileDiscoveryHandler.java     # Order: 10 - Discover files
-│       │   ├── FileFilterHandler.java        # Order: 20 - Filter video files
-│       │   ├── StrmGenerationHandler.java    # Order: 30 - Generate STRM files
-│       │   ├── NfoDownloadHandler.java       # Order: 40 - Download NFO (priority: local > OpenList > scraping)
-│       │   ├── ImageDownloadHandler.java     # Order: 41 - Download images
-│       │   ├── SubtitleCopyHandler.java      # Order: 42 - Copy subtitles (prevent duplicate download)
-│       │   ├── MediaScrapingHandler.java     # Order: 50 - Media scraping fallback
-│       │   ├── OrphanCleanupHandler.java     # Order: 60 - Clean orphan files
-│       │   ├── context/                      # Shared context
-│       │   └── FileProcessingContext.java    # Processing context
-│       ├── mapper/      # MyBatis data access layer
-│       ├── entity/      # Database entities
-│       ├── job/         # Quartz scheduled jobs
-│       ├── config/      # Spring configuration classes
-│       └── security/    # JWT authentication configuration
-├── .github/           # GitHub Actions CI/CD workflows
-├── docker-compose.yml # Container orchestration
-└── dev-docker.sh      # Enhanced development environment script
+│       ├── controller/  # REST API 控制器（认证、配置、任务）
+│       ├── service/     # 业务逻辑层
+│       ├── handler/     # 文件处理器链（责任链模式）
+│       │   ├── FileProcessorHandler.java     # 处理器接口
+│       │   ├── FileProcessorChain.java       # 链执行器
+│       │   ├── FileDiscoveryHandler.java     # Order: 10 - 文件发现
+│       │   ├── FileFilterHandler.java        # Order: 20 - 文件过滤
+│       │   ├── StrmGenerationHandler.java    # Order: 30 - STRM生成
+│       │   ├── NfoDownloadHandler.java       # Order: 40 - NFO下载（优先级：本地 > OpenList > 刮削）
+│       │   ├── ImageDownloadHandler.java     # Order: 41 - 图片下载
+│       │   ├── SubtitleCopyHandler.java      # Order: 42 - 字幕复制
+│       │   ├── MediaScrapingHandler.java     # Order: 50 - 媒体刮削
+│       │   ├── OrphanCleanupHandler.java     # Order: 60 - 孤立文件清理
+│       │   ├── context/                      # 共享上下文
+│       │   └── FileProcessingContext.java    # 处理上下文
+│       ├── mapper/      # MyBatis 数据访问层
+│       ├── entity/      # 数据库实体
+│       ├── job/         # Quartz 定时任务
+│       ├── config/      # Spring 配置类
+│       └── security/    # JWT 认证配置
+├── .github/           # GitHub Actions CI/CD 工作流
+├── docker-compose.yml # 容器编排
+└── dev-docker.sh      # 开发环境脚本
 ```
 
-### Key Components
+### 核心组件
 
-**Frontend (Nuxt.js 3.13.0)**:
-- Authentication via JWT tokens stored in cookies with auto-refresh
-- Middleware-protected routes (`auth.js`, `guest.js`) with intelligent routing
-- Tailwind CSS 3.4.15 with glassmorphism design system
-- Composition API with `<script setup>` syntax and TypeScript support
-- Pinia state management with localStorage/sessionStorage persistence
-- Responsive design with gradient color themes and animations
+**前端 (Nuxt.js 3.13.0)**:
+- 基于 JWT 令牌的认证，存储在 Cookie 中并支持自动刷新
+- 中间件保护的路由（`auth.js`, `guest.js`）配合智能路由
+- Tailwind CSS 3.4.15 毛玻璃设计系统
+- Composition API + `<script setup>` 语法 + TypeScript 支持
+- Pinia 状态管理，支持 localStorage/sessionStorage 持久化
+- 响应式设计，渐变色主题和动画效果
 
-**Backend (Spring Boot 3.3.9)**:
-- RESTful API with JWT authentication and Spring Security integration
-- Quartz scheduler for task automation (RAM storage due to SQLite compatibility)
-- MyBatis 3.0.4 ORM with SQLite 3.47.1.0 database
-- Flyway 11.4.0 for database migrations and version management
-- Multi-level caching with Caffeine and async processing
-- WebSocket support for real-time updates
+**后端 (Spring Boot 3.3.9)**:
+- RESTful API + JWT 认证 + Spring Security 集成
+- Quartz 定时任务（由于 SQLite 兼容性使用 RAM 存储）
+- MyBatis 3.0.4 ORM + SQLite 3.47.1.0 数据库
+- Flyway 11.4.0 数据库迁移管理
+- 多级缓存 + 异步处理
+- WebSocket 实时更新支持
 
-**Core Features**:
-- OpenList configuration management with CRUD operations
-- STRM file generation tasks with batch processing and progress tracking
-- Scheduled task execution with Cron expressions and error handling
-- AI-powered media scraping (optional) with configurable providers
-- URL encoding control and Base URL replacement for network adaptation
-- Multi-platform container deployment with health checks
+**核心功能**:
+- OpenList 配置管理（CRUD 操作）
+- STRM 文件生成任务（批量处理 + 进度跟踪）
+- 定时任务执行（CRON 表达式 + 错误处理）
+- AI 媒体刮削（可选，支持可配置 Provider）
+- URL 编码控制和 Base URL 替换
+- 多平台容器部署 + 健康检查
 
-### Database
+### 数据库
 
-- **SQLite 3.47.1.0**: Primary database with file storage and WAL mode
-- **Tables**: `openlist_config`, `task_config`, `user_info`, and migration tracking
-- **Migrations**: Located in `backend/src/main/resources/db/migration/` with Flyway 11.4.0
-- **Path**: `/maindata/db/openlist2strm.db` (standardized container path)
-- **Connection Pool**: HikariCP with optimized SQLite configuration
-- **Transaction Management**: Spring Boot transaction management with rollback support
+- **SQLite 3.47.1.0**: 主数据库，文件存储 + WAL 模式
+- **数据表**: `openlist_config`, `task_config`, `user_info`, 迁移跟踪
+- **迁移文件**: `backend/src/main/resources/db/migration/` 目录
+- **路径**: `/maindata/db/openlist2strm.db`（容器标准化路径）
+- **连接池**: HikariCP + 优化的 SQLite 配置
+- **事务管理**: Spring Boot 事务管理 + 回滚支持
 
-### API Structure
+### API 结构
 
-Main endpoints:
-- `/api/auth/*` - Authentication (login, register, logout, token refresh)
-- `/api/openlist-config` - OpenList server configurations (CRUD operations)
-- `/api/task-config` - STRM generation task management (scheduling, execution)
-- `/api/settings` - Application settings and preferences management
-- `/api/scraping` - AI media scraping configuration and execution
-- `/ws/*` - WebSocket endpoints for real-time updates
+**主要端点**:
+- `/api/auth/*` - 认证（登录、注册、登出、令牌刷新）
+- `/api/openlist-config` - OpenList 服务器配置（CRUD）
+- `/api/task-config` - STRM 任务管理（调度、执行）
+- `/api/settings` - 应用设置和首选项管理
+- `/api/scraping` - AI 媒体刮削配置和执行
+- `/ws/*` - WebSocket 实时更新端点
 
-**API Features**:
-- OpenAPI 3.0 documentation with Swagger UI
-- Global exception handling with structured error responses
-- Request validation with Bean Validation annotations
-- Rate limiting and CORS configuration for security
-- Comprehensive logging with structured JSON output
+**API 特性**:
+- OpenAPI 3.0 文档 + Swagger UI
+- 全局异常处理 + 结构化错误响应
+- Bean Validation 请求验证
+- 速率限制 + CORS 安全配置
+- 结构化 JSON 日志输出
 
-## Development Environment Setup
+## 开发环境搭建
 
-### Quick Start
+### 快速开始
 ```bash
-# Clone the repository
+# 克隆仓库
 git clone https://github.com/hienao/openlist-strm.git
 cd openlist-strm
 
-# Initialize development environment
+# 初始化开发环境
 ./dev-docker.sh install
 
-# Start development mode (with hot reload)
+# 启动开发模式（热重载）
 ./dev-docker.sh start-dev
 
-# Health check
+# 健康检查
 ./dev-docker.sh health
 ```
 
-### Development Modes
+### 开发模式
 ```bash
-# Production mode (standard build)
+# 生产模式（标准构建）
 ./dev-docker.sh start
 
-# Development mode (hot reload enabled)
+# 开发模式（热重载）
 ./dev-docker.sh start-dev
 
-# View real-time logs
+# 实时日志
 ./dev-docker.sh logs-f
 
-# Access container shell for debugging
+# 进入容器 Shell 调试
 ./dev-docker.sh exec
 ```
 
-### Build and Deployment
+### 构建和部署
 ```bash
-# Build production image
+# 构建生产镜像
 ./dev-docker.sh build
 
-# Force rebuild without cache
+# 强制重建（无缓存）
 ./dev-docker.sh rebuild --no-cache
 
-# Clean all containers, images, and volumes
+# 清理所有容器、镜像、卷
 ./dev-docker.sh clean-all
 
-# Complete rebuild from scratch
+# 从头完全重建
 ./dev-docker-rebuild.sh  # Linux/macOS
 dev-docker-rebuild.bat    # Windows
 ```
 
-### Development URLs
-- **Frontend Dev Server**: http://localhost:3000
-- **Backend API Server**: http://localhost:8080
-- **Main Application**: http://localhost:3111
-- **API Documentation**: http://localhost:3111/swagger-ui.html
-- **Health Check**: http://localhost:3111/actuator/health
+### 开发环境 URL
+- **前端开发服务器**: http://localhost:3000
+- **后端 API 服务器**: http://localhost:8080
+- **主应用**: http://localhost:3111
+- **API 文档**: http://localhost:3111/swagger-ui.html
+- **健康检查**: http://localhost:3111/actuator/health
 
-## Development Guidelines
+## 开发规范
 
-### Frontend Development
-- Use Composition API with `<script setup>` syntax and TypeScript
-- Apply `auth` middleware to protected pages with intelligent route handling
-- Use `$fetch` for API calls with automatic Bearer token injection and error handling
-- Follow Tailwind CSS utility-first approach with glassmorphism design system
-- Implement responsive design with gradient color themes and smooth animations
-- Use Pinia stores for state management with proper persistence strategies
+### 前端开发
+- 使用 Composition API + `<script setup>` + TypeScript
+- 保护页面使用 `auth` 中间件，配合智能路由
+- 使用 `$fetch` 进行 API 调用，自动注入 Bearer 令牌和错误处理
+- 遵循 Tailwind CSS 实用优先 + 毛玻璃设计系统
+- 实现响应式设计，渐变色主题和流畅动画
+- 使用 Pinia 状态管理，配合正确的持久化策略
 
-### Backend Development
-- Follow Spring Boot 3 conventions with clean layered architecture
-- Use `@RestController` with OpenAPI 3.0 annotations for API endpoints
-- Implement business logic in `@Service` classes with transaction management
-- Create MyBatis mappers with proper SQL mapping and result handling
-- Use `@Valid` with Bean Validation for request/response validation
-- Implement proper exception handling with `@ControllerAdvice`
-- Follow security best practices with Spring Security and JWT
+### 后端开发
+- 遵循 Spring Boot 3 规范的清晰分层架构
+- 使用 `@RestController` + OpenAPI 3.0 注解
+- 业务逻辑在 `@Service` 类中实现，配合事务管理
+- 创建 MyBatis Mapper 时注意 SQL 映射和结果处理
+- 使用 `@Valid` 进行 Bean Validation 请求/响应验证
+- 使用 `@ControllerAdvice` 实现统一的异常处理
+- 遵循 Spring Security + JWT 安全最佳实践
 
-### Database Development
-1. Create migration file: `V{version}__{description}.sql` using Flyway conventions
-2. Place in `backend/src/main/resources/db/migration/`
-3. Test migrations with `./gradlew flywayMigrate` before restart
-4. Use proper indexing and foreign key constraints
-5. Follow SQLite best practices for performance and concurrency
+### 数据库开发
+1. 使用 Flyway 规范创建迁移文件 `V{version}__{description}.sql`
+2. 放置到 `backend/src/main/resources/db/migration/` 目录
+3. 重启前使用 `./gradlew flywayMigrate` 测试迁移
+4. 使用适当的索引和外键约束
+5. 遵循 SQLite 性能和并发最佳实践
 
-### Testing Strategy
+### 测试策略
 
-**Important**: Unless explicitly requested by the user, do not run automated tests after development completion. When testing is required, use only Docker container build scripts for validation.
+**重要提示**：除非用户明确要求，否则开发完成后不要运行自动化测试。需要测试时，仅使用 Docker 容器构建脚本进行验证。
 
-**When Testing Is Requested**:
+**需要测试时的操作**:
 ```bash
-# Use Docker build script for container testing
+# 使用 Docker 构建脚本进行容器测试
 ./dev-docker.sh build
 
-# Verify container starts successfully
+# 验证容器启动成功
 ./dev-docker.sh start
 
-# Health check to validate deployment
+# 健康检查验证部署
 ./dev-docker.sh health
 
-# Clean up after testing
+# 测试后清理
 ./dev-docker.sh clean-all
 ```
 
-**Available Testing Tools** (use only when explicitly requested):
-- **Backend**: JUnit 5 + Spring Boot Test + TestContainers
-- **Frontend**: Vitest + Vue Test Utils for component testing
-- **Code Quality**: PMD + Spotless (backend), ESLint + Prettier (frontend)
-- **Coverage**: `./gradlew jacocoTestReport` (backend), `npm run test:coverage` (frontend)
-- **Security**: OWASP dependency check and security scanning
-- **Performance**: Load testing and profiling for optimization
+**可用的测试工具**（仅在明确要求时使用）:
+- **后端**: JUnit 5 + Spring Boot Test + TestContainers
+- **前端**: Vitest + Vue Test Utils 组件测试
+- **代码质量**: PMD + Spotless（后端），ESLint + Prettier（前端）
+- **覆盖率**: `./gradlew jacocoTestReport`（后端），`npm run test:coverage`（前端）
+- **安全**: OWASP 依赖检查和安全扫描
+- **性能**: 负载测试和性能分析
 
-**Testing Philosophy**:
-- Prioritize container-based integration testing over unit testing
-- Use Docker build process as primary validation method
-- Focus on functional verification rather than code coverage metrics
-- Manual testing through browser interaction when applicable
+**测试理念**:
+- 优先使用基于容器的集成测试，而非单元测试
+- 使用 Docker 构建过程作为主要验证方法
+- 关注功能验证，而非代码覆盖率指标
+- 通过浏览器交互进行手动测试
 
-### Git Workflow
-- Follow feature branch workflow with descriptive names
-- Use conventional commit messages (`feat:`, `fix:`, `docs:`, etc.)
-- Create pull requests for all code changes with proper descriptions
-- Ensure all quality checks pass before merging
-- Use semantic versioning for releases (`v*.*.*` format)
+### Git 工作流
+- 使用特性分支工作流，命名需具有描述性
+- 使用语义化提交信息（`feat:`, `fix:`, `docs:` 等）
+- 所有代码变更创建 Pull Request，附带适当描述
+- 确保所有质量检查通过后再合并
+- 使用语义化版本（`v*.*.*` 格式）发布
 
-### Environment Configuration
-- Use `.env.docker.example` as template for local development
-- Never commit sensitive configuration to repository
-- Use different profiles for development (`dev`), testing (`test`), and production (`prod`)
-- Configure proper logging levels for each environment
-- Use environment variables for all external service connections
+### 环境配置
+- 使用 `.env.docker.example` 作为本地开发模板
+- 不要提交敏感配置到仓库
+- 为开发（`dev`）、测试（`test`）、生产（`prod`）使用不同配置
+- 为每个环境配置适当的日志级别
+- 所有外部服务连接使用环境变量
 
-## CI/CD and Container Deployment
+## CI/CD 和容器部署
 
-### Automated Build and Release
+### 自动化构建和发布
 
-**GitHub Actions Workflow**:
-- **Triggers**: Tag pushes (`v*.*.*` for releases, `beta-v*.*.*` for beta)
-- **Multi-platform**: Supports linux/amd64 and linux/arm64 architectures
-- **Security**: Docker provenance and SBOM generation enabled
-- **Registry**: Automatic push to Docker Hub registry
+**GitHub Actions 工作流**:
+- **触发条件**: 标签推送（`v*.*.*` 发布版，`beta-v*.*.*` 测试版）
+- **多平台**: 支持 linux/amd64 和 linux/arm64 架构
+- **安全**: 启用 Docker 溯源和 SBOM 生成
+- **仓库**: 自动推送到 Docker Hub 仓库
 
-**Release Process**:
-1. Create version tag: `git tag v1.2.0`
-2. Push tag: `git push origin v1.2.0`
-3. Automatic GitHub Actions workflow triggers
-4. Multi-platform Docker images built and pushed
-5. GitHub Release automatically created with assets
-6. Documentation updated with latest changes
+**发布流程**:
+1. 创建版本标签: `git tag v1.2.0`
+2. 推送标签: `git push origin v1.2.0`
+3. 自动触发 GitHub Actions 工作流
+4. 构建并推送多平台 Docker 镜像
+5. 自动创建 GitHub Release 和资源
+6. 更新最新更改的文档
 
 ```bash
-# Quick start with latest image
+# 使用最新镜像快速启动
 docker-compose up -d
 
-# Development mode with hot reload
+# 开发模式（热重载）
 ./dev-docker.sh start-dev
 
-# Clean rebuild (removes all containers, images, volumes)
+# 清理重建（移除所有容器、镜像、卷）
 ./dev-docker-rebuild.sh        # Linux/macOS
 dev-docker-rebuild.bat         # Windows
 
-# Manual rebuild commands
+# 手动重建命令
 docker-compose down --rmi all --volumes
 docker-compose build
 docker-compose up -d
 
-# Access application
+# 访问应用
 http://localhost:3111
 ```
 
-### Multi-Platform Architecture Support
+### 多平台架构支持
 
-**Supported Architectures**:
-- **linux/amd64**: Standard x86_64 servers and desktops
-- **linux/arm64**: ARM64 servers (AWS Graviton, Raspberry Pi 4+)
+**支持的架构**:
+- **linux/amd64**: 标准 x86_64 服务器和桌面
+- **linux/arm64**: ARM64 服务器（AWS Graviton, Raspberry Pi 4+）
 
-**Docker Buildx Integration**:
-- Native multi-platform builds using QEMU emulation
-- Single command builds all architectures simultaneously
-- Optimized layer caching for faster builds
-- Automatic manifest creation for multi-arch images
+**Docker Buildx 集成**:
+- 使用 QEMU 模拟进行原生多平台构建
+- 单命令同时构建所有架构
+- 优化层缓存以加快构建速度
+- 自动创建多架构清单
 
-**Pulling Images**:
+**拉取镜像**:
 ```bash
-# Pull specific architecture image
+# 拉取特定架构镜像
 docker pull --platform linux/amd64 hienao6/ostrm:latest
 docker pull --platform linux/arm64 hienao6/ostrm:latest
 
-# Pull multi-arch image (Docker selects appropriate platform)
+# 拉取多架构镜像（Docker 自动选择合适平台）
 docker pull hienao6/ostrm:latest
 ```
 
-For custom path configurations, use environment variables:
+自定义路径配置使用环境变量：
 
-1. Copy the environment configuration:
+1. 复制环境配置模板:
 ```bash
 cp .env.docker.example .env
 ```
 
-2. Edit `.env` file with your custom paths:
+2. 编辑 `.env` 文件自定义路径:
 ```bash
-# Host paths for Docker volumes
-LOG_PATH_HOST=./logs           # Log files host path
-CONFIG_PATH_HOST=./data/config # Configuration files host path
-DB_PATH_HOST=./data/db         # Database files host path
-STRM_PATH_HOST=./strm          # STRM files host path
+# Docker 卷的主机路径
+LOG_PATH_HOST=./logs           # 日志文件主机路径
+CONFIG_PATH_HOST=./data/config # 配置文件主机路径
+DB_PATH_HOST=./data/db         # 数据库文件主机路径
+STRM_PATH_HOST=./strm          # STRM 文件主机路径
 ```
 
-**Volume Mappings**:
-- `${LOG_PATH_HOST}:/maindata/log` - Application logs
-- `${CONFIG_PATH_HOST}:/maindata/config` - Application configuration files
-- `${DB_PATH_HOST}:/maindata/db` - Database files
-- `${STRM_PATH_HOST}:/app/backend/strm` - Generated STRM files output
+**卷映射**:
+- `${LOG_PATH_HOST}:/maindata/log` - 应用日志
+- `${CONFIG_PATH_HOST}:/maindata/config` - 配置文件
+- `${DB_PATH_HOST}:/maindata/db` - 数据库文件
+- `${STRM_PATH_HOST}:/app/backend/strm` - 生成的 STRM 文件输出
 
-**Standardized Path Structure**:
+**标准化路径结构**:
 ```
-Container Internal Path          Host Path (Default)
-/maindata/log/                   → ./logs/
-/maindata/config/               → ./data/config/
-/maindata/db/                   → ./data/db/
-/app/backend/strm/              → ./strm/
+容器内部路径                    主机路径（默认）
+/maindata/log/                 → ./logs/
+/maindata/config/              → ./data/config/
+/maindata/db/                  → ./data/db/
+/app/backend/strm/             → ./strm/
 ```
 
-### Docker Rebuild Script (`dev-docker-rebuild.sh`)
-- Completely removes existing containers, networks, images, and volumes
-- Configures npm registry to Chinese mirror for better connectivity
-- Rebuilds all images from scratch with Docker Buildx
-- Starts containers in detached mode
-- Automatically applies standardized path configuration
+### Docker 重建脚本 (`dev-docker-rebuild.sh`)
+- 完全移除现有容器、网络、镜像和卷
+- 配置 npm 仓库为中国镜像以提高连接性
+- 使用 Docker Buildx 从头重建所有镜像
+- 在分离模式下启动容器
+- 自动应用标准化路径配置
 
-### Docker Debug Script
-For troubleshooting container issues:
+### Docker 调试脚本
+用于排查容器问题:
 ```bash
-# Comprehensive container debugging and setup (Linux/macOS/Git Bash)
+# 综合容器调试和设置（Linux/macOS/Git Bash）
 ./docker-debug.sh
 
-# Features:
-# - Checks Docker daemon status and Docker Buildx setup
-# - Creates/validates .env file from .env.docker.example
-# - Creates necessary data directories with standardized structure
-# - Validates Flyway migration files and database schema
-# - Offers database cleanup and reset options
-# - Builds image with --no-cache for clean builds
-# - Starts container with proper volume mounts and health checks
-# - Applies standardized path configuration automatically
+# 功能特性:
+# - 检查 Docker 守护进程状态和 Docker Buildx 配置
+# - 从 .env.docker.example 创建/验证 .env 文件
+# - 使用标准化结构创建必要的数据目录
+# - 验证 Flyway 迁移文件和数据库模式
+# - 提供数据库清理和重置选项
+# - 使用 --no-cache 构建镜像以进行干净构建
+# - 启动容器时使用正确的卷挂载和健康检查
+# - 自动应用标准化路径配置
 ```
 
-**Cross-Platform Docker Scripts**: All Docker scripts have corresponding `.bat` files for Windows.
+**跨平台 Docker 脚本**: 所有 Docker 脚本在 Windows 下有对应的 `.bat` 文件，但开发环境推荐使用 Git Bash 运行 `dev-docker.sh`。
 
-### Direct Docker Commands
+### 直接 Docker 命令
 ```bash
-# Build multi-platform image
+# 构建多平台镜像
 docker buildx build -t ostrm:latest --platform linux/amd64,linux/arm64 .
 
-# Run container (single platform)
+# 运行容器（单平台）
 docker run -d \
   --name ostrm \
   -p 3111:80 \
@@ -365,39 +364,83 @@ docker run -d \
   ostrm:latest
 ```
 
-### Path Standardization Benefits
+### 路径标准化优势
 
-1. **Consistency**: All components use standardized internal paths
-2. **Backward Compatibility**: Existing deployments continue to work without changes
-3. **Flexibility**: Environment variables allow custom host path configurations
-4. **Maintainability**: Centralized path management reduces configuration errors
-5. **Cross-Platform**: Works consistently across different host operating systems
-6. **Container Orchestration**: Optimized for Docker Compose and Kubernetes deployments
+1. **一致性**: 所有组件使用标准化内部路径
+2. **向后兼容**: 现有部署无需更改即可继续工作
+3. **灵活性**: 环境变量允许自定义主机路径配置
+4. **可维护性**: 集中式路径管理减少配置错误
+5. **跨平台**: 在不同主机操作系统上一致工作
+6. **容器编排**: 优化 Docker Compose 和 Kubernetes 部署
 
-## Recent Architecture Updates
+## 最近的架构更新
 
-### CI/CD Optimization (Latest 5 Commits)
-- **Simplified Runner Configuration**: Moved from complex matrix strategy to standard ubuntu-latest runners
-- **Native Docker Buildx**: Switched to Docker Buildx native multi-platform builds for better performance
-- **Gradle Version Management**: Downgraded to Gradle 8.12.1 for stability and fixed PMD configuration issues
-- **Build Performance**: Improved build times with optimized caching strategies
-- **Base Image Simplification**: Removed noble variants, using standard Ubuntu 22.04 for consistency
+### CI/CD 优化（最近 5 次提交）
+- **简化 Runner 配置**: 从复杂的矩阵策略改为标准 ubuntu-latest Runner
+- **原生 Docker Buildx**: 切换到 Docker Buildx 原生多平台构建以获得更好性能
+- **Gradle 版本管理**: 降级到 Gradle 8.12.1 以提高稳定性并修复 PMD 配置问题
+- **构建性能**: 通过优化缓存策略提高构建时间
+- **基础镜像简化**: 移除 noble 变体，使用标准 Ubuntu 22.04 保持一致性
 
-### Development Experience Improvements
-- **Enhanced Dev Scripts**: Improved `dev-docker.sh` with better health checks and error handling
-- **Hot Reload Stability**: Fixed container file synchronization issues for reliable development
-- **Code Quality Tools**: Integrated PMD, Spotless, and comprehensive testing frameworks
-- **Multi-Platform Development**: Full support for ARM64 and AMD64 development environments
+### 开发体验改进
+- **增强开发脚本**: 改进了 `dev-docker.sh`，提供更好的健康检查和错误处理
+- **热重载稳定性**: 修复了容器文件同步问题，确保可靠开发
+- **代码质量工具**: 集成了 PMD、Spotless 和全面的测试框架
+- **多平台开发**: 完全支持 ARM64 和 AMD64 开发环境
 
-## Important Notes
+## 重要说明
 
-- **Testing Strategy**: Prioritize Docker container builds over automated unit tests unless explicitly requested by users
-- **Quartz Configuration**: Uses RAM storage (RAMJobStore) instead of database persistence due to SQLite compatibility with job scheduling
-- **Authentication**: JWT tokens with auto-refresh mechanism and configurable expiration times
-- **CORS**: Configured for development and production environments with proper security headers
-- **File Generation**: STRM files are generated in the `/app/backend/strm` directory with batch processing support
-- **AI Integration**: Optional AI scraping feature for media metadata with configurable providers
-- **Path Management**: Standardized paths ensure consistent behavior across deployment environments with backward compatibility
-- **Multi-Platform Support**: Native support for x86_64 and ARM64 architectures with automatic image selection
-- **Performance Optimization**: Multi-level caching, async processing, and database connection pooling for optimal performance
-- **Security**: Comprehensive security measures including dependency scanning, input validation, and secure configuration management
+- **测试策略**: 除非用户明确要求，优先使用 Docker 容器构建而非自动化单元测试
+- **Quartz 配置**: 由于 SQLite 兼容性，使用 RAM 存储（RAMJobStore）而非数据库持久化
+- **认证**: JWT 令牌配合自动刷新机制和可配置过期时间
+- **CORS**: 为开发和生产环境配置了适当安全头的 CORS
+- **文件生成**: STRM 文件生成在 `/app/backend/strm` 目录，支持批量处理
+- **AI 集成**: 可选的 AI 刮削功能，支持可配置的媒体元数据 Provider
+- **路径管理**: 标准化路径确保跨部署环境的一致行为和向后兼容
+- **多平台支持**: 原生支持 x86_64 和 ARM64 架构，自动选择镜像
+- **性能优化**: 多级缓存、异步处理和数据库连接池优化性能
+- **安全**: 全面的安全措施，包括依赖扫描、输入验证和安全配置管理
+
+## 文件处理器链
+
+系统采用责任链模式处理视频文件相关资源：
+
+| Order | 处理器 | 功能 |
+|-------|--------|------|
+| 10 | FileDiscoveryHandler | 文件发现 |
+| 20 | FileFilterHandler | 文件过滤 |
+| 30 | StrmGenerationHandler | STRM 文件生成 |
+| 40 | NfoDownloadHandler | NFO 文件下载 |
+| 41 | ImageDownloadHandler | 图片文件下载（海报、背景图、缩略图） |
+| 42 | SubtitleCopyHandler | 字幕文件复制 |
+| 50 | MediaScrapingHandler | 媒体刮削 |
+| 60 | OrphanCleanupHandler | 孤立文件清理 |
+
+### 配置传递机制
+
+处理器通过 `FileProcessingContext` 的属性传递配置：
+
+```java
+// 读取配置
+private boolean isKeepSubtitleEnabled(FileProcessingContext context) {
+    Object value = context.getAttribute("keepSubtitleFiles");
+    return Boolean.TRUE.equals(value);
+}
+
+private boolean isImageScrapingEnabled(FileProcessingContext context) {
+    Object value = context.getAttribute("useExistingScrapingInfo");
+    return Boolean.TRUE.equals(value);
+}
+```
+
+### URL 编码处理
+
+系统使用智能 URL 编码处理中文路径和特殊字符：
+
+```java
+// UrlEncoder.java - 智能 URL 编码
+public static String encodeUrlSmart(String url) {
+    // 仅对路径部分编码，保留协议和主机
+    // 处理中文、空格等特殊字符
+}
+```

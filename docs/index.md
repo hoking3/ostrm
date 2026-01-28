@@ -23,9 +23,12 @@ features:
     details: 基于 Cron 表达式的自动化执行，支持增量和全量更新模式
   - title: 🔍 AI 智能刮削
     details: 可选的智能媒体信息刮削功能，自动获取电影和电视剧元数据
+  - title: 🖼️ 图片文件下载
+    details: 自动下载海报、背景图和缩略图，支持本地、OpenList 和刮削三级优先级
+  - title: 📄 字幕文件保留
+    details: 自动复制视频同目录下的字幕文件，支持多种字幕格式
   - title: 🔐 安全认证系统
     details: 基于 JWT 的用户认证机制，确保数据安全
   - title: 🐳 容器化部署
     details: 完整的 Docker 支持，一键部署，支持环境变量配置
 ---
-

@@ -1,33 +1,40 @@
-## Why
+## 问题背景
 
-在任务执行过程中，视频目录中的字幕文件和图片文件没有被下载。根本原因是 `FileProcessorChain` 在处理视频文件时，只会调用处理 `VIDEO` 类型的处理器，而 `SubtitleCopyHandler`（处理 `SUBTITLE` 类型）和 `ImageDownloadHandler`（处理 `IMAGE` 类型）被跳过。此外，`SubtitleCopyHandler` 依赖 `scrapingConfig.keepSubtitleFiles` 配置项来判断是否下载字幕，但该配置可能未被正确保存或传递（用户选择了"保留字幕文件"但配置值为 `false`）。`ImageDownloadHandler` 也假设图片文件名遵循 `{baseFileName}-poster.jpg` 格式，无法匹配用户实际使用的任意命名图片文件。
+在任务执行过程中，视频目录中的字幕文件和图片文件没有被下载。根本原因是：
 
-## What Changes
+1. **处理器类型匹配问题**：`FileProcessorChain` 在处理视频文件时，只调用 `getHandledTypes()` 包含 `VIDEO` 的处理器
+   - `SubtitleCopyHandler` (Order 42) 的 `getHandledTypes()` 返回 `SUBTITLE`
+   - `ImageDownloadHandler` (Order 41) 的 `getHandledTypes()` 返回 `IMAGE`
+   - 结果：这两个处理器在处理视频文件时被跳过
 
-- 修改 `FileProcessorChain.supports()` 方法，允许 `SubtitleCopyHandler` 和 `ImageDownloadHandler` 在处理视频文件时也被调用
-- 修改 `SubtitleCopyHandler`，移除对 `scrapingConfig.keepSubtitleFiles` 配置的依赖，默认或根据任务配置下载所有字幕文件
-- 修改 `ImageDownloadHandler`，支持下载目录中任意命名的图片文件：
-  - 优先查找 `{baseFileName}-poster.jpg` 等特定格式
-  - 如果不存在，下载同目录下任意命名的图片文件（如 `FomalhautABC.jpeg`）
-- 添加配置验证日志，确保配置正确读取
+2. **配置读取问题**：`SubtitleCopyHandler` 依赖 `scrapingConfig.keepSubtitleFiles` 配置项，但该配置可能未被正确传递
 
-## Capabilities
+3. **图片下载逻辑限制**：`ImageDownloadHandler` 只查找特定命名的图片文件，无法匹配任意命名的图片文件
 
-### New Capabilities
-- `subtitle-download`: 在处理视频文件时，自动下载同目录下的字幕文件
-- `local-image-download`: 在处理视频文件时，自动下载同目录下的任意图片文件
+## 解决方案
 
-### Modified Capabilities
-- 无（这是一个功能修复，不涉及需求层面的变化）
+- 修改 `SubtitleCopyHandler.getHandledTypes()` 返回 `Set.of(FileType.SUBTITLE, FileType.VIDEO)`
+- 修改 `ImageDownloadHandler.getHandledTypes()` 返回 `Set.of(FileType.IMAGE, FileType.VIDEO)`
+- 修改配置读取方式，直接从 `FileProcessingContext.attributes` 中获取配置值
+- 修改 `ImageDownloadHandler`，支持下载目录中任意命名的图片文件
+- 添加 URL 编码支持，解决中文路径下载问题
 
-## Impact
+## 新增功能
 
-- **修改文件**：
-  - `FileProcessorChain.java`: 修改 supports() 方法的处理器匹配逻辑
-  - `SubtitleCopyHandler.java`: 修改 process() 方法，移除配置依赖，扩展处理范围
-  - `ImageDownloadHandler.java`: 修改文件查找逻辑，支持任意命名的图片文件
+- **字幕下载**：处理视频文件时，自动下载同目录的字幕文件（.srt, .ass, .vtt 等）
+- **任意图片下载**：处理视频文件时，自动下载同目录的任意图片文件
+- **智能 URL 编码**：支持中文路径和特殊字符的 URL 编码
 
-- **影响功能**：
-  - 字幕文件下载：处理视频文件时自动下载同目录的字幕
-  - 图片文件下载：处理视频文件时自动下载同目录的图片文件
-  - 不再依赖特定的图片命名格式
+## 修改文件
+
+- `FileProcessorChain.java`: 验证 supports() 方法的处理器匹配逻辑
+- `SubtitleCopyHandler.java`: 添加 VIDEO 类型支持，修复配置读取
+- `ImageDownloadHandler.java`: 添加 VIDEO 类型支持，支持任意命名图片
+- `OpenlistApiService.java`: 添加 downloadWithEncodedUrl() 方法
+- `SystemConfigService.java`: 修复嵌套 Map 配置合并
+
+## 影响范围
+
+- **字幕文件下载**：处理视频文件时自动下载同目录的字幕
+- **图片文件下载**：处理视频文件时自动下载同目录的图片文件
+- **配置依赖**：移除对 scrapingConfig 的依赖，直接从 context.attributes 读取
