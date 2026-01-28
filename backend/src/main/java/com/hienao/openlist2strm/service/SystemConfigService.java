@@ -72,8 +72,11 @@ public class SystemConfigService {
           // 获取默认配置
           result = getDefaultConfig();
 
-          // 合并现有配置
-          result.putAll(config);
+          // 递归合并配置（修复嵌套 Map 合并问题）
+          deepMerge(result, config);
+
+          // 记录实际读取的配置值
+          logConfigValues(result);
 
           // 检查是否缺少必要字段
           if (!config.containsKey("mediaExtensions")) {
@@ -135,8 +138,11 @@ public class SystemConfigService {
       // 读取现有配置
       Map<String, Object> existingConfig = getSystemConfig();
 
-      // 更新配置
-      existingConfig.putAll(config);
+      // 深度合并配置（递归合并嵌套的 Map）
+      deepMerge(existingConfig, config);
+
+      // 记录关键配置值
+      logConfigurationValues(existingConfig);
 
       // 写入配置文件
       saveSystemConfigInternal(existingConfig);
@@ -145,6 +151,68 @@ public class SystemConfigService {
     } catch (Exception e) {
       log.error("保存系统配置失败", e);
       throw new RuntimeException("保存系统配置失败", e);
+    }
+  }
+
+  /**
+   * 记录关键配置值（用于调试）
+   *
+   * @param config 配置 Map
+   */
+  @SuppressWarnings("unchecked")
+  private void logConfigValues(Map<String, Object> config) {
+    try {
+      Object scrapingObj = config.get("scraping");
+      if (scrapingObj instanceof Map) {
+        Map<String, Object> scraping = (Map<String, Object>) scrapingObj;
+        Boolean keepSubtitle = (Boolean) scraping.get("keepSubtitleFiles");
+        Boolean useExisting = (Boolean) scraping.get("useExistingScrapingInfo");
+        Boolean enabled = (Boolean) scraping.get("enabled");
+        log.info("读取配置 - 刮削配置: enabled={}, keepSubtitleFiles={}, useExistingScrapingInfo={}",
+            enabled, keepSubtitle, useExisting);
+      }
+    } catch (Exception e) {
+      log.warn("记录配置值失败", e);
+    }
+  }
+
+  /**
+   * 记录保存时的配置值
+   */
+  private void logConfigurationValues(Map<String, Object> config) {
+    logConfigValues(config);
+  }
+
+  /**
+   * 深度合并两个配置 Map
+   * 递归合并嵌套的 Map，确保嵌套属性正确更新
+   *
+   * @param target 目标 Map
+   * @param source 源 Map
+   */
+  @SuppressWarnings("unchecked")
+  private void deepMerge(Map<String, Object> target, Map<String, Object> source) {
+    for (Map.Entry<String, Object> entry : source.entrySet()) {
+      String key = entry.getKey();
+      Object value = entry.getValue();
+
+      if (value instanceof Map) {
+        // 如果源值是 Map，递归合并
+        Map<String, Object> targetValue = (Map<String, Object>) target.get(key);
+        if (targetValue == null) {
+          // 如果目标 Map 不存在，直接复制
+          target.put(key, value);
+        } else if (targetValue instanceof Map) {
+          // 目标也是 Map，递归合并
+          deepMerge(targetValue, (Map<String, Object>) value);
+        } else {
+          // 目标不是 Map，直接替换
+          target.put(key, value);
+        }
+      } else {
+        // 非 Map 值直接覆盖
+        target.put(key, value);
+      }
     }
   }
 

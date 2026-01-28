@@ -279,8 +279,8 @@ public class OpenlistApiService {
         file.setPath(filePath);
 
         // 构建文件URL - 使用URI类进行智能URL编码
-        String fileUrl = buildFileUrl(config.getBaseUrl(), filePath);
-        file.setUrl(fileUrl);
+        String encodedUrl = buildFileUrl(config.getBaseUrl(), filePath);
+        file.setUrl(encodedUrl);
 
         files.add(file);
       }
@@ -344,29 +344,58 @@ public class OpenlistApiService {
   public byte[] getFileContent(OpenlistConfig config, OpenlistFile file, boolean enableUrlEncoding) {
     try {
       // 使用OpenlistFile中的url字段，已包含sign参数
-      String fileUrl = file.getUrl();
+      String encodedUrl;
       if (file.getSign() != null && !file.getSign().isEmpty()) {
         // 构建完整URL
         String completeUrl = file.getUrl() + "?sign=" + file.getSign();
         if (enableUrlEncoding) {
           // 使用统一的智能编码，避免双重编码（适用于STRM文件写入场景）
-          fileUrl = UrlEncoder.encodeUrlSmart(completeUrl);
+          encodedUrl = UrlEncoder.encodeUrlSmart(completeUrl);
         } else {
-          // 不进行URL编码（适用于刮削文件下载场景，避免认证问题）
-          fileUrl = completeUrl;
+          // 不进行URL编码，直接使用原始URL
+          encodedUrl = completeUrl;
         }
       } else {
         if (enableUrlEncoding) {
           // 使用统一编码标准确保中文路径正确处理
-          fileUrl = UrlEncoder.encodeUrlSmart(fileUrl);
+          encodedUrl = UrlEncoder.encodeUrlSmart(file.getUrl());
         } else {
           // 不进行编码，直接使用原始URL
-          fileUrl = file.getUrl();
+          encodedUrl = file.getUrl();
         }
       }
 
-      log.debug("下载文件请求 - 文件名: {}, 完整URL: {}", file.getName(), fileUrl);
+      log.debug("下载文件请求 - 文件名: {}, 完整URL: {}", file.getName(), encodedUrl);
+      return downloadFileWithUrl(config, file, encodedUrl);
+    } catch (Exception e) {
+      log.error("下载文件异常: {}, 错误: {}", file.getName(), e.getMessage());
+      return null;
+    }
+  }
 
+
+  /**
+   * 使用预编码的URL下载文件内容
+   * 调用方负责对URL进行编码，此方法直接使用传入的URL
+   *
+   * @param config OpenList配置
+   * @param file OpenlistFile对象（仅用于日志记录）
+   * @param encodedUrl 已编码的完整下载URL
+   * @return 文件内容字节数组
+   */
+  public byte[] downloadWithEncodedUrl(OpenlistConfig config, OpenlistFile file, String encodedUrl) {
+    return downloadFileWithUrl(config, file, encodedUrl);
+  }
+  /**
+   * 使用指定URL下载文件内容
+   *
+   * @param config OpenList配置
+   * @param file OpenlistFile对象（仅用于日志记录）
+   * @param encodedUrl 已编码的完整URL
+   * @return 文件内容字节数组
+   */
+  private byte[] downloadFileWithUrl(OpenlistConfig config, OpenlistFile file, String encodedUrl) {
+    try {
       // 设置请求头
       HttpHeaders headers = new HttpHeaders();
       headers.set("User-Agent", AppConstants.USER_AGENT);
@@ -381,7 +410,7 @@ public class OpenlistApiService {
 
       // 发送GET请求获取文件内容 - 使用URI对象避免Spring将{...}解析为模板变量
       ResponseEntity<byte[]> response =
-          restTemplate.exchange(java.net.URI.create(fileUrl), HttpMethod.GET, entity, byte[].class);
+          restTemplate.exchange(java.net.URI.create(encodedUrl), HttpMethod.GET, entity, byte[].class);
 
       log.debug(
           "文件下载响应 - 状态码: {}, Content-Type: {}, Headers: {}",
@@ -394,7 +423,7 @@ public class OpenlistApiService {
         log.info(
             "文件下载收到302重定向: {}, URL: {}, Location: {}",
             file.getName(),
-            fileUrl,
+            encodedUrl,
             response.getHeaders().getLocation());
 
         // 尝试跟随重定向
@@ -472,13 +501,13 @@ public class OpenlistApiService {
       }
 
       if (!response.getStatusCode().is2xxSuccessful()) {
-        log.warn("文件下载失败: {}, 状态码: {}, URL: {}", file.getName(), response.getStatusCode(), fileUrl);
+        log.warn("文件下载失败: {}, 状态码: {}, URL: {}", file.getName(), response.getStatusCode(), encodedUrl);
         return null;
       }
 
       byte[] content = response.getBody();
       if (content == null || content.length == 0) {
-        log.warn("文件内容为空: {}, URL: {}", file.getName(), fileUrl);
+        log.warn("文件内容为空: {}, URL: {}", file.getName(), encodedUrl);
         return null;
       }
 
@@ -515,9 +544,9 @@ public class OpenlistApiService {
   public byte[] getFileContent(OpenlistConfig config, String filePath) {
     try {
       // 构建文件下载URL - 使用URI类进行智能URL编码
-      String fileUrl = buildFileUrl(config.getBaseUrl(), filePath);
+      String encodedUrl = buildFileUrl(config.getBaseUrl(), filePath);
 
-      log.debug("下载文件请求 - 文件路径: {}, 完整URL: {}", filePath, fileUrl);
+      log.debug("下载文件请求 - 文件路径: {}, 完整URL: {}", filePath, encodedUrl);
 
       // 设置请求头
       HttpHeaders headers = new HttpHeaders();
@@ -533,7 +562,7 @@ public class OpenlistApiService {
 
       // 发送GET请求获取文件内容 - 使用URI对象避免Spring将{...}解析为模板变量
       ResponseEntity<byte[]> response =
-          restTemplate.exchange(java.net.URI.create(fileUrl), HttpMethod.GET, entity, byte[].class);
+          restTemplate.exchange(java.net.URI.create(encodedUrl), HttpMethod.GET, entity, byte[].class);
 
       log.debug(
           "文件下载响应 - 状态码: {}, Content-Type: {}, Headers: {}",
@@ -546,7 +575,7 @@ public class OpenlistApiService {
         log.info(
             "文件下载收到302重定向: {}, URL: {}, Location: {}",
             filePath,
-            fileUrl,
+            encodedUrl,
             response.getHeaders().getLocation());
 
         // 尝试跟随重定向
@@ -624,13 +653,13 @@ public class OpenlistApiService {
       }
 
       if (!response.getStatusCode().is2xxSuccessful()) {
-        log.warn("文件下载失败: {}, 状态码: {}, URL: {}", filePath, response.getStatusCode(), fileUrl);
+        log.warn("文件下载失败: {}, 状态码: {}, URL: {}", filePath, response.getStatusCode(), encodedUrl);
         return null;
       }
 
       byte[] content = response.getBody();
       if (content == null || content.length == 0) {
-        log.warn("文件内容为空: {}, URL: {}", filePath, fileUrl);
+        log.warn("文件内容为空: {}, URL: {}", filePath, encodedUrl);
         return null;
       }
 

@@ -47,7 +47,6 @@ public class ImageDownloadHandler implements FileProcessorHandler {
     try {
       // 1. 检查配置是否启用
       if (!isImageScrapingEnabled(context)) {
-        log.debug("图片刮削未启用，跳过");
         context.getStats().incrementSkipped();
         return ProcessingResult.SKIPPED;
       }
@@ -64,10 +63,14 @@ public class ImageDownloadHandler implements FileProcessorHandler {
       ProcessingResult thumbResult = processImage(
           context, "-thumb.jpg", "缩略图");
 
+      // 5. 降级处理：如果没有找到特定命名的图片，下载任意图片文件
+      ProcessingResult arbitraryImageResult = processArbitraryImages(context);
+
       // 综合结果
       if (posterResult == ProcessingResult.FAILED
           || backdropResult == ProcessingResult.FAILED
-          || thumbResult == ProcessingResult.FAILED) {
+          || thumbResult == ProcessingResult.FAILED
+          || arbitraryImageResult == ProcessingResult.FAILED) {
         return ProcessingResult.FAILED;
       }
 
@@ -82,7 +85,7 @@ public class ImageDownloadHandler implements FileProcessorHandler {
 
   @Override
   public Set<FileType> getHandledTypes() {
-    return Set.of(FileType.IMAGE);
+    return Set.of(FileType.IMAGE, FileType.VIDEO);
   }
 
   // ==================== 图片处理 ====================
@@ -131,6 +134,128 @@ public class ImageDownloadHandler implements FileProcessorHandler {
     log.debug("本地和 OpenList 都不存在{}文件，跳过: {}", description, imageFileName);
     context.getStats().incrementSkipped();
     return ProcessingResult.SKIPPED;
+  }
+
+  /**
+   * 处理任意命名的图片文件（降级策略）
+   * 如果没有找到特定命名的图片文件，下载同目录下的任意图片文件
+   */
+  private ProcessingResult processArbitraryImages(FileProcessingContext context) {
+    try {
+      java.util.List<OpenlistApiService.OpenlistFile> directoryFiles = context.getDirectoryFiles();
+      if (directoryFiles == null || directoryFiles.isEmpty()) {
+        return ProcessingResult.SKIPPED;
+      }
+
+      String saveDirectory = context.getSaveDirectory();
+      String videoBaseName = context.getBaseFileName();
+
+      // 获取当前目录路径
+      String currentDirectory = context.getCurrentFile().getPath()
+          .substring(0, context.getCurrentFile().getPath().lastIndexOf('/') + 1);
+
+      // 查找同目录下的图片文件（排除已经处理过的特定命名图片）
+      java.util.List<OpenlistApiService.OpenlistFile> arbitraryImages = directoryFiles.stream()
+          .filter(f -> "file".equals(f.getType()))
+          .filter(f -> isImageFile(f.getName()))
+          .filter(f -> f.getPath().startsWith(currentDirectory))
+          .filter(f -> !isNamedImageFile(f.getName(), videoBaseName)) // 排除特定命名的图片
+          .collect(java.util.stream.Collectors.toList());
+
+      if (arbitraryImages.isEmpty()) {
+        log.debug("没有找到任意命名的图片文件");
+        return ProcessingResult.SKIPPED;
+      }
+
+      log.info("发现 {} 个任意命名的图片文件", arbitraryImages.size());
+
+      int successCount = 0;
+      for (OpenlistApiService.OpenlistFile imageFile : arbitraryImages) {
+        if (downloadArbitraryImage(context, imageFile)) {
+          successCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        log.info("成功下载 {} 个任意命名的图片文件", successCount);
+        context.getStats().incrementProcessed();
+        return ProcessingResult.SUCCESS;
+      }
+
+      return ProcessingResult.SKIPPED;
+
+    } catch (Exception e) {
+      log.error("处理任意命名图片文件失败: {}", context.getBaseFileName(), e);
+      return ProcessingResult.FAILED;
+    }
+  }
+
+  /**
+   * 下载任意命名的图片文件，保留原文件名
+   */
+  private boolean downloadArbitraryImage(
+      FileProcessingContext context,
+      OpenlistApiService.OpenlistFile imageFile) {
+
+    String saveDirectory = context.getSaveDirectory();
+    String fileName = imageFile.getName();
+
+    try {
+      // 检查本地是否已存在
+      Path localPath = Paths.get(saveDirectory, fileName);
+      if (Files.exists(localPath)) {
+        log.debug("本地图片文件已存在，跳过: {}", fileName);
+        return true;
+      }
+
+      // 构建下载URL并进行编码
+      String downloadUrl = imageFile.getUrl();
+      if (imageFile.getSign() != null && !imageFile.getSign().isEmpty()) {
+        downloadUrl = downloadUrl + "?sign=" + imageFile.getSign();
+      }
+      // 使用统一的智能编码方法处理中文路径
+      downloadUrl = com.hienao.openlist2strm.util.UrlEncoder.encodeUrlSmart(downloadUrl);
+
+      // 从 OpenList 下载
+      byte[] content = openlistApiService.downloadWithEncodedUrl(
+          context.getOpenlistConfig(), imageFile, downloadUrl);
+
+      if (content != null && content.length > 0) {
+        Files.createDirectories(localPath.getParent());
+        Files.write(localPath, content);
+
+        log.info("从 OpenList 下载任意命名图片文件成功: {} -> {}", fileName, localPath);
+        return true;
+      }
+
+      log.debug("图片文件内容为空: {}", fileName);
+      return false;
+
+    } catch (Exception e) {
+      log.warn("下载任意命名图片文件失败: {}, 错误: {}", fileName, e.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * 检查是否为特定命名的图片文件
+   */
+  private boolean isNamedImageFile(String fileName, String videoBaseName) {
+    String lower = fileName.toLowerCase();
+    return lower.endsWith("-poster.jpg")
+        || lower.endsWith("-fanart.jpg")
+        || lower.endsWith("-thumb.jpg");
+  }
+
+  /**
+   * 检查是否为图片文件
+   */
+  private boolean isImageFile(String fileName) {
+    if (fileName == null) return false;
+    String lower = fileName.toLowerCase();
+    return lower.endsWith(".jpg") || lower.endsWith(".jpeg")
+        || lower.endsWith(".png") || lower.endsWith(".webp")
+        || lower.endsWith(".bmp");
   }
 
   // ==================== 电视剧共用图片处理 ====================
@@ -195,13 +320,8 @@ public class ImageDownloadHandler implements FileProcessorHandler {
    * 检查图片刮削是否启用
    */
   private boolean isImageScrapingEnabled(FileProcessingContext context) {
-    var scrapingConfig = context.getAttribute("scrapingConfig");
-    if (scrapingConfig != null && scrapingConfig instanceof java.util.Map) {
-      @SuppressWarnings("unchecked")
-      java.util.Map<String, Object> config = (java.util.Map<String, Object>) scrapingConfig;
-      return Boolean.TRUE.equals(config.get("useExistingScrapingInfo"));
-    }
-    return false;
+    Object useExistingValue = context.getAttribute("useExistingScrapingInfo");
+    return Boolean.TRUE.equals(useExistingValue);
   }
 
   /**

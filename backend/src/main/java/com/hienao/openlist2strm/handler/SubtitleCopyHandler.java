@@ -54,8 +54,9 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
   public ProcessingResult process(FileProcessingContext context) {
     try {
       // 1. 检查配置是否启用
-      if (!isKeepSubtitleEnabled(context)) {
-        log.debug("保留字幕文件未启用，跳过");
+      boolean keepSubtitleEnabled = isKeepSubtitleEnabled(context);
+
+      if (!keepSubtitleEnabled) {
         context.getStats().incrementSkipped();
         return ProcessingResult.SKIPPED;
       }
@@ -64,8 +65,10 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
       String currentDirectory = context.getCurrentFile().getPath()
           .substring(0, context.getCurrentFile().getPath().lastIndexOf('/') + 1);
 
+      java.util.List<OpenlistApiService.OpenlistFile> allDirectoryFiles = context.getDirectoryFiles();
+
       java.util.List<OpenlistApiService.OpenlistFile> subtitleFiles =
-          context.getDirectoryFiles().stream()
+          allDirectoryFiles.stream()
               .filter(f -> "file".equals(f.getType()))
               .filter(f -> isSubtitleFile(f.getName()))
               .filter(f -> f.getPath().startsWith(currentDirectory))
@@ -74,6 +77,8 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
                 return !downloadedSubtitles.contains(fileName.toLowerCase());
               })
               .collect(Collectors.toList());
+
+      log.debug("找到 {} 个字幕文件", subtitleFiles.size());
 
       if (subtitleFiles.isEmpty()) {
         log.debug("没有需要处理的字幕文件");
@@ -108,7 +113,7 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
 
   @Override
   public Set<FileType> getHandledTypes() {
-    return Set.of(FileType.SUBTITLE);
+    return Set.of(FileType.SUBTITLE, FileType.VIDEO);
   }
 
   // ==================== 字幕复制逻辑 ====================
@@ -132,12 +137,20 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
         return true;
       }
 
-      // 2. 从 OpenList 下载
-      byte[] content = openlistApiService.getFileContent(
-          context.getOpenlistConfig(), subtitleFile, false);
+      // 2. 构建下载URL并进行编码
+      String downloadUrl = subtitleFile.getUrl();
+      if (subtitleFile.getSign() != null && !subtitleFile.getSign().isEmpty()) {
+        downloadUrl = downloadUrl + "?sign=" + subtitleFile.getSign();
+      }
+      // 使用统一的智能编码方法处理中文路径
+      downloadUrl = com.hienao.openlist2strm.util.UrlEncoder.encodeUrlSmart(downloadUrl);
+
+      // 3. 从 OpenList 下载
+      byte[] content = openlistApiService.downloadWithEncodedUrl(
+          context.getOpenlistConfig(), subtitleFile, downloadUrl);
 
       if (content != null && content.length > 0) {
-        // 3. 保存到本地
+        // 4. 保存到本地
         Files.createDirectories(localPath.getParent());
         Files.write(localPath, content);
 
@@ -161,13 +174,8 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
    * 检查是否启用保留字幕文件
    */
   private boolean isKeepSubtitleEnabled(FileProcessingContext context) {
-    var scrapingConfig = context.getAttribute("scrapingConfig");
-    if (scrapingConfig != null && scrapingConfig instanceof java.util.Map) {
-      @SuppressWarnings("unchecked")
-      java.util.Map<String, Object> config = (java.util.Map<String, Object>) scrapingConfig;
-      return Boolean.TRUE.equals(config.get("keepSubtitleFiles"));
-    }
-    return false;
+    Object keepSubtitleValue = context.getAttribute("keepSubtitleFiles");
+    return Boolean.TRUE.equals(keepSubtitleValue);
   }
 
   // ==================== 工具方法 ====================
