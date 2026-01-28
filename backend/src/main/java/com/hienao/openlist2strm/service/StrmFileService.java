@@ -67,7 +67,9 @@ public class StrmFileService {
       // 计算最终写入的URL（考虑编码配置）
       String finalUrl = processedUrl;
       if (shouldEncodeUrl(openlistConfig)) {
+        log.debug("URL编码前: {}", processedUrl);
         finalUrl = encodeUrlForStrm(processedUrl);
+        log.debug("URL编码后: {}", finalUrl);
       }
 
       // 检查文件是否已存在
@@ -240,6 +242,7 @@ public class StrmFileService {
    * @return 编码后的URL
    */
   private String encodeUrlForStrm(String originalUrl) {
+    log.debug("开始编码URL: {}", originalUrl);
     if (originalUrl == null || originalUrl.isEmpty()) {
       return originalUrl;
     }
@@ -1045,6 +1048,10 @@ public class StrmFileService {
       String path = url.getPath();
       String query = url.getQuery();
       String ref = url.getRef();
+
+      // 调试日志：显示路径处理细节
+      log.debug("URL路径解析详情 - 原始URL: {}, 解析后path: {}, 长度: {}",
+          originalUrl, path, path != null ? path.length() : 0);
 
       // 构建新的URL
       String newBaseUrl = openlistConfig.getStrmBaseUrl();

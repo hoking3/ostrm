@@ -55,13 +55,20 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
       String strmBasePath = context.getTaskConfig().getStrmPath();
       @SuppressWarnings("unchecked")
       List<OpenlistApiService.OpenlistFile> allFiles =
-          (List<OpenlistApiService.OpenlistFile>) context.getAttribute("discoveredFiles");
+          (List<OpenlistApiService.OpenlistFile>) context.getAttribute("originalFiles");
+
+      // 兼容处理：如果 originalFiles 不存在，使用 discoveredFiles
+      if (allFiles == null || allFiles.isEmpty()) {
+        allFiles = (List<OpenlistApiService.OpenlistFile>) context.getAttribute("discoveredFiles");
+      }
 
       if (allFiles == null || allFiles.isEmpty()) {
         log.debug("没有发现文件，跳过清理");
         context.getStats().incrementSkipped();
         return ProcessingResult.SKIPPED;
       }
+
+      log.info("开始检查孤立文件，使用 {} 个 OpenList 文件进行匹配", allFiles.size());
 
       // 执行清理
       CleanupResult result = cleanOrphanedFiles(
@@ -205,7 +212,9 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
             // 删除 STRM 文件
             Files.deleteIfExists(filePath);
             strmCount.incrementAndGet();
-            log.info("删除孤立 STRM 文件: {}", filePath);
+            log.info("删除孤立 STRM 文件: {} (源视频文件在 OpenList 中不存在)", filePath);
+          } else {
+            log.debug("保留 STRM 文件: {} (源视频文件存在于 OpenList)", filePath);
           }
         }
         // 检查是否为 NFO 文件
@@ -214,7 +223,9 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
           if (!isFileExistsInOpenList(baseName, openlistFiles)) {
             Files.deleteIfExists(filePath);
             nfoCount.incrementAndGet();
-            log.debug("删除孤立 NFO 文件: {}", filePath);
+            log.info("删除孤立 NFO 文件: {} (对应的视频源文件在 OpenList 中不存在)", filePath);
+          } else {
+            log.debug("保留 NFO 文件: {} (对应的视频源文件存在于 OpenList)", filePath);
           }
         }
         // 检查是否为图片文件
@@ -223,7 +234,9 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
           if (baseName != null && !isFileExistsInOpenList(baseName, openlistFiles)) {
             Files.deleteIfExists(filePath);
             imageCount.incrementAndGet();
-            log.debug("删除孤立图片文件: {}", filePath);
+            log.info("删除孤立图片文件: {} (对应的视频源文件在 OpenList 中不存在)", filePath);
+          } else {
+            log.debug("保留图片文件: {} (对应的视频源文件存在于 OpenList)", filePath);
           }
         }
         // 检查是否为字幕文件
@@ -232,11 +245,12 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
           if (baseName != null && !isFileExistsInOpenList(baseName, openlistFiles)) {
             Files.deleteIfExists(filePath);
             subtitleCount.incrementAndGet();
-            log.debug("删除孤立字幕文件: {}", filePath);
+            log.info("删除孤立字幕文件: {} (对应的视频源文件在 OpenList 中不存在)", filePath);
+          } else {
+            log.debug("保留字幕文件: {} (对应的视频源文件存在于 OpenList)", filePath);
           }
         }
       }
-
     } catch (Exception e) {
       log.error("清理目录文件失败: {}", directoryPath, e);
     }
@@ -351,15 +365,26 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
       String baseName,
       List<OpenlistApiService.OpenlistFile> openlistFiles) {
 
-    String normalizedBaseName = baseName.toLowerCase().replaceAll("[^a-z0-9]", "");
+    // 规范化基础名（移除扩展名后转小写）
+    String normalizedBaseName = normalizeFileName(baseName);
 
     return openlistFiles.stream()
         .filter(f -> "file".equals(f.getType()))
         .filter(f -> isVideoFile(f.getName()))
         .anyMatch(f -> {
-          String openlistBaseName = getBaseName(f.getName());
+          // 同样规范化 OpenList 文件名
+          String openlistBaseName = normalizeFileName(getBaseName(f.getName()));
           return normalizedBaseName.equals(openlistBaseName);
         });
+  }
+
+  /**
+   * 规范化文件名用于匹配
+   * 保留中文和特殊字符，只转小写，移除首尾空白
+   */
+  private String normalizeFileName(String fileName) {
+    if (fileName == null) return "";
+    return fileName.toLowerCase().trim();
   }
 
   /**

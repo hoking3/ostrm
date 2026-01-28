@@ -232,6 +232,8 @@ public class TaskExecutionService {
     // 3. 获取目录文件列表
     List<OpenlistApiService.OpenlistFile> allFiles = openlistApiService.getAllFilesRecursively(
         openlistConfig, taskConfig.getPath());
+    // 保存原始文件列表，用于 OrphanCleanupHandler 进行孤立文件检查
+    context.setAttribute("originalFiles", allFiles);
     context.setAttribute("discoveredFiles", allFiles);
     context.getStats().setTotalFiles(allFiles.size());
 

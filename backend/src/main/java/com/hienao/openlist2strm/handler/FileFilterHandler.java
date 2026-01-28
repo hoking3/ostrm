@@ -72,9 +72,6 @@ public class FileFilterHandler implements FileProcessorHandler {
       context.setAttribute("subtitleFiles", subtitleFiles);
       context.setAttribute("imageFiles", imageFiles);
 
-      // 过滤掉非视频文件，只保留视频文件用于后续处理
-      context.setAttribute("discoveredFiles", videoFiles);
-
       log.debug("文件过滤完成: {} 视频, {} 字幕, {} 图片",
           videoFiles.size(), subtitleFiles.size(), imageFiles.size());
 
