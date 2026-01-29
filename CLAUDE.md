@@ -14,6 +14,11 @@ Ostrm 是一个现代化的全栈应用程序，用于将文件列表转换为 S
 
 ## 项目架构
 
+> **架构文档说明**:
+> - 本文档 (CLAUDE.md) 提供项目的**总体概览和开发指南**
+> - 详细的前端架构说明请参考 [`frontend/ARCHITECTURE.md`](file:///home/hienao/Code/github/ostrm/frontend/ARCHITECTURE.md)
+> - 详细的后端架构说明请参考 [`backend/ARCHITECTURE.md`](file:///home/hienao/Code/github/ostrm/backend/ARCHITECTURE.md)
+
 ### 总体结构
 ```
 ├── frontend/           # Nuxt.js 3.13.0 前端应用
@@ -53,20 +58,31 @@ Ostrm 是一个现代化的全栈应用程序，用于将文件列表转换为 S
 ### 核心组件
 
 **前端 (Nuxt.js 3.13.0)**:
-- 基于 JWT 令牌的认证，存储在 Cookie 中并支持自动刷新
-- 中间件保护的路由（`auth.js`, `guest.js`）配合智能路由
-- Tailwind CSS 3.4.15 毛玻璃设计系统
-- Composition API + `<script setup>` 语法 + TypeScript 支持
-- Pinia 状态管理，支持 localStorage/sessionStorage 持久化
-- 响应式设计，渐变色主题和动画效果
+- **架构模式**: 单页应用 (SPA)，客户端渲染 (CSR)
+- **核心技术**: Vue 3.4.0 Composition API + `<script setup>` + TypeScript 支持
+- **状态管理**: Pinia 2.1.7 (2 个状态仓库: `auth.js`, `version.js`)
+- **路由守卫**: 3 个中间件 (`auth.js`, `guest.js`, `docker-port.global.js`)
+- **页面组件**: 7 个页面（自动路由），1 个可复用组件 (`AppHeader.vue`)
+- **工具模块**: 3 个工具函数 (`api.js`, `token.js`, `logger.js`)
+- **插件系统**: 3 个 Nuxt 插件（认证初始化、Docker 兼容、前端日志）
+- **样式系统**: Tailwind CSS 3.4.15 毛玻璃设计 + @tailwindcss/forms 0.5.9
+- **性能优化**: vue-virtual-scroller 2.0.0-beta.8 虚拟滚动
+- **认证机制**: JWT 令牌自动注入和刷新，Cookie 存储
 
 **后端 (Spring Boot 3.3.9)**:
-- RESTful API + JWT 认证 + Spring Security 集成
-- Quartz 定时任务（由于 SQLite 兼容性使用 RAM 存储）
-- MyBatis 3.0.4 ORM + SQLite 3.47.1.0 数据库
-- Flyway 11.4.0 数据库迁移管理
-- 多级缓存 + 异步处理
-- WebSocket 实时更新支持
+- **架构模式**: 分层架构 (Controller → Service → Mapper → Entity)
+- **核心框架**: Java 21 + Gradle (Kotlin DSL) + Spring Boot 3.3.9
+- **表现层**: 7 个 REST API 控制器 + WebSocket 实时通信
+- **业务层**: 20 个服务类 + 16 个文件处理器（责任链模式）
+- **数据层**: MyBatis 3.0.4 (2 个 Mapper) + 2 个实体类
+- **DTO 层**: 18 个数据传输对象（按功能分组: sign/task/tmdb 等）
+- **配置管理**: 18 个配置类（含独立 security 子目录）
+- **任务调度**: Spring Quartz (5 个 Job，RAM 存储模式)
+- **数据库**: SQLite 3.47.1.0 + Flyway 11.4.0 迁移管理
+- **安全认证**: Spring Security + JWT (java-jwt 4.4.0)
+- **API 文档**: SpringDoc OpenAPI 2.6.0 + Swagger UI
+- **缓存系统**: Caffeine 3.2.0 本地缓存
+- **代码质量**: PMD 7.9.0 + Spotless 7.0.2 + JaCoCo 0.8.12
 
 **核心功能**:
 - OpenList 配置管理（CRUD 操作）
@@ -88,12 +104,14 @@ Ostrm 是一个现代化的全栈应用程序，用于将文件列表转换为 S
 ### API 结构
 
 **主要端点**:
-- `/api/auth/*` - 认证（登录、注册、登出、令牌刷新）
-- `/api/openlist-config` - OpenList 服务器配置（CRUD）
-- `/api/task-config` - STRM 任务管理（调度、执行）
-- `/api/settings` - 应用设置和首选项管理
-- `/api/scraping` - AI 媒体刮削配置和执行
-- `/ws/*` - WebSocket 实时更新端点
+- `/api/auth/*` - 认证服务（登录、注册、登出、Token 刷新）- `SignController`
+- `/api/openlist-config` - OpenList 服务器配置 CRUD - `OpenlistConfigController`
+- `/api/task-config` - STRM 任务管理（调度、执行）- `TaskConfigController`
+- `/api/system-config` - 系统配置和设置管理 - `SystemConfigController`
+- `/api/logs` - 日志查询和管理 - `LogController`
+- `/api/data-report` - 数据报表和统计 - `DataReportController`
+- `/api/version` - 应用版本信息和更新检查 - `VersionController`
+- `/ws/*` - WebSocket 实时通信端点
 
 **API 特性**:
 - OpenAPI 3.0 文档 + Swagger UI
@@ -161,21 +179,140 @@ dev-docker-rebuild.bat    # Windows
 ## 开发规范
 
 ### 前端开发
-- 使用 Composition API + `<script setup>` + TypeScript
-- 保护页面使用 `auth` 中间件，配合智能路由
-- 使用 `$fetch` 进行 API 调用，自动注入 Bearer 令牌和错误处理
-- 遵循 Tailwind CSS 实用优先 + 毛玻璃设计系统
-- 实现响应式设计，渐变色主题和流畅动画
-- 使用 Pinia 状态管理，配合正确的持久化策略
+
+**架构规范**:
+- 基于 Nuxt 3.13.0 + Vue 3.4.0，采用 SPA 模式（`ssr: false`）
+- 严格使用 Composition API + `<script setup>` 语法 + TypeScript 支持
+- 遵循 Nuxt 约定式路由，页面组件放在 `pages/` 目录自动生成路由
+
+**组件组织**:
+- **页面组件**: 放在 `pages/` 目录，命名为 `kebab-case.vue`
+- **可复用组件**: 放在 `components/` 目录，使用 PascalCase 命名（如 `AppHeader.vue`）
+- **布局组件**: 如需自定义布局，放在 `layouts/` 目录
+
+**状态管理**:
+- 使用 Pinia 2.1.7 进行全局状态管理，仓库放在 `stores/` 目录
+- 当前有 2 个仓库: `auth.js` (认证状态) 和 `version.js` (版本状态)
+- 根据需要选择持久化策略（localStorage 或 sessionStorage）
+
+**路由和中间件**:
+- 使用 `definePageMeta()` 在页面组件中配置中间件
+- 受保护页面使用 `auth` 中间件，示例: `definePageMeta({ middleware: 'auth' })`
+- 登录/注册页使用 `guest` 中间件，避免已登录用户重复访问
+- 全局中间件命名为 `*.global.js`（如 `docker-port.global.js`）
+
+**API 调用**:
+- 所有 API 请求通过 `utils/api.js` 封装的方法进行
+- 使用 `$fetch` 进行 HTTP 请求，自动注入 Bearer Token
+- API 基础路径配置在 `nuxt.config.ts` 的 `runtimeConfig.public.apiBase`
+- 开发环境通过 Nitro devProxy 代理到后端 8080 端口
+
+**样式规范**:
+- 使用 Tailwind CSS 3.4.15 原子化 CSS 框架
+- 全局样式定义在 `assets/css/main.css`
+- 遵循毛玻璃设计系统，使用渐变色主题
+- 表单样式使用 `@tailwindcss/forms` 插件
+- 实现响应式设计和流畅动画效果
+
+**工具和插件**:
+- 工具函数放在 `utils/` 目录（`api.js`, `token.js`, `logger.js`）
+- Nuxt 插件放在 `plugins/` 目录，客户端插件命名为 `*.client.js`
+- 使用 `logger.js` 进行前端日志收集和上报
+
+**性能优化**:
+- 长列表使用 `vue-virtual-scroller` 实现虚拟滚动
+- 合理使用 Nuxt 的预渲染配置（`nitro.prerender.routes`）
+- 避免过度的客户端状态，优先使用服务端数据
 
 ### 后端开发
-- 遵循 Spring Boot 3 规范的清晰分层架构
-- 使用 `@RestController` + OpenAPI 3.0 注解
-- 业务逻辑在 `@Service` 类中实现，配合事务管理
-- 创建 MyBatis Mapper 时注意 SQL 映射和结果处理
-- 使用 `@Valid` 进行 Bean Validation 请求/响应验证
-- 使用 `@ControllerAdvice` 实现统一的异常处理
-- 遵循 Spring Security + JWT 安全最佳实践
+
+**架构规范**:
+- 严格遵循 **分层架构**: Controller → Service → Mapper → Entity
+- 使用 Spring Boot 3.3.9 + Java 21，Gradle Kotlin DSL 构建
+- 所有 REST API 使用 `@RestController` 注解，遵循 RESTful 规范
+
+**表现层 (Controller)**:
+- 7 个控制器放在 `controller/` 目录
+- 使用 `@RestController` + `@RequestMapping` 定义路由
+- 添加 OpenAPI 3.0 注解（`@Operation`, `@ApiResponse` 等）用于文档生成
+- 使用 `@Valid` 进行请求参数验证
+- 控制器只负责请求/响应处理，业务逻辑委托给 Service 层
+
+**业务层 (Service)**:
+- 20 个服务类放在 `service/` 目录，使用 `@Service` 注解
+- 核心服务包括:
+  - `TaskExecutionService` - 任务执行核心逻辑
+  - `StrmFileService` - STRM 文件生成
+  - `MediaScrapingService` - 媒体刮削
+  - `OpenlistApiService` - OpenList API 集成
+  - `TmdbApiService` - TMDB API 集成
+- 使用 `@Transactional` 管理事务边界
+- 业务逻辑与数据访问分离
+
+**责任链模式 (Handler)**:
+- 16 个文件处理器放在 `handler/` 目录
+- 所有处理器实现 `FileProcessorHandler` 接口
+- 使用 `@Order` 注解定义执行顺序（10, 20, 30...）
+- 通过 `FileProcessingContext` 传递上下文和配置
+- 处理器链执行器: `FileProcessorChain`
+- 配置读取示例:
+  ```java
+  Object value = context.getAttribute("keepSubtitleFiles");
+  boolean enabled = Boolean.TRUE.equals(value);
+  ```
+
+**数据层 (Mapper & Entity)**:
+- 使用 MyBatis 3.0.4 进行 ORM 映射
+- 2 个 Mapper 接口放在 `mapper/` 目录，使用 `@Mapper` 注解
+- XML 映射文件放在 `resources/mapper/` 目录
+- 2 个实体类放在 `entity/` 目录，对应数据库表
+
+**数据传输对象 (DTO)**:
+- 18 个 DTO 放在 `dto/` 目录，按功能分组:
+  - `dto/sign/` - 认证相关 DTO
+  - `dto/task/` - 任务相关 DTO
+  - `dto/tmdb/` - TMDB API DTO
+  - 等等
+- 使用 Bean Validation 注解（`@NotNull`, `@NotBlank`, `@Valid` 等）
+
+**配置管理 (Config)**:
+- 18 个配置类放在 `config/` 目录，使用 `@Configuration` 注解
+- 安全配置独立放在 `config/security/` 子目录:
+  - `WebSecurityConfig` - Spring Security 配置
+  - `Jwt` - JWT 工具类
+  - `JwtAuthenticationFilter` - JWT 过滤器
+- 其他重要配置:
+  - `QuartzConfig` - Quartz 调度配置
+  - `CacheConfig` - Caffeine 缓存配置
+  - `MyBatisConfig` - MyBatis 配置
+
+**定时任务 (Job)**:
+- 5 个 Quartz Job 放在 `job/` 目录
+- 实现 `Job` 接口，使用 `@DisallowConcurrentExecution` 防并发
+- 主要任务:
+  - `TaskConfigJob` - 主任务执行
+  - `VersionCheckJob` - 版本检查
+  - `LogCleanupJob` - 日志清理
+  - `DataBackupJob` - 数据备份
+  - `EmailJob` - 邮件发送
+
+**异常处理**:
+- 使用 `@ControllerAdvice` 实现全局异常处理
+- 自定义异常类放在 `exception/` 目录
+- 返回结构化错误响应，统一格式
+
+**安全实践**:
+- 使用 Spring Security + JWT 进行认证授权
+- 密码使用 BCrypt 加密
+- 配置 CORS 安全策略
+- 敏感信息通过环境变量配置（如 `JWT_SECRET`）
+
+**代码质量**:
+- 使用 Spotless 7.0.2 自动格式化代码（Google Java Format）
+- 使用 PMD 7.9.0 进行静态代码分析
+- 使用 JaCoCo 0.8.12 生成测试覆盖率报告
+- 运行 `./gradlew spotlessApply` 格式化代码
+- 运行 `./gradlew pmdMain` 检查代码质量
 
 ### 数据库开发
 1. 使用 Flyway 规范创建迁移文件 `V{version}__{description}.sql`
