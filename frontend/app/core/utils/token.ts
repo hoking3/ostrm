@@ -1,14 +1,39 @@
 /**
  * JWT Token 工具函数
  * 统一处理token的验证、解析和管理
+ * 
+ * @author hienao
+ * @date 2026-01-31
  */
 
 /**
- * 获取统一的Cookie配置
- * @param {number} maxAge - Cookie最大存活时间（秒）
- * @returns {object} - Cookie配置对象
+ * JWT Payload 类型定义
  */
-export function getCookieConfig(maxAge = 60 * 60 * 24) {
+export interface JwtPayload {
+  exp?: number
+  iat?: number
+  sub?: string
+  [key: string]: unknown
+}
+
+/**
+ * Cookie 配置类型
+ */
+export interface CookieConfig {
+  default: () => null
+  maxAge: number
+  secure: boolean
+  sameSite: 'lax' | 'strict' | 'none'
+  httpOnly: boolean
+  path: string
+}
+
+/**
+ * 获取统一的Cookie配置
+ * @param maxAge - Cookie最大存活时间（秒）
+ * @returns Cookie配置对象
+ */
+export function getCookieConfig(maxAge: number = 60 * 60 * 24): CookieConfig {
   return {
     default: () => null,
     maxAge: maxAge,
@@ -21,10 +46,10 @@ export function getCookieConfig(maxAge = 60 * 60 * 24) {
 
 /**
  * 解析JWT payload
- * @param {string} token - JWT token
- * @returns {object} - 解析后的payload
+ * @param token - JWT token
+ * @returns 解析后的payload
  */
-export function parseJwtPayload(token) {
+export function parseJwtPayload(token: string): JwtPayload {
   const parts = token.split('.')
   if (parts.length !== 3) {
     throw new Error('Invalid JWT format')
@@ -32,15 +57,15 @@ export function parseJwtPayload(token) {
   
   const payload = parts[1]
   const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
-  return JSON.parse(decoded)
+  return JSON.parse(decoded) as JwtPayload
 }
 
 /**
  * 验证token是否有效（仅前端验证）
- * @param {string} token - JWT token
- * @returns {boolean} - 是否有效
+ * @param token - JWT token
+ * @returns 是否有效
  */
-export function isValidToken(token) {
+export function isValidToken(token: string | null | undefined): boolean {
   if (!token) return false
   
   try {
@@ -48,7 +73,7 @@ export function isValidToken(token) {
     const payload = parseJwtPayload(token)
     
     // 检查token是否有exp字段
-    if (!payload.exp) {
+    if (payload.exp === undefined) {
       console.warn('Token缺少exp字段，视为无效')
       return false
     }
@@ -71,10 +96,10 @@ export function isValidToken(token) {
 /**
  * 检查是否需要刷新token
  * 匹配后端策略：已使用超过7天且剩余少于7天时需要刷新
- * @param {string} token - JWT token
- * @returns {boolean} - 是否需要刷新
+ * @param token - JWT token
+ * @returns 是否需要刷新
  */
-export function shouldRefreshToken(token) {
+export function shouldRefreshToken(token: string): boolean {
   try {
     const payload = parseJwtPayload(token)
     const now = Math.floor(Date.now() / 1000)
@@ -109,17 +134,17 @@ export function shouldRefreshToken(token) {
 
 /**
  * 获取 token 已使用时间（秒）
- * @param {string} token - JWT token
- * @returns {number} - 已使用秒数，-1表示无效
+ * @param token - JWT token
+ * @returns 已使用秒数，-1表示无效
  */
-export function getTokenAge(token) {
+export function getTokenAge(token: string): number {
   try {
     const payload = parseJwtPayload(token)
     if (!payload.iat) return -1
     
     const now = Math.floor(Date.now() / 1000)
     return now - payload.iat
-  } catch (error) {
+  } catch {
     return -1
   }
 }
@@ -127,10 +152,23 @@ export function getTokenAge(token) {
 /**
  * 清除所有认证相关的cookie
  */
-export function clearAuthCookies() {
+export function clearAuthCookies(): void {
   // 使用统一的Cookie配置来清除Cookie
-  const tokenCookie = useCookie('token', getCookieConfig())
-  const userInfoCookie = useCookie('userInfo', getCookieConfig())
+  const cookieConfig = getCookieConfig()
+  const tokenCookie = useCookie('token', {
+    default: cookieConfig.default,
+    maxAge: cookieConfig.maxAge,
+    secure: cookieConfig.secure,
+    sameSite: cookieConfig.sameSite,
+    path: cookieConfig.path
+  })
+  const userInfoCookie = useCookie('userInfo', {
+    default: cookieConfig.default,
+    maxAge: cookieConfig.maxAge,
+    secure: cookieConfig.secure,
+    sameSite: cookieConfig.sameSite,
+    path: cookieConfig.path
+  })
 
   // 设置为null并立即过期
   tokenCookie.value = null
@@ -149,14 +187,14 @@ export function clearAuthCookies() {
 
 /**
  * 验证token是否与后端匹配（通过API调用）
- * @param {string} token - JWT token
- * @returns {Promise<boolean>} - 是否有效
+ * @param token - JWT token
+ * @returns 是否有效
  */
-export async function validateTokenWithBackend(token) {
+export async function validateTokenWithBackend(token: string): Promise<boolean> {
   if (!token) return false
   
   try {
-    const { apiCall } = await import('~/core/utils/api.js')
+    const { apiCall } = await import('~/core/utils/api')
     
     const response = await apiCall('/validate', {
       method: 'GET',
@@ -174,10 +212,10 @@ export async function validateTokenWithBackend(token) {
 
 /**
  * 获取token的剩余有效时间（秒）
- * @param {string} token - JWT token
- * @returns {number} - 剩余秒数，-1表示无效或已过期
+ * @param token - JWT token
+ * @returns 剩余秒数，-1表示无效或已过期
  */
-export function getTokenRemainingTime(token) {
+export function getTokenRemainingTime(token: string): number {
   try {
     const payload = parseJwtPayload(token)
     if (!payload.exp) return -1
@@ -186,17 +224,17 @@ export function getTokenRemainingTime(token) {
     const remaining = payload.exp - now
     
     return remaining > 0 ? remaining : -1
-  } catch (error) {
+  } catch {
     return -1
   }
 }
 
 /**
  * 格式化token剩余时间为可读字符串
- * @param {string} token - JWT token
- * @returns {string} - 格式化的时间字符串
+ * @param token - JWT token
+ * @returns 格式化的时间字符串
  */
-export function formatTokenRemainingTime(token) {
+export function formatTokenRemainingTime(token: string): string {
   const remaining = getTokenRemainingTime(token)
   
   if (remaining <= 0) return '已过期'

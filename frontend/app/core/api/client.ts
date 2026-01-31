@@ -3,7 +3,7 @@
  * 基于 ofetch 的 Nuxt 原生支持
  */
 
-import { useAuthStore } from '~/core/stores/auth.js'
+import { useAuthStore } from '~/core/stores/auth'
 
 // API 基础配置
 const API_BASE_URL = '/'

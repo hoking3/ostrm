@@ -298,8 +298,8 @@
 <script setup>
 import { ref, reactive, nextTick } from 'vue'
 import { apiCall } from '~/core/api/client'
-import { logger } from '~/core/utils/helpers/helpers'
-import { useAuthStore } from '~/core/stores/auth.js'
+import logger from '~/core/utils/logger'
+import { useAuthStore } from '~/core/stores/auth'
 
 // 获取router实例和认证store
 const { $router } = useNuxtApp()

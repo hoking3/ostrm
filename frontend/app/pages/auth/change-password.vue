@@ -155,8 +155,8 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { authenticatedApiCall } from '~/core/api/client'
-import { useAuthStore } from '~/core/stores/auth.js'
-import { logger } from '~/core/utils/helpers/helpers'
+import { useAuthStore } from '~/core/stores/auth'
+import logger from '~/core/utils/logger'
 
 // 页面元数据
 definePageMeta({

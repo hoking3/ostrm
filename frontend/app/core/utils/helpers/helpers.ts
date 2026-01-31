@@ -1,8 +1,9 @@
 /**
  * 辅助函数集合
+ * 
+ * @author hienao
+ * @date 2026-01-31
  */
-
-import { ofetch } from 'ofetch'
 
 /**
  * 深拷贝
@@ -195,53 +196,8 @@ export const groupBy = <T>(arr: T[], key: keyof T): Record<string, T[]> => {
   }, {} as Record<string, T[]>)
 }
 
-/**
- * 验证 Token 格式
- */
-export const isValidToken = (token: string | null | undefined): boolean => {
-  if (!token || typeof token !== 'string') return false
-  return token.split('.').length === 3
-}
+// 注意：以下函数已迁移到单独的 TypeScript 模块，请使用对应模块的导出：
+// - isValidToken: 使用 ~/core/utils/token
+// - logger: 使用 ~/core/utils/logger
+// - apiCall: 使用 ~/core/utils/api
 
-/**
- * 日志工具
- */
-export const logger = {
-  info: (...args: unknown[]) => {
-    if (import.meta?.dev) {
-      console.log('[Info]', ...args)
-    }
-  },
-  error: (...args: unknown[]) => {
-    console.error('[Error]', ...args)
-  },
-  warn: (...args: unknown[]) => {
-    console.warn('[Warn]', ...args)
-  },
-  debug: (...args: unknown[]) => {
-    if (import.meta?.dev) {
-      console.debug('[Debug]', ...args)
-    }
-  }
-}
-
-/**
- * API 调用封装
- */
-export const apiCall = async <T = unknown>(
-  url: string,
-  options: { method?: string; body?: unknown; headers?: Record<string, string> } = {}
-): Promise<T> => {
-  const { method = 'GET', body, headers } = options
-
-  const response = await ofetch<T>(url, {
-    method,
-    body,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers
-    }
-  })
-
-  return response
-}

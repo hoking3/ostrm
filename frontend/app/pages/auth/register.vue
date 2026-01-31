@@ -110,7 +110,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { apiCall } from '~/core/api/client'
-import { logger } from '~/core/utils/helpers/helpers'
+import logger from '~/core/utils/logger'
 
 // 页面元数据
 definePageMeta({

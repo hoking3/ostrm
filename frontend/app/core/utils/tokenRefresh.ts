@@ -6,28 +6,37 @@
  * @date 2026-01-31
  */
 
-import { shouldRefreshToken } from '~/core/utils/token.js'
+import { shouldRefreshToken } from '~/core/utils/token'
+
+/**
+ * Token 刷新服务状态
+ */
+export interface TokenRefreshServiceStatus {
+  isInitialized: boolean
+  isRunning: boolean
+  checkIntervalMs: number
+}
 
 // 刷新检查间隔（毫秒）- 每小时检查一次
 const CHECK_INTERVAL = 60 * 60 * 1000
 
 // 定时器ID
-let refreshTimer = null
+let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 // 是否已初始化
 let isInitialized = false
 
 /**
  * 检查并刷新 Token
- * @returns {Promise<boolean>} - 是否执行了刷新
+ * @returns 是否执行了刷新
  */
-export async function checkAndRefreshToken() {
+export async function checkAndRefreshToken(): Promise<boolean> {
   if (!import.meta.client) {
     return false
   }
 
   try {
-    const { useAuthStore } = await import('~/core/stores/auth.js')
+    const { useAuthStore } = await import('~/core/stores/auth')
     const authStore = useAuthStore()
 
     // 检查是否已登录
@@ -65,7 +74,7 @@ export async function checkAndRefreshToken() {
  * 初始化 Token 刷新服务
  * 应在应用启动时调用（如 app.vue 的 onMounted）
  */
-export function initTokenRefreshService() {
+export function initTokenRefreshService(): void {
   if (!import.meta.client) {
     return
   }
@@ -93,7 +102,7 @@ export function initTokenRefreshService() {
  * 停止 Token 刷新服务
  * 应在用户登出时调用
  */
-export function stopTokenRefreshService() {
+export function stopTokenRefreshService(): void {
   if (refreshTimer) {
     clearInterval(refreshTimer)
     refreshTimer = null
@@ -106,16 +115,16 @@ export function stopTokenRefreshService() {
  * 重启 Token 刷新服务
  * 可用于登录后重新启动服务
  */
-export function restartTokenRefreshService() {
+export function restartTokenRefreshService(): void {
   stopTokenRefreshService()
   initTokenRefreshService()
 }
 
 /**
  * 获取服务状态
- * @returns {object} - 服务状态
+ * @returns 服务状态
  */
-export function getTokenRefreshServiceStatus() {
+export function getTokenRefreshServiceStatus(): TokenRefreshServiceStatus {
   return {
     isInitialized,
     isRunning: !!refreshTimer,

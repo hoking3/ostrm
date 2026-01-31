@@ -5,7 +5,7 @@
  * @date 2026-01-31
  */
 
-import { useAuthStore } from '~/core/stores/auth.js'
+import { useAuthStore } from '~/core/stores/auth'
 
 export default defineNuxtRouteMiddleware((_to) => {
   // 只在客户端执行认证检查

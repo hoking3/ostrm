@@ -464,7 +464,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from '~/components/AppHeader.vue'
 import { authenticatedApiCall } from '~/core/api/client'
-import { useAuthStore } from '~/core/stores/auth.js'
+import { useAuthStore } from '~/core/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()

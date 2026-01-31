@@ -325,7 +325,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { logger } from '~/core/utils/helpers/helpers'
+import logger from '~/core/utils/logger'
 import { useRoute, useRouter } from 'vue-router'
 import { apiCall, authenticatedApiCall } from '~/core/api/client'
 

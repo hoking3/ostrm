@@ -7,7 +7,28 @@
  */
 
 import { defineStore } from 'pinia'
-import { isValidToken, shouldRefreshToken, getTokenRemainingTime } from '~/core/utils/token.js'
+import { isValidToken, shouldRefreshToken, getTokenRemainingTime } from '~/core/utils/token'
+
+/**
+ * 用户信息类型
+ */
+export interface UserInfo {
+  id?: string | number
+  username?: string
+  email?: string
+  [key: string]: unknown
+}
+
+/**
+ * 认证状态类型
+ */
+export interface AuthState {
+  token: string | null
+  userInfo: UserInfo | null
+  isLoggedIn: boolean
+  tokenExpiresAt: number | null
+  isRefreshing: boolean
+}
 
 // 存储类型常量
 const STORAGE_TYPE_LOCAL = 'local'
@@ -21,7 +42,7 @@ const AUTH_STORAGE_TYPE_KEY = 'auth_storage_type'
 /**
  * 获取当前使用的存储类型
  */
-function getStorageType() {
+function getStorageType(): string | null {
   if (!import.meta.client) return null
   return localStorage.getItem(AUTH_STORAGE_TYPE_KEY) || STORAGE_TYPE_SESSION
 }
@@ -29,14 +50,14 @@ function getStorageType() {
 /**
  * 获取当前应该使用的存储对象
  */
-function getStorage() {
+function getStorage(): Storage | null {
   if (!import.meta.client) return null
   const storageType = getStorageType()
   return storageType === STORAGE_TYPE_LOCAL ? localStorage : sessionStorage
 }
 
 export const useAuthStore = defineStore('auth', {
-  state: () => ({
+  state: (): AuthState => ({
     token: null,
     userInfo: null,
     isLoggedIn: false,
@@ -48,24 +69,24 @@ export const useAuthStore = defineStore('auth', {
     /**
      * 获取当前token
      */
-    getToken: (state) => state.token,
+    getToken: (state): string | null => state.token,
 
     /**
      * 获取用户信息
      */
-    getUserInfo: (state) => state.userInfo,
+    getUserInfo: (state): UserInfo | null => state.userInfo,
 
     /**
      * 检查是否已登录
      */
-    isAuthenticated: (state) => {
-      return state.isLoggedIn && state.token && isValidToken(state.token)
+    isAuthenticated: (state): boolean => {
+      return state.isLoggedIn && !!state.token && isValidToken(state.token)
     },
 
     /**
      * 获取 Token 剩余有效时间（秒）
      */
-    tokenRemainingTime: (state) => {
+    tokenRemainingTime: (state): number => {
       if (!state.token) return 0
       return getTokenRemainingTime(state.token)
     },
@@ -73,7 +94,7 @@ export const useAuthStore = defineStore('auth', {
     /**
      * 检查是否需要刷新 Token
      */
-    needsRefresh: (state) => {
+    needsRefresh: (state): boolean => {
       if (!state.token) return false
       return shouldRefreshToken(state.token)
     }
@@ -83,7 +104,7 @@ export const useAuthStore = defineStore('auth', {
     /**
      * 初始化认证状态（从存储恢复）
      */
-    initAuth() {
+    initAuth(): void {
       if (import.meta.client) {
         this.restoreAuth()
       }
@@ -91,19 +112,19 @@ export const useAuthStore = defineStore('auth', {
 
     /**
      * 设置认证信息
-     * @param {string} token - JWT token
-     * @param {object} userInfo - 用户信息
-     * @param {boolean} rememberMe - 是否记住登录状态
+     * @param token - JWT token
+     * @param userInfo - 用户信息
+     * @param rememberMe - 是否记住登录状态
      */
-    setAuth(token, userInfo, rememberMe = false) {
+    setAuth(token: string, userInfo: UserInfo, rememberMe: boolean = false): void {
       this.token = token
       this.userInfo = userInfo
       this.isLoggedIn = true
 
       // 解析过期时间
       try {
-        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-        this.tokenExpiresAt = payload.exp ? payload.exp * 1000 : null
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number }
+        this.tokenExpiresAt = payload.exp !== undefined ? payload.exp * 1000 : null
       } catch (e) {
         console.error('解析token过期时间失败:', e)
         this.tokenExpiresAt = null
@@ -138,7 +159,7 @@ export const useAuthStore = defineStore('auth', {
     /**
      * 清除认证信息
      */
-    clearAuth() {
+    clearAuth(): void {
       this.token = null
       this.userInfo = null
       this.isLoggedIn = false
@@ -162,10 +183,10 @@ export const useAuthStore = defineStore('auth', {
 
     /**
      * 更新token（用于token刷新）
-     * @param {string} newToken - 新的JWT token
-     * @param {number} expiresAt - 过期时间戳（毫秒）
+     * @param newToken - 新的JWT token
+     * @param expiresAt - 过期时间戳（毫秒）
      */
-    updateToken(newToken, expiresAt = null) {
+    updateToken(newToken: string, expiresAt: number | null = null): void {
       if (newToken && isValidToken(newToken)) {
         this.token = newToken
         this.tokenExpiresAt = expiresAt
@@ -187,7 +208,7 @@ export const useAuthStore = defineStore('auth', {
     /**
      * 检查并恢复认证状态
      */
-    restoreAuth() {
+    restoreAuth(): boolean {
       if (!import.meta.client) {
         return false
       }
@@ -205,9 +226,9 @@ export const useAuthStore = defineStore('auth', {
 
           // 解析过期时间
           try {
-            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
-            this.tokenExpiresAt = payload.exp ? payload.exp * 1000 : null
-          } catch (e) {
+            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number }
+            this.tokenExpiresAt = payload.exp !== undefined ? payload.exp * 1000 : null
+          } catch {
             this.tokenExpiresAt = null
           }
 
@@ -226,9 +247,9 @@ export const useAuthStore = defineStore('auth', {
 
     /**
      * 刷新 Token
-     * @returns {Promise<boolean>} - 刷新是否成功
+     * @returns 刷新是否成功
      */
-    async refreshToken() {
+    async refreshToken(): Promise<boolean> {
       if (this.isRefreshing) {
         console.log('Token刷新已在进行中，跳过')
         return false
@@ -242,14 +263,14 @@ export const useAuthStore = defineStore('auth', {
       this.isRefreshing = true
 
       try {
-        const { apiCall } = await import('~/core/utils/api.js')
+        const apiModule = await import('~/core/utils/api')
         
-        const response = await apiCall('/auth/refresh', {
+        const response = await apiModule.apiCall('/auth/refresh', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${this.token}`
           }
-        })
+        }) as { code: number; message?: string; data?: { token: string; expiresAt?: string } }
 
         if (response.code === 200 && response.data?.token) {
           const newToken = response.data.token
@@ -263,9 +284,10 @@ export const useAuthStore = defineStore('auth', {
           return false
         }
       } catch (error) {
+        const err = error as { status?: number }
         console.error('Token刷新错误:', error)
         // 如果刷新失败（如401），可能token已失效，清除认证
-        if (error.status === 401) {
+        if (err.status === 401) {
           this.clearAuth()
         }
         return false
@@ -277,7 +299,7 @@ export const useAuthStore = defineStore('auth', {
     /**
      * 退出登录（别名方法，兼容其他模块调用）
      */
-    logout() {
+    logout(): void {
       this.clearAuth()
     }
   }

@@ -441,8 +441,8 @@
 import { ref, onMounted, computed } from 'vue'
 import AppHeader from '~/components/AppHeader.vue'
 import { apiCall, authenticatedApiCall } from '~/core/api/client'
-import { useAuthStore } from '~/core/stores/auth.js'
-import { logger } from '~/core/utils/helpers/helpers'
+import { useAuthStore } from '~/core/stores/auth'
+import logger from '~/core/utils/logger'
 
 // 页面元数据
 definePageMeta({
