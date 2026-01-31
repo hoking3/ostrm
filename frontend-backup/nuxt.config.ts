@@ -20,57 +20,21 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-05-15',
   devtools: { enabled: true },
-
-  // SPA 模式配置
+  
+  // SSG模式配置
   ssr: false,
-  srcDir: 'app',
-
-  // 路由配置 - Nuxt 4 风格
-  future: {
-    compatibilityVersion: 4
-  },
-
-  // 页面配置
-  pages: {
-    enabled: true
-  },
-
-  // 自动导入配置
-  imports: {
-    dirs: [
-      'core/composables/**',
-      'core/utils/**',
-      'modules/*/composables/**',
-      'modules/*/services/**'
-    ]
-  },
-
-  // 组件扫描配置
-  components: {
-    dirs: [
-      'core/ui',
-      'modules/*/components',
-      'modules/shared/components'
-    ]
-  },
-
-  // Pinia 配置
-  pinia: {
-    storesDirs: [
-      'core/stores/**',
-      'modules/*/stores/**'
-    ]
-  },
-
-  // Nitro 配置
+  
+  // Nitro配置（API代理和静态生成）
   nitro: {
     prerender: {
-      routes: ['/auth/login', '/auth/register']
+      routes: ['/login', '/register', '/settings', '/change-password', '/task-management']
     },
     devProxy: {
       '/api': 'http://localhost:8080/api'
     },
+    // 修复Docker端口映射时的重定向问题
     routeRules: {
+      // 为所有页面设置头部，避免重定向问题
       '/**': {
         headers: {
           'X-Robots-Tag': 'noindex'
@@ -78,58 +42,39 @@ export default defineNuxtConfig({
       }
     }
   },
-
+  
   // 运行时配置
   runtimeConfig: {
     public: {
+      // 开发和生产环境都使用相对路径，通过代理访问
       apiBase: '/api',
+      // 应用版本号
       appVersion: process.env.NUXT_PUBLIC_APP_VERSION || 'dev'
     }
   },
 
-  // 路由配置
+  // 路由配置 - 修复Docker端口映射重定向问题
   router: {
     options: {
+      // 禁用严格的尾部斜杠处理，避免重定向
       strict: false
     }
   },
-
-  // CSS
-  css: ['@/assets/css/main.css'],
-
-  // 模块
+  
+  // CSS框架 - 添加Tailwind CSS
+  css: ['~/assets/css/main.css'],
+  
+  // 模块配置
   modules: [
     '@nuxtjs/tailwindcss',
     '@pinia/nuxt'
   ],
-
-  // Vite 构建优化
-  vite: {
-    resolve: {
-      alias: {
-        '@': __dirname + '/app'
-      }
-    },
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('vue-virtual-scroller')) {
-                return 'virtual-scroller'
-              }
-              if (id.includes('tailwindcss')) {
-                return 'tailwind'
-              }
-              return 'vendor'
-            }
-            return undefined
-          }
-        }
-      }
-    }
+  
+  // 构建配置
+  build: {
+    transpile: []
   },
-
+  
   // 应用配置
   app: {
     head: {
@@ -137,7 +82,7 @@ export default defineNuxtConfig({
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: 'Ostrm - Stream Management System' }
+        { name: 'description', content: 'Ostrm - 用户管理系统' }
       ]
     }
   }

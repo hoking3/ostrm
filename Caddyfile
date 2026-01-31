@@ -10,6 +10,27 @@
     root * /var/www/html
     file_server
 
+    # SPA 路由处理 - 将所有非 API、非静态资源的请求重写到 index.html
+    @spa {
+        not path /api/*
+        not path /ws/*
+        not path /health
+        not path /_nuxt/*
+        not path /favicon*
+        not path *.ico
+        not path *.css
+        not path *.js
+        not path *.png
+        not path *.jpg
+        not path *.svg
+        not path *.woff*
+        not path *.ttf
+        not path *.eot
+    }
+    handle @spa {
+        rewrite * /index.html
+    }
+
     # API 代理配置
     reverse_proxy /api/* localhost:8080 {
         header_up Host {http.reverse_proxy.upstream.hostport}

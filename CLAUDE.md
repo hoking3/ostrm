@@ -21,13 +21,53 @@ Ostrm 是一个现代化的全栈应用程序，用于将文件列表转换为 S
 
 ### 总体结构
 ```
-├── frontend/           # Nuxt.js 3.13.0 前端应用
-│   ├── pages/         # 自动路由页面（7个主要页面）
-│   ├── components/    # 可复用 Vue 组件
-│   ├── middleware/    # 路由中间件（auth.js, guest.js）
-│   ├── stores/        # Pinia 状态管理
-│   ├── plugins/       # Nuxt 插件和工具
-│   └── assets/        # Tailwind CSS 样式和静态资源
+frontend/                  # Nuxt.js 3.13.0 前端应用
+├── app/                   # 源码目录（Feature-Sliced Design 改良版）
+│   ├── core/              # 核心层：技术基础设施
+│   │   ├── api/           # HTTP 客户端封装
+│   │   │   ├── client.ts  # 基础 ofetch 配置
+│   │   │   ├── interceptors/  # 请求/响应拦截器
+│   │   │   └── types/     # API 相关类型定义
+│   │   ├── ui/            # 基础 UI 组件库
+│   │   ├── utils/         # 通用工具函数
+│   │   │   ├── validation/   # 校验工具
+│   │   │   ├── formatters/   # 格式化工具
+│   │   │   └── helpers/   # 辅助函数
+│   │   ├── constants/     # 全局常量
+│   │   └── types/         # 全局 TypeScript 类型定义
+│   │
+│   ├── modules/           # 业务模块层（按功能领域划分）
+│   │   ├── auth/          # 认证授权模块
+│   │   │   ├── components/
+│   │   │   ├── composables/   # useAuth, usePermission
+│   │   │   ├── pages/     # login, register, change-password
+│   │   │   ├── services/  # auth.service.ts
+│   │   │   └── stores/    # auth.store.ts
+│   │   ├── dashboard/     # 仪表盘模块
+│   │   │   ├── composables/
+│   │   │   ├── pages/     # index.vue
+│   │   │   └── stores/
+│   │   ├── settings/      # 设置模块
+│   │   │   ├── composables/
+│   │   │   ├── pages/     # index.vue
+│   │   │   └── stores/    # version.store.ts
+│   │   ├── task/          # 任务管理模块
+│   │   │   ├── composables/
+│   │   │   └── pages/     # [id].vue
+│   │   ├── logs/          # 日志模块
+│   │   │   └── composables/
+│   │   └── shared/        # 共享模块
+│   │       └── components/    # AppHeader.vue
+│   │
+│   ├── layouts/           # 布局组件
+│   ├── middleware/        # 路由中间件
+│   └── plugins/           # Nuxt 插件
+│
+├── assets/                # 静态资源（CSS、图片等）
+├── public/                # 公共静态文件
+├── nuxt.config.ts         # Nuxt 配置
+├── tsconfig.json          # TypeScript 配置
+└── package.json           # 依赖配置
 ├── backend/           # Spring Boot 3.3.9 后端应用
 │   └── src/main/java/com/hienao/openlist2strm/
 │       ├── controller/  # REST API 控制器（认证、配置、任务）
@@ -57,14 +97,18 @@ Ostrm 是一个现代化的全栈应用程序，用于将文件列表转换为 S
 
 ### 核心组件
 
-**前端 (Nuxt.js 3.13.0)**:
+**前端 (Nuxt.js 3.18.0)**:
 - **架构模式**: 单页应用 (SPA)，客户端渲染 (CSR)
+- **架构设计**: Feature-Sliced Design 改良版，目录结构清晰分离
+  - `app/core/` - 技术基础设施层
+  - `app/modules/` - 业务功能模块层
 - **核心技术**: Vue 3.4.0 Composition API + `<script setup>` + TypeScript 支持
-- **状态管理**: Pinia 2.1.7 (2 个状态仓库: `auth.js`, `version.js`)
-- **路由守卫**: 3 个中间件 (`auth.js`, `guest.js`, `docker-port.global.js`)
-- **页面组件**: 7 个页面（自动路由），1 个可复用组件 (`AppHeader.vue`)
-- **工具模块**: 3 个工具函数 (`api.js`, `token.js`, `logger.js`)
-- **插件系统**: 3 个 Nuxt 插件（认证初始化、Docker 兼容、前端日志）
+- **状态管理**: Pinia 2.1.7 (2 个状态仓库: `auth.store.ts`, `version.store.ts`)
+- **路由守卫**: 3 个中间件 (`auth.ts`, `guest.ts`, `docker-port.global.ts`)
+- **页面组件**: 7 个页面（自动路由），使用 NuxtLayout 布局系统
+- **API 封装**: 基于 ofetch 的统一 HTTP 客户端，自动处理 Token 和错误
+- **工具模块**: Zod 运行时校验 + 工具函数集合
+- **插件系统**: Pinia 插件初始化
 - **样式系统**: Tailwind CSS 3.4.15 毛玻璃设计 + @tailwindcss/forms 0.5.9
 - **性能优化**: vue-virtual-scroller 2.0.0-beta.8 虚拟滚动
 - **认证机制**: JWT 令牌自动注入和刷新，Cookie 存储
@@ -181,48 +225,61 @@ dev-docker-rebuild.bat    # Windows
 ### 前端开发
 
 **架构规范**:
-- 基于 Nuxt 3.13.0 + Vue 3.4.0，采用 SPA 模式（`ssr: false`）
+- 基于 Nuxt 3.18.0 + Vue 3.4.0，采用 SPA 模式（`ssr: false`）
+- 源码目录 `app/`，遵循 Feature-Sliced Design 改良版架构
 - 严格使用 Composition API + `<script setup>` 语法 + TypeScript 支持
-- 遵循 Nuxt 约定式路由，页面组件放在 `pages/` 目录自动生成路由
+- 使用 Zod 进行运行时数据校验
 
-**组件组织**:
-- **页面组件**: 放在 `pages/` 目录，命名为 `kebab-case.vue`
-- **可复用组件**: 放在 `components/` 目录，使用 PascalCase 命名（如 `AppHeader.vue`）
-- **布局组件**: 如需自定义布局，放在 `layouts/` 目录
+**目录结构**:
+- `app/core/` - 核心层：API 封装、UI 组件、工具函数、常量、类型定义
+- `app/modules/` - 业务模块层：auth、dashboard、settings、task、logs、shared
+- `app/layouts/` - 布局组件
+- `app/middleware/` - 路由中间件
+- `app/plugins/` - Nuxt 插件
+
+**组件命名规范**:
+- 组件文件: PascalCase，模块前缀（如 `AuthLoginForm.vue`、`UserProfileCard.vue`）
+- 组合式函数: camelCase，use 前缀（如 `useAuth()`、`useUserList()`）
+- 服务文件: camelCase，Service 后缀（如 `user.service.ts`、`auth.service.ts`）
+- Store 文件: camelCase，.store.ts 后缀（如 `auth.store.ts`）
+
+**API 服务层**:
+- 服务层使用纯函数式设计，不依赖 Vue 上下文
+- 使用 Zod Schema 进行运行时校验
+- 组合式函数包装 Service，添加 UI 层交互
+- API 客户端配置在 `app/core/api/client.ts`
 
 **状态管理**:
-- 使用 Pinia 2.1.7 进行全局状态管理，仓库放在 `stores/` 目录
-- 当前有 2 个仓库: `auth.js` (认证状态) 和 `version.js` (版本状态)
-- 根据需要选择持久化策略（localStorage 或 sessionStorage）
+- 使用 Pinia 2.1.7 进行全局状态管理
+- 只读数据使用 `shallowRef` 优化性能
+- 每个 Store 必须实现 `reset()` 方法
+- 状态仓库放在 `modules/*/stores/` 目录
 
-**路由和中间件**:
-- 使用 `definePageMeta()` 在页面组件中配置中间件
-- 受保护页面使用 `auth` 中间件，示例: `definePageMeta({ middleware: 'auth' })`
-- 登录/注册页使用 `guest` 中间件，避免已登录用户重复访问
-- 全局中间件命名为 `*.global.js`（如 `docker-port.global.js`）
-
-**API 调用**:
-- 所有 API 请求通过 `utils/api.js` 封装的方法进行
-- 使用 `$fetch` 进行 HTTP 请求，自动注入 Bearer Token
-- API 基础路径配置在 `nuxt.config.ts` 的 `runtimeConfig.public.apiBase`
-- 开发环境通过 Nitro devProxy 代理到后端 8080 端口
-
-**样式规范**:
-- 使用 Tailwind CSS 3.4.15 原子化 CSS 框架
-- 全局样式定义在 `assets/css/main.css`
-- 遵循毛玻璃设计系统，使用渐变色主题
-- 表单样式使用 `@tailwindcss/forms` 插件
-- 实现响应式设计和流畅动画效果
-
-**工具和插件**:
-- 工具函数放在 `utils/` 目录（`api.js`, `token.js`, `logger.js`）
-- Nuxt 插件放在 `plugins/` 目录，客户端插件命名为 `*.client.js`
-- 使用 `logger.js` 进行前端日志收集和上报
+**错误处理**:
+- 定义 `ApiError` 异常类，统一错误格式
+- 401 Token 过期自动刷新（互斥锁模式）
+- 422 验证错误透传给组件处理
 
 **性能优化**:
-- 长列表使用 `vue-virtual-scroller` 实现虚拟滚动
-- 合理使用 Nuxt 的预渲染配置（`nitro.prerender.routes`）
-- 避免过度的客户端状态，优先使用服务端数据
+- 只读数据使用 `shallowRef` 而非 `ref`
+- 大型列表使用 `vue-virtual-scroller` 虚拟滚动
+- 组件懒加载使用 `defineAsyncComponent`
+- 大型列表使用 `v-memo` 优化渲染
+
+**路由和中间件**:
+- 页面组件放在 `modules/*/pages/` 目录
+- 使用 `definePageMeta()` 配置中间件
+- 受保护页面使用 `auth` 中间件
+- 登录/注册页使用 `guest` 中间件
+
+**TypeScript 严格模式**:
+- 启用 `strict: true` 及相关严格检查规则
+- 禁用 `any` 类型，使用具体类型或 `unknown`
+- 使用 `noUncheckedIndexedAccess` 增强数组访问安全
+
+**依赖管理**:
+- 新增 `zod` 用于运行时数据校验
+- 通过 `nuxt.config.ts` 配置自动导入路径
 
 ### 后端开发
 
