@@ -22,3 +22,30 @@
     <NuxtPage />
   </NuxtLayout>
 </template>
+
+<script setup>
+import { onMounted, onUnmounted } from 'vue'
+import { initTokenRefreshService, stopTokenRefreshService } from '~/core/utils/tokenRefresh.js'
+import { useAuthStore } from '~/core/stores/auth.js'
+
+// 在应用挂载时初始化
+onMounted(() => {
+  if (import.meta.client) {
+    const authStore = useAuthStore()
+    
+    // 恢复认证状态
+    authStore.restoreAuth()
+    
+    // 如果已登录，启动 Token 刷新服务
+    if (authStore.isAuthenticated) {
+      initTokenRefreshService()
+    }
+  }
+})
+
+// 在应用卸载时清理
+onUnmounted(() => {
+  stopTokenRefreshService()
+})
+</script>
+

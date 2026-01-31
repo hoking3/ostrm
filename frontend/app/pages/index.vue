@@ -487,6 +487,10 @@ const logout = async () => {
   } catch (error) {
     logger.error('登出失败:', error)
   } finally {
+    // 停止 Token 刷新服务
+    const { stopTokenRefreshService } = await import('~/core/utils/tokenRefresh.js')
+    stopTokenRefreshService()
+    
     // 无论成功失败都清除本地认证信息
     authStore.clearAuth()
     // 跳转到登录页

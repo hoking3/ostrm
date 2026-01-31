@@ -1,16 +1,47 @@
 /**
  * 认证状态管理 Store
- * 使用 localStorage 存储 token，避免 Cookie 的复杂性问题
+ * 简化存储策略，支持自动 Token 刷新
+ * 
+ * @author hienao
+ * @date 2026-01-31
  */
 
 import { defineStore } from 'pinia'
-import { isValidToken } from '~/core/utils/token.js'
+import { isValidToken, shouldRefreshToken, getTokenRemainingTime } from '~/core/utils/token.js'
+
+// 存储类型常量
+const STORAGE_TYPE_LOCAL = 'local'
+const STORAGE_TYPE_SESSION = 'session'
+
+// 存储键名常量
+const AUTH_TOKEN_KEY = 'auth_token'
+const AUTH_USER_INFO_KEY = 'auth_userInfo'
+const AUTH_STORAGE_TYPE_KEY = 'auth_storage_type'
+
+/**
+ * 获取当前使用的存储类型
+ */
+function getStorageType() {
+  if (!import.meta.client) return null
+  return localStorage.getItem(AUTH_STORAGE_TYPE_KEY) || STORAGE_TYPE_SESSION
+}
+
+/**
+ * 获取当前应该使用的存储对象
+ */
+function getStorage() {
+  if (!import.meta.client) return null
+  const storageType = getStorageType()
+  return storageType === STORAGE_TYPE_LOCAL ? localStorage : sessionStorage
+}
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: null,
     userInfo: null,
-    isLoggedIn: false
+    isLoggedIn: false,
+    tokenExpiresAt: null,
+    isRefreshing: false
   }),
 
   getters: {
@@ -29,32 +60,32 @@ export const useAuthStore = defineStore('auth', {
      */
     isAuthenticated: (state) => {
       return state.isLoggedIn && state.token && isValidToken(state.token)
+    },
+
+    /**
+     * 获取 Token 剩余有效时间（秒）
+     */
+    tokenRemainingTime: (state) => {
+      if (!state.token) return 0
+      return getTokenRemainingTime(state.token)
+    },
+
+    /**
+     * 检查是否需要刷新 Token
+     */
+    needsRefresh: (state) => {
+      if (!state.token) return false
+      return shouldRefreshToken(state.token)
     }
   },
 
   actions: {
     /**
-     * 初始化认证状态（从localStorage恢复）
+     * 初始化认证状态（从存储恢复）
      */
     initAuth() {
       if (import.meta.client) {
-        try {
-          const token = localStorage.getItem('auth_token')
-          const userInfo = localStorage.getItem('auth_userInfo')
-          
-          if (token && isValidToken(token)) {
-            this.token = token
-            this.userInfo = userInfo ? JSON.parse(userInfo) : null
-            this.isLoggedIn = true
-            console.log('从localStorage恢复认证状态成功')
-          } else {
-            // token无效，清除所有认证信息
-            this.clearAuth()
-          }
-        } catch (error) {
-          console.error('初始化认证状态失败:', error)
-          this.clearAuth()
-        }
+        this.restoreAuth()
       }
     },
 
@@ -69,23 +100,35 @@ export const useAuthStore = defineStore('auth', {
       this.userInfo = userInfo
       this.isLoggedIn = true
 
+      // 解析过期时间
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+        this.tokenExpiresAt = payload.exp ? payload.exp * 1000 : null
+      } catch (e) {
+        console.error('解析token过期时间失败:', e)
+        this.tokenExpiresAt = null
+      }
+
       if (import.meta.client) {
         try {
-          if (rememberMe) {
-            // 记住我：使用localStorage持久化存储
-            localStorage.setItem('auth_token', token)
-            localStorage.setItem('auth_userInfo', JSON.stringify(userInfo))
-            localStorage.setItem('auth_rememberMe', 'true')
-          } else {
-            // 不记住：使用sessionStorage会话存储
-            sessionStorage.setItem('auth_token', token)
-            sessionStorage.setItem('auth_userInfo', JSON.stringify(userInfo))
-            // 清除localStorage中的持久化数据
-            localStorage.removeItem('auth_token')
-            localStorage.removeItem('auth_userInfo')
-            localStorage.removeItem('auth_rememberMe')
+          const storageType = rememberMe ? STORAGE_TYPE_LOCAL : STORAGE_TYPE_SESSION
+          const storage = rememberMe ? localStorage : sessionStorage
+          
+          // 保存存储类型标识到 localStorage（始终持久化）
+          localStorage.setItem(AUTH_STORAGE_TYPE_KEY, storageType)
+          
+          // 如果不记住登录，清除 localStorage 中可能存在的旧 token
+          // 防止 getToken 读取到旧的失效 token
+          if (!rememberMe) {
+            localStorage.removeItem(AUTH_TOKEN_KEY)
+            localStorage.removeItem(AUTH_USER_INFO_KEY)
           }
-          console.log('认证信息已保存到本地存储')
+          
+          // 保存认证信息到对应存储
+          storage.setItem(AUTH_TOKEN_KEY, token)
+          storage.setItem(AUTH_USER_INFO_KEY, JSON.stringify(userInfo))
+          
+          console.log(`认证信息已保存到 ${storageType}Storage`)
         } catch (error) {
           console.error('保存认证信息失败:', error)
         }
@@ -99,15 +142,17 @@ export const useAuthStore = defineStore('auth', {
       this.token = null
       this.userInfo = null
       this.isLoggedIn = false
+      this.tokenExpiresAt = null
+      this.isRefreshing = false
 
       if (import.meta.client) {
         try {
-          // 清除所有存储
-          localStorage.removeItem('auth_token')
-          localStorage.removeItem('auth_userInfo')
-          localStorage.removeItem('auth_rememberMe')
-          sessionStorage.removeItem('auth_token')
-          sessionStorage.removeItem('auth_userInfo')
+          // 清除所有存储中的认证信息
+          localStorage.removeItem(AUTH_TOKEN_KEY)
+          localStorage.removeItem(AUTH_USER_INFO_KEY)
+          localStorage.removeItem(AUTH_STORAGE_TYPE_KEY)
+          sessionStorage.removeItem(AUTH_TOKEN_KEY)
+          sessionStorage.removeItem(AUTH_USER_INFO_KEY)
           console.log('认证信息已清除')
         } catch (error) {
           console.error('清除认证信息失败:', error)
@@ -118,22 +163,20 @@ export const useAuthStore = defineStore('auth', {
     /**
      * 更新token（用于token刷新）
      * @param {string} newToken - 新的JWT token
+     * @param {number} expiresAt - 过期时间戳（毫秒）
      */
-    updateToken(newToken) {
+    updateToken(newToken, expiresAt = null) {
       if (newToken && isValidToken(newToken)) {
         this.token = newToken
+        this.tokenExpiresAt = expiresAt
         
         if (import.meta.client) {
           try {
-            // 检查是否是记住我模式
-            const rememberMe = localStorage.getItem('auth_rememberMe') === 'true'
-            
-            if (rememberMe) {
-              localStorage.setItem('auth_token', newToken)
-            } else {
-              sessionStorage.setItem('auth_token', newToken)
+            const storage = getStorage()
+            if (storage) {
+              storage.setItem(AUTH_TOKEN_KEY, newToken)
+              console.log('Token已更新')
             }
-            console.log('Token已更新')
           } catch (error) {
             console.error('更新Token失败:', error)
           }
@@ -143,37 +186,92 @@ export const useAuthStore = defineStore('auth', {
 
     /**
      * 检查并恢复认证状态
-     * 优先从localStorage恢复，其次从sessionStorage
      */
     restoreAuth() {
-      if (import.meta.client) {
-        try {
-          let token = localStorage.getItem('auth_token')
-          let userInfo = localStorage.getItem('auth_userInfo')
+      if (!import.meta.client) {
+        return false
+      }
 
-          // 如果localStorage中没有，尝试从sessionStorage恢复
-          if (!token) {
-            token = sessionStorage.getItem('auth_token')
-            userInfo = sessionStorage.getItem('auth_userInfo')
+      try {
+        const storageType = getStorageType()
+        const storage = storageType === STORAGE_TYPE_LOCAL ? localStorage : sessionStorage
+        const token = storage.getItem(AUTH_TOKEN_KEY)
+        const userInfo = storage.getItem(AUTH_USER_INFO_KEY)
+
+        if (token && isValidToken(token)) {
+          this.token = token
+          this.userInfo = userInfo ? JSON.parse(userInfo) : null
+          this.isLoggedIn = true
+
+          // 解析过期时间
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+            this.tokenExpiresAt = payload.exp ? payload.exp * 1000 : null
+          } catch (e) {
+            this.tokenExpiresAt = null
           }
 
-          if (token && isValidToken(token)) {
-            this.token = token
-            this.userInfo = userInfo ? JSON.parse(userInfo) : null
-            this.isLoggedIn = true
-            console.log('认证状态恢复成功')
-            return true
-          } else {
-            this.clearAuth()
-            return false
-          }
-        } catch (error) {
-          console.error('恢复认证状态失败:', error)
+          console.log('认证状态恢复成功')
+          return true
+        } else {
           this.clearAuth()
           return false
         }
+      } catch (error) {
+        console.error('恢复认证状态失败:', error)
+        this.clearAuth()
+        return false
       }
-      return false
+    },
+
+    /**
+     * 刷新 Token
+     * @returns {Promise<boolean>} - 刷新是否成功
+     */
+    async refreshToken() {
+      if (this.isRefreshing) {
+        console.log('Token刷新已在进行中，跳过')
+        return false
+      }
+
+      if (!this.token || !isValidToken(this.token)) {
+        console.log('Token无效，无法刷新')
+        return false
+      }
+
+      this.isRefreshing = true
+
+      try {
+        const { apiCall } = await import('~/core/utils/api.js')
+        
+        const response = await apiCall('/auth/refresh', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.token}`
+          }
+        })
+
+        if (response.code === 200 && response.data?.token) {
+          const newToken = response.data.token
+          const expiresAt = response.data.expiresAt ? new Date(response.data.expiresAt).getTime() : null
+          
+          this.updateToken(newToken, expiresAt)
+          console.log('Token刷新成功')
+          return true
+        } else {
+          console.warn('Token刷新失败:', response.message)
+          return false
+        }
+      } catch (error) {
+        console.error('Token刷新错误:', error)
+        // 如果刷新失败（如401），可能token已失效，清除认证
+        if (error.status === 401) {
+          this.clearAuth()
+        }
+        return false
+      } finally {
+        this.isRefreshing = false
+      }
     },
 
     /**

@@ -392,6 +392,11 @@ const handleLogin = async () => {
         return
       }
 
+      // 启动 Token 刷新服务
+      const { initTokenRefreshService } = await import('~/core/utils/tokenRefresh.js')
+      initTokenRefreshService()
+      logger.info('Token 刷新服务已启动')
+
       // 跳转到首页
       logger.info('准备跳转到首页')
       await navigateTo('/', { replace: true })

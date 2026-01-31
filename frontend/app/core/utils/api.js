@@ -1,7 +1,12 @@
 /**
  * API 工具函数
- * 解决 Docker 端口映射时的 API 调用问题
+ * 支持 Token 自动刷新和请求重试
+ * 
+ * @author hienao
+ * @date 2026-01-31
  */
+
+import { shouldRefreshToken } from '~/core/utils/token.js'
 
 /**
  * 获取 API 基础 URL
@@ -86,11 +91,15 @@ async function handleUnauthorizedError() {
   const authStore = useAuthStore()
   authStore.clearAuth()
 
+  // 停止 Token 刷新服务
+  const { stopTokenRefreshService } = await import('~/core/utils/tokenRefresh.js')
+  stopTokenRefreshService()
+
   // 只在客户端执行跳转，避免服务端渲染时的问题
   if (import.meta.client) {
     // 检查用户是否存在，决定跳转到登录页还是注册页
     try {
-      const response = await $fetch(`${getApiBaseUrl()}/check-user`, {
+      const response = await $fetch(`${getApiBaseUrl()}/auth/check-user`, {
         method: 'GET'
       })
 
@@ -111,18 +120,30 @@ async function handleUnauthorizedError() {
 
 /**
  * 带认证的 API 调用函数
+ * 支持 Token 自动刷新：如果 Token 即将过期，先刷新再请求
  * @param {string} endpoint - API 端点路径
  * @param {object} options - fetch 选项
+ * @param {boolean} skipRefreshCheck - 是否跳过刷新检查（避免循环调用）
  * @returns {Promise} - API 响应
  */
-export async function authenticatedApiCall(endpoint, options = {}) {
+export async function authenticatedApiCall(endpoint, options = {}, skipRefreshCheck = false) {
   // 使用认证store获取token
   const { useAuthStore } = await import('~/core/stores/auth.js')
   const authStore = useAuthStore()
-  const token = authStore.getToken
+  let token = authStore.getToken
   
   if (!token) {
     throw new Error('未找到认证令牌')
+  }
+
+  // 检查是否需要在请求前刷新 Token（避免在刷新接口本身调用时循环）
+  if (!skipRefreshCheck && shouldRefreshToken(token)) {
+    console.log('[API] Token 即将过期，尝试刷新...')
+    const refreshed = await authStore.refreshToken()
+    if (refreshed) {
+      token = authStore.getToken // 使用新 token
+      console.log('[API] Token 刷新成功，使用新 Token 发送请求')
+    }
   }
   
   const authOptions = {
@@ -132,6 +153,23 @@ export async function authenticatedApiCall(endpoint, options = {}) {
       ...options.headers
     }
   }
-  
-  return apiCall(endpoint, authOptions)
+
+  try {
+    return await apiCall(endpoint, authOptions)
+  } catch (error) {
+    // 如果是 401 错误且还没尝试过刷新，尝试刷新后重试
+    if (error.status === 401 && !skipRefreshCheck && !authStore.isRefreshing) {
+      console.log('[API] 请求返回 401，尝试刷新 Token 后重试...')
+      const refreshed = await authStore.refreshToken()
+      
+      if (refreshed) {
+        // 刷新成功，使用新 token 重试请求
+        console.log('[API] Token 刷新成功，重试原请求')
+        return authenticatedApiCall(endpoint, options, true) // 标记跳过刷新检查
+      }
+    }
+    
+    // 刷新失败或其他错误，继续抛出
+    throw error
+  }
 }

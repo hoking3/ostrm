@@ -70,6 +70,7 @@ export function isValidToken(token) {
 
 /**
  * 检查是否需要刷新token
+ * 匹配后端策略：已使用超过7天且剩余少于7天时需要刷新
  * @param {string} token - JWT token
  * @returns {boolean} - 是否需要刷新
  */
@@ -77,14 +78,49 @@ export function shouldRefreshToken(token) {
   try {
     const payload = parseJwtPayload(token)
     const now = Math.floor(Date.now() / 1000)
-    const timeUntilExpiry = payload.exp - now
     
-    // 如果剩余时间少于7天（7*24*3600 秒），则需要刷新
-    const sevenDays = 7 * 24 * 3600
+    // 检查必要字段
+    if (!payload.exp || !payload.iat) {
+      console.warn('Token缺少exp或iat字段，无法计算刷新时机')
+      return false
+    }
     
-    return timeUntilExpiry < sevenDays && timeUntilExpiry > 0
+    // 计算已使用时间（秒）
+    const usedSeconds = now - payload.iat
+    // 计算剩余时间（秒）
+    const remainingSeconds = payload.exp - now
+    
+    // 7天 = 7 * 24 * 60 * 60 = 604800 秒
+    const sevenDays = 7 * 24 * 60 * 60
+    
+    // 如果已使用超过7天且剩余时间少于7天，则需要刷新
+    const shouldRefresh = usedSeconds > sevenDays && remainingSeconds < sevenDays && remainingSeconds > 0
+    
+    if (shouldRefresh) {
+      console.log(`Token需要刷新：已使用${Math.floor(usedSeconds / 86400)}天，剩余${Math.floor(remainingSeconds / 86400)}天`)
+    }
+    
+    return shouldRefresh
   } catch (error) {
+    console.error('检查Token刷新状态失败:', error)
     return false
+  }
+}
+
+/**
+ * 获取 token 已使用时间（秒）
+ * @param {string} token - JWT token
+ * @returns {number} - 已使用秒数，-1表示无效
+ */
+export function getTokenAge(token) {
+  try {
+    const payload = parseJwtPayload(token)
+    if (!payload.iat) return -1
+    
+    const now = Math.floor(Date.now() / 1000)
+    return now - payload.iat
+  } catch (error) {
+    return -1
   }
 }
 

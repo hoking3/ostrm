@@ -21,73 +21,51 @@ const processQueue = (error: Error | null) => {
   failedQueue.length = 0
 }
 
-// 获取认证 Token - 从localStorage/sessionStorage获取，与auth store保持一致
+// 获取认证 Token - 根据存储类型标识读取
 const getToken = (): string | null => {
   if (import.meta.server) return null
 
-  // 优先从localStorage获取（记住我模式）
-  let token = null
-  if (typeof localStorage !== 'undefined') {
-    const stored = localStorage.getItem('auth_token')
-    // localStorage.getItem()返回null或字符串，确保有效值
-    if (stored && stored !== 'undefined' && stored !== 'null') {
-      token = stored
+  try {
+    const storageType = localStorage.getItem('auth_storage_type')
+    const storage = storageType === 'local' ? localStorage : sessionStorage
+    const token = storage.getItem('auth_token')
+    
+    if (token && token !== 'undefined' && token !== 'null') {
+      return token
     }
+    return null
+  } catch (e) {
+    console.error('[API Client] 获取Token失败:', e)
+    return null
   }
-
-  // 如果localStorage中没有，尝试从sessionStorage获取
-  if (!token && typeof sessionStorage !== 'undefined') {
-    const stored = sessionStorage.getItem('auth_token')
-    if (stored && stored !== 'undefined' && stored !== 'null') {
-      token = stored
-    }
-  }
-
-  // 调试日志
-  if (import.meta.dev && token) {
-    console.log('[API Client] 获取到Token:', token.substring(0, 50) + '...')
-  } else if (import.meta.dev) {
-    console.log('[API Client] 未找到Token')
-  }
-
-  return token
 }
 
 // 请求拦截器
 const onRequest = (context: { request: string; options: { method?: string; headers?: Record<string, string> } }) => {
   const token = getToken()
-
-  // 确保 headers 存在
-  const options = context.options
-  if (!options.headers) {
-    options.headers = {}
+  
+  // 构建新的 headers 对象（合并现有 headers 和认证 headers）
+  const existingHeaders = context.options.headers || {}
+  const newHeaders: Record<string, string> = {
+    ...existingHeaders,
+    'X-Requested-With': 'XMLHttpRequest',
+    'Accept': 'application/json'
   }
-
-  // 添加认证头
-  if (token) {
-    options.headers['Authorization'] = `Bearer ${token}`
-    if (import.meta.dev) {
-      console.log('[API Request] Authorization头已设置:', `Bearer ${token.substring(0, 30)}...`)
-    }
-  } else if (import.meta.dev) {
-    console.log('[API Request] 无Token，未设置Authorization头')
+  
+  // 添加认证头（如果调用者没有设置且token存在）
+  if (token && !existingHeaders['Authorization']) {
+    newHeaders['Authorization'] = `Bearer ${token}`
   }
-
-  // 添加全局请求头
-  options.headers['X-Requested-With'] = 'XMLHttpRequest'
-  options.headers['Accept'] = 'application/json'
+  
+  // 重新赋值整个 headers 对象（确保修改生效）
+  context.options.headers = newHeaders
 
   // CSRF Token 处理
   if (import.meta.client) {
     const csrfToken = useCookie('XSRF-TOKEN')
-    if (csrfToken.value && options.method !== 'GET') {
-      options.headers['X-XSRF-TOKEN'] = csrfToken.value
+    if (csrfToken.value && context.options.method !== 'GET') {
+      context.options.headers['X-XSRF-TOKEN'] = csrfToken.value
     }
-  }
-
-  // 请求日志
-  if (import.meta.dev) {
-    console.log(`[API] ${options.method} ${context.request}`)
   }
 }
 
@@ -100,14 +78,39 @@ const handleUnauthorized = (): Promise<void> => {
     }
 
     isRefreshing = true
+    
+    // 获取当前 token
+    const token = getToken()
+    
+    if (!token) {
+      // 没有 token，无法刷新
+      isRefreshing = false
+      reject(new Error('无 Token，无法刷新'))
+      return
+    }
 
-    // 尝试刷新 Token
-    $fetch('/api/auth/refresh', { method: 'POST' } as object)
-      .then(() => {
+    // 尝试刷新 Token（必须携带当前 token）
+    $fetch('/api/auth/refresh', { 
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    } as object)
+      .then((response: unknown) => {
+        // 如果刷新成功，更新存储中的 token
+        const data = response as { code?: number; data?: { token?: string } }
+        if (data?.code === 200 && data?.data?.token) {
+          const newToken = data.data.token
+          // 更新 authStore
+          const authStore = useAuthStore()
+          authStore.updateToken(newToken)
+          console.log('[API Client] Token 刷新成功')
+        }
         processQueue(null)
         resolve()
       })
       .catch((error) => {
+        console.error('[API Client] Token 刷新失败:', error)
         processQueue(error instanceof Error ? error : new Error('Token 刷新失败'))
         reject(error)
       })
@@ -118,16 +121,49 @@ const handleUnauthorized = (): Promise<void> => {
 }
 
 // 响应错误拦截器
-const onResponseError = async (context: { response: { status: number; statusText: string; json(): Promise<unknown> }; request: string; options: object }) => {
+// 使用 WeakMap 记录重试次数，防止无限循环
+const retryCountMap = new Map<string, number>()
+const MAX_RETRY_COUNT = 1
+
+const onResponseError = async (context: { response: { status: number; statusText: string; json(): Promise<unknown> }; request: string; options: { headers?: Record<string, string>; [key: string]: unknown } }) => {
   const response = context.response
+  const requestKey = `${context.request}_${Date.now()}`
 
   // 401 Unauthorized - Token 过期或无效
   if (response.status === 401) {
+    // 检查重试次数
+    const currentRetry = retryCountMap.get(context.request) || 0
+    if (currentRetry >= MAX_RETRY_COUNT) {
+      console.log('[API] 已达最大重试次数，停止重试')
+      retryCountMap.delete(context.request)
+      // 刷新失败，跳转到登录页
+      if (import.meta.client) {
+        const authStore = useAuthStore()
+        authStore.logout()
+        window.location.href = '/auth/login'
+      }
+      throw new Error('登录已过期，请重新登录')
+    }
+
     try {
+      retryCountMap.set(context.request, currentRetry + 1)
       await handleUnauthorized()
-      // 重试原始请求
-      return $fetch(context.request, context.options as object)
-    } catch {
+      
+      // 重试原始请求 - 需要清除旧的 Authorization header
+      // 让 onRequest 拦截器使用新 token 重新设置
+      const retryOptions = { ...context.options }
+      if (retryOptions.headers) {
+        delete retryOptions.headers['Authorization']
+        delete retryOptions.headers['authorization']
+      }
+      
+      console.log('[API] 使用新 token 重试请求:', context.request)
+      // 使用 $fetchApi 重试，它会通过 onRequest 拦截器添加新 token
+      const result = await $fetchApi(context.request, retryOptions)
+      retryCountMap.delete(context.request)
+      return result
+    } catch (err) {
+      retryCountMap.delete(context.request)
       // 刷新失败，跳转到登录页
       if (import.meta.client) {
         const authStore = useAuthStore()
@@ -227,6 +263,7 @@ export const authenticatedApiCall = async <T = any>(
   // 确保 URL 以 /api 开头（Docker 生产环境需要）
   const apiUrl = url.startsWith('/api') ? url : `/api${url.startsWith('/') ? url : '/' + url}`
 
+  // 使用 $fetchApi，拦截器会自动添加 Authorization header
   return await $fetchApi<T>(apiUrl, {
     method,
     body,
