@@ -239,7 +239,6 @@
         </button>
       </div>
     </div>
-  </div>
   </nav>
 </template>
 

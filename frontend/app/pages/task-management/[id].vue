@@ -1,223 +1,248 @@
-<template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- 导航栏 -->
-    <AppHeader
-      title="任务管理"
-      :show-back-button="true"
-      :user-info="configInfo"
-      @logout="logout"
-      @change-password="changePassword"
-      @go-back="goBack"
-      @open-settings="openSettings"
-      @open-logs="openLogs"
-    />
+<!--
+  Ostrm - Stream Management System
+  Copyright (C) 2024 Ostrm Project
 
-    <!-- 主要内容区域 -->
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      <div class="px-4 py-6 sm:px-0">
-        <!-- 配置信息卡片 -->
-        <div class="bg-white overflow-hidden shadow rounded-lg mb-6">
-          <div class="px-4 py-5 sm:p-6">
-            <div class="flex items-center justify-between">
-              <div>
-                <h3 class="text-lg leading-6 font-medium text-gray-900">配置信息</h3>
-                <p class="mt-1 max-w-2xl text-sm text-gray-500">当前 OpenList 配置详情</p>
-              </div>
-              <span :class="configInfo?.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
-                    class="inline-flex px-2 py-1 text-xs font-semibold rounded-full">
-                {{ configInfo?.isActive ? '启用' : '禁用' }}
-              </span>
-            </div>
-            
-            <div class="mt-5 border-t border-gray-200 pt-5" v-if="configInfo">
-              <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">用户名</dt>
-                  <dd class="mt-1 text-sm text-gray-900">{{ configInfo.username }}</dd>
-                </div>
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">Base URL</dt>
-                  <dd class="mt-1 text-sm text-gray-900 break-all">{{ configInfo.baseUrl }}</dd>
-                </div>
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">Base Path</dt>
-                  <dd class="mt-1 text-sm text-gray-900">{{ configInfo.basePath || '/' }}</dd>
-                </div>
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">创建时间</dt>
-                  <dd class="mt-1 text-sm text-gray-900">{{ formatDate(configInfo.createdAt) }}</dd>
-                </div>
-              </dl>
-            </div>
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
+<template>
+  <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <!-- 加载状态 -->
+    <div v-if="loading" class="flex justify-center items-center py-20">
+      <div class="text-center">
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+        <p class="mt-4 text-gray-600 text-lg">加载中...</p>
+      </div>
+    </div>
+
+    <template v-else>
+      <!-- 配置信息卡片 -->
+      <div class="glass-card mb-6 animate-fade-in">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900">配置信息</h3>
+            <p class="mt-1 max-w-2xl text-sm text-gray-500">当前 OpenList 配置详情</p>
           </div>
+          <span :class="configInfo?.isActive ? 'status-active' : 'status-inactive'"
+                class="status-badge">
+            {{ configInfo?.isActive ? '启用' : '禁用' }}
+          </span>
         </div>
 
-        <!-- 任务管理区域 -->
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-          <div class="px-4 py-5 sm:p-6">
-            <div class="flex items-center justify-between mb-6">
-              <h3 class="text-lg leading-6 font-medium text-gray-900">任务管理</h3>
-              <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" @click="showCreateTaskModal = true">
-                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                </svg>
-                创建任务
-              </button>
+        <div class="mt-5 border-t border-gray-200 pt-5" v-if="configInfo">
+          <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+            <div>
+              <dt class="text-sm font-medium text-gray-500">用户名</dt>
+              <dd class="mt-1 text-sm text-gray-900">{{ configInfo.username }}</dd>
             </div>
-            
-            <!-- 任务列表 -->
-            <div class="space-y-4" v-if="tasks.length > 0">
-              <div class="border border-gray-200 rounded-lg p-4" v-for="task in tasks" :key="task.id">
-                <div class="flex items-center justify-between mb-3">
-                  <h4 class="text-lg font-medium text-gray-900">{{ task.taskName }}</h4>
-                  <div class="flex items-center space-x-2">
-                    <span :class="task.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
-                          class="inline-flex px-2 py-1 text-xs font-semibold rounded-full">
-                      {{ task.isActive ? '启用' : '禁用' }}
-                    </span>
-                    <button class="text-blue-600 hover:text-blue-800 text-sm" @click="editTask(task)">
-                      编辑
-                    </button>
-                    <button class="text-green-600 hover:text-green-800 text-sm" @click="showExecuteModal(task.id)" :disabled="generatingStrm[task.id]">
-                      {{ generatingStrm[task.id] ? '执行中...' : '立即执行' }}
-                    </button>
-                    <button class="text-red-600 hover:text-red-800 text-sm" @click="deleteTask(task.id)">
-                      删除
-                    </button>
-                  </div>
-                </div>
-                
-                <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-                  <div>
-                    <dt class="text-sm font-medium text-gray-500">路径</dt>
-                    <dd class="mt-1 text-sm text-gray-900 break-all">{{ task.path }}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-sm font-medium text-gray-500">STRM路径</dt>
-                    <dd class="mt-1 text-sm text-gray-900 break-all">{{ task.strmPath }}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-sm font-medium text-gray-500">定时任务</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ task.cron || '未设置' }}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-sm font-medium text-gray-500">上次执行</dt>
-                    <dd class="mt-1 text-sm text-gray-900">{{ formatDate(task.lastExecTime) }}</dd>
-                  </div>
-                </div>
-                
-                <div class="mt-3 flex items-center space-x-4">
-                  <label class="flex items-center text-sm" :class="task.needScrap ? 'text-gray-600' : 'text-gray-500'">
-                    <input type="checkbox" :checked="task.needScrap" disabled class="mr-1">
-                    需要刮削
-                  </label>
-                  <label class="flex items-center text-sm text-gray-600">
-                    <input type="checkbox" :checked="task.isIncrement" disabled class="mr-1">
-                    增量更新
-                  </label>
-                </div>
-                
-                <div class="mt-3" v-if="task.renameRegex">
-                  <dt class="text-sm font-medium text-gray-500">重命名正则表达式</dt>
-                  <dd class="mt-1 text-sm text-gray-900 font-mono bg-gray-50 px-2 py-1 rounded break-all">{{ task.renameRegex }}</dd>
-                </div>
-                
-                <div class="mt-3 text-xs text-gray-500">
-                  创建时间: {{ formatDate(task.createdAt) }}
-                </div>
-              </div>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Base URL</dt>
+              <dd class="mt-1 text-sm text-gray-900 break-all">{{ configInfo.baseUrl }}</dd>
             </div>
-            
-            <!-- 空状态 -->
-            <div class="text-center py-12" v-else>
-              <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-              </svg>
-              <h3 class="mt-2 text-sm font-medium text-gray-900">暂无任务配置</h3>
-              <p class="mt-1 text-sm text-gray-500">创建您的第一个任务配置</p>
-              <div class="mt-6">
-                <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" @click="showCreateTaskModal = true">
-                  <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Base Path</dt>
+              <dd class="mt-1 text-sm text-gray-900">{{ configInfo.basePath || '/' }}</dd>
+            </div>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">创建时间</dt>
+              <dd class="mt-1 text-sm text-gray-900">{{ formatDate(configInfo.createdAt) }}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      <!-- 任务管理区域 -->
+      <div class="glass-card animate-fade-in" style="animation-delay: 0.1s">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900">任务管理</h3>
+            <p class="mt-1 text-sm text-gray-500">管理您的 STRM 生成任务</p>
+          </div>
+          <button type="button" class="btn-primary" @click="showCreateTaskModal = true">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            创建任务
+          </button>
+        </div>
+
+        <!-- 任务列表 -->
+        <div class="space-y-4" v-if="tasks.length > 0">
+          <div class="card" v-for="task in tasks" :key="task.id">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+              <h4 class="text-lg font-medium text-gray-900">{{ task.taskName }}</h4>
+              <div class="flex items-center space-x-2 flex-wrap gap-y-2">
+                <span :class="task.isActive ? 'status-active' : 'status-inactive'" class="status-badge">
+                  {{ task.isActive ? '启用' : '禁用' }}
+                </span>
+                <button class="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                        @click="editTask(task)" title="编辑">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                   </svg>
-                  创建第一个任务
+                </button>
+                <button class="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-200"
+                        @click="showExecuteModal(task.id)" :disabled="generatingStrm[task.id]" title="立即执行">
+                  <svg v-if="generatingStrm[task.id]" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </button>
+                <button class="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200"
+                        @click="deleteTask(task.id)" title="删除">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                  </svg>
                 </button>
               </div>
             </div>
+
+            <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+              <div>
+                <dt class="text-sm font-medium text-gray-500">路径</dt>
+                <dd class="mt-1 text-sm text-gray-900 break-all">{{ task.path }}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">STRM路径</dt>
+                <dd class="mt-1 text-sm text-gray-900 break-all">{{ task.strmPath }}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">定时任务</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ task.cron || '未设置' }}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">上次执行</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ formatDate(task.lastExecTime) }}</dd>
+              </div>
+            </div>
+
+            <div class="mt-3 flex items-center space-x-4 flex-wrap gap-y-2">
+              <label class="flex items-center text-sm" :class="task.needScrap ? 'text-gray-600' : 'text-gray-500'">
+                <input type="checkbox" :checked="task.needScrap" disabled class="mr-2 h-4 w-4 text-blue-600 rounded">
+                需要刮削
+              </label>
+              <label class="flex items-center text-sm text-gray-600">
+                <input type="checkbox" :checked="task.isIncrement" disabled class="mr-2 h-4 w-4 text-blue-600 rounded">
+                增量更新
+              </label>
+            </div>
+
+            <div class="mt-3" v-if="task.renameRegex">
+              <dt class="text-sm font-medium text-gray-500">重命名正则表达式</dt>
+              <dd class="mt-1 text-sm text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded break-all">{{ task.renameRegex }}</dd>
+            </div>
+
+            <div class="mt-3 text-xs text-gray-500">
+              创建时间: {{ formatDate(task.createdAt) }}
+            </div>
           </div>
         </div>
-      </div>
-    </main>
-    
-    <!-- 创建/编辑任务模态框 -->
-    <div v-if="showCreateTaskModal || showEditTaskModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" @click="closeModal">
-      <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white" @click.stop>
-        <div class="mt-3">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-medium text-gray-900">
-              {{ showCreateTaskModal ? '创建任务' : '编辑任务' }}
-            </h3>
-            <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-            </button>
+
+        <!-- 空状态 -->
+        <div class="text-center py-12" v-else>
+          <div class="w-16 h-16 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+            </svg>
           </div>
-          
-          <form @submit.prevent="submitTask">
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700">任务名称 *</label>
-                <input v-model="taskForm.taskName" type="text" required 
-                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+          <h3 class="text-lg font-medium text-gray-900 mb-2">暂无任务配置</h3>
+          <p class="text-gray-500 mb-6">创建您的第一个任务配置</p>
+          <button type="button" class="btn-primary" @click="showCreateTaskModal = true">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            创建第一个任务
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <!-- 创建/编辑任务模态框 -->
+    <Teleport to="body">
+      <div v-if="showCreateTaskModal || showEditTaskModal" class="modal-overlay animate-fade-in" @click="closeModal">
+        <div class="flex items-center justify-center min-h-screen p-4">
+          <div class="modal-content animate-scale-in w-full max-w-lg" @click.stop>
+            <div class="card-header">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xl font-semibold">
+                  {{ showCreateTaskModal ? '创建任务' : '编辑任务' }}
+                </h3>
+                <button @click="closeModal" class="text-white/80 hover:text-white transition-colors">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
               </div>
-              
+            </div>
+
+            <form @submit.prevent="submitTask" class="space-y-6">
               <div>
-                <label class="block text-sm font-medium text-gray-700">任务路径 *</label>
-                <input v-model="taskForm.path" type="text" required 
-                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">任务名称 *</label>
+                <input v-model="taskForm.taskName" type="text" required class="input-field">
               </div>
-              
+
               <div>
-                <label class="block text-sm font-medium text-gray-700">STRM路径</label>
-                <div class="mt-1 flex">
-                  <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">任务路径 *</label>
+                <input v-model="taskForm.path" type="text" required class="input-field">
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">STRM路径</label>
+                <div class="flex">
+                  <span class="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-gray-200 bg-gray-50 text-gray-500 text-sm">
                     /app/backend/strm/
                   </span>
                   <input v-model="strmSubPath" type="text" placeholder="子路径（可选）"
-                         class="flex-1 block w-full rounded-none rounded-r-md border-gray-300 focus:ring-blue-500 focus:border-blue-500">
+                         class="input-field rounded-l-none">
                 </div>
                 <p class="mt-1 text-xs text-gray-500">前缀 /app/backend/strm/ 固定不可修改</p>
               </div>
-              
+
               <div>
-                <label class="block text-sm font-medium text-gray-700">定时任务表达式</label>
-                <input v-model="taskForm.cron" type="text" placeholder="例如: 0 15 10 ? * *" 
-                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">定时任务表达式</label>
+                <input v-model="taskForm.cron" type="text" placeholder="例如: 0 15 10 ? * *"
+                       class="input-field">
                 <p class="mt-1 text-xs text-gray-500">Cron表达式格式，留空表示不启用定时任务</p>
               </div>
-              
+
               <div>
-                <label class="block text-sm font-medium text-gray-700">
-                  重命名正则表达式
+                <div class="flex items-center justify-between mb-2">
+                  <label class="block text-sm font-semibold text-gray-700">
+                    重命名正则表达式
+                  </label>
                   <button type="button"
                           @click="showRenameRegexHelp = !showRenameRegexHelp"
-                          class="ml-1 text-gray-400 hover:text-gray-600 focus:outline-none"
+                          class="text-gray-400 hover:text-blue-600 transition-colors"
                           :class="{ 'text-blue-500': showRenameRegexHelp }">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                   </button>
-                </label>
+                </div>
                 <input v-model="taskForm.renameRegex" type="text" placeholder="留空表示不需要重命名"
-                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                       class="input-field">
                 <p class="mt-1 text-xs text-gray-500">用于文件重命名的正则表达式，留空表示不需要重命名</p>
-                
+
                 <!-- 帮助提示框 -->
                 <div v-if="showRenameRegexHelp"
-                     class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                  <h4 class="text-sm font-medium text-blue-800 mb-2">使用说明</h4>
-                  <div class="text-xs text-blue-700 space-y-1">
+                     class="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                  <h4 class="text-sm font-semibold text-blue-800 mb-2">使用说明</h4>
+                  <div class="text-xs text-blue-700 space-y-2">
                     <p><strong>格式：</strong>原始模式|替换内容</p>
                     <p><strong>示例：</strong></p>
                     <ul class="list-disc list-inside ml-2 space-y-1">
@@ -230,65 +255,69 @@
                   </div>
                 </div>
               </div>
-              
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <label class="flex items-center">
+
+              <div class="space-y-3">
+                <label class="flex items-start">
                   <input v-model="taskForm.needScrap" type="checkbox"
-                         class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                  <span class="ml-2 text-sm text-gray-700">需要刮削</span>
-                  <span class="ml-1 text-xs text-gray-500">(启用TMDB刮削功能，生成NFO和封面。如设置中启用"优先使用已存在的刮削信息"，会先尝试复制现有文件)</span>
+                         class="mt-1 h-4 w-4 text-blue-600 rounded border-gray-300">
+                  <span class="ml-2 text-sm text-gray-700">
+                    需要刮削
+                    <span class="block text-xs text-gray-500 mt-0.5">启用TMDB刮削功能，生成NFO和封面</span>
+                  </span>
                 </label>
 
                 <label class="flex items-center">
-                  <input v-model="taskForm.isIncrement" type="checkbox" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                  <input v-model="taskForm.isIncrement" type="checkbox"
+                         class="h-4 w-4 text-blue-600 rounded border-gray-300">
                   <span class="ml-2 text-sm text-gray-700">增量更新</span>
                 </label>
-              </div>
-              
-              <div>
+
                 <label class="flex items-center">
-                  <input v-model="taskForm.isActive" type="checkbox" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                  <input v-model="taskForm.isActive" type="checkbox"
+                         class="h-4 w-4 text-blue-600 rounded border-gray-300">
                   <span class="ml-2 text-sm text-gray-700">启用任务</span>
                 </label>
               </div>
-            </div>
-            
-            <div class="mt-6 flex justify-end space-x-3">
-              <button type="button" @click="closeModal" 
-                      class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                取消
-              </button>
-              <button type="submit" :disabled="submitting"
-                      class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50">
-                {{ submitting ? '保存中...' : (showCreateTaskModal ? '创建' : '保存') }}
-              </button>
-            </div>
-          </form>
+
+              <div class="flex justify-end space-x-3 pt-4">
+                <button type="button" @click="closeModal" class="btn-secondary">
+                  取消
+                </button>
+                <button type="submit" :disabled="submitting" class="btn-primary">
+                  <svg v-if="submitting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {{ submitting ? '保存中...' : (showCreateTaskModal ? '创建' : '保存') }}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
-    
+    </Teleport>
+
     <!-- 执行模式选择模态框 -->
-    <div v-if="showExecuteTaskModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" @click="closeExecuteModal">
-      <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 lg:w-1/3 shadow-lg rounded-md bg-white" @click.stop>
-        <div class="mt-3">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-medium text-gray-900">
-              选择执行模式
-            </h3>
-            <button @click="closeExecuteModal" class="text-gray-400 hover:text-gray-600">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-            </button>
-          </div>
-          
-          <div class="space-y-4">
-            <p class="text-sm text-gray-600 mb-4">请选择任务执行模式：</p>
-            
-            <div class="space-y-3">
-              <button @click="executeTask(currentTaskId, false)" 
-                      class="w-full flex items-center justify-between p-4 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <Teleport to="body">
+      <div v-if="showExecuteTaskModal" class="modal-overlay animate-fade-in" @click="closeExecuteModal">
+        <div class="flex items-center justify-center min-h-screen p-4">
+          <div class="modal-content animate-scale-in w-full max-w-md" @click.stop>
+            <div class="card-header">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xl font-semibold">选择执行模式</h3>
+                <button @click="closeExecuteModal" class="text-white/80 hover:text-white transition-colors">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="space-y-4">
+              <p class="text-sm text-gray-600">请选择任务执行模式：</p>
+
+              <button @click="executeTask(currentTaskId, false)"
+                      class="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl transition-all duration-200">
                 <div class="text-left">
                   <div class="font-medium text-gray-900">全量执行</div>
                   <div class="text-sm text-gray-500">清空STRM目录，重新生成所有文件</div>
@@ -297,9 +326,9 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                 </svg>
               </button>
-              
-              <button @click="executeTask(currentTaskId, true)" 
-                      class="w-full flex items-center justify-between p-4 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+              <button @click="executeTask(currentTaskId, true)"
+                      class="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl transition-all duration-200">
                 <div class="text-left">
                   <div class="font-medium text-gray-900">增量执行</div>
                   <div class="text-sm text-gray-500">只处理变化的文件，清理孤立文件</div>
@@ -309,17 +338,10 @@
                 </svg>
               </button>
             </div>
-            
-            <div class="mt-6 flex justify-end">
-              <button @click="closeExecuteModal" 
-                      class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                取消
-              </button>
-            </div>
           </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
@@ -362,11 +384,11 @@ const showRenameRegexHelp = ref(false)
 const getConfigInfo = async () => {
   try {
     loading.value = true
-    
+
     const response = await authenticatedApiCall(`/openlist-config/${configId}`, {
       method: 'GET'
     })
-    
+
     if (response.code === 200) {
       configInfo.value = response.data
     } else {
@@ -387,7 +409,7 @@ const fetchTasks = async () => {
     const response = await authenticatedApiCall('/task-config', {
       method: 'GET'
     })
-    
+
     if (response.code === 200) {
       // 过滤出属于当前配置的任务
       tasks.value = response.data.filter(task => task.openlistConfigId == configId)
@@ -421,7 +443,7 @@ const editTask = (task) => {
     path: task.path,
     strmPath: task.strmPath,
     cron: task.cron || '',
-    needScrap: task.needScrap || false, // 使用实际的数据库值
+    needScrap: task.needScrap || false,
     renameRegex: task.renameRegex || '',
     isIncrement: task.isIncrement,
     isActive: task.isActive
@@ -468,23 +490,21 @@ const validateTaskPath = async (taskPath) => {
 const submitTask = async () => {
   try {
     submitting.value = true
-    
+
     // 先验证任务路径是否存在
     if (taskForm.value.path) {
       await validateTaskPath(taskForm.value.path)
     }
-    
-    const token = useCookie('token')
-    
+
     // 合并STRM路径
     const fullStrmPath = '/app/backend/strm/' + (strmSubPath.value || '')
-    
+
     const taskData = {
       ...taskForm.value,
       strmPath: fullStrmPath,
       openlistConfigId: parseInt(configId)
     }
-    
+
     let response
     if (showCreateTaskModal.value) {
       // 创建任务
@@ -499,7 +519,7 @@ const submitTask = async () => {
         body: taskData
       })
     }
-    
+
     if (response.code === 200) {
       await fetchTasks()
       closeModal()
@@ -519,12 +539,12 @@ const deleteTask = async (taskId) => {
   if (!confirm('确定要删除这个任务吗？')) {
     return
   }
-  
+
   try {
     const response = await authenticatedApiCall(`/task-config/${taskId}`, {
       method: 'DELETE'
     })
-    
+
     if (response.code === 200) {
       await fetchTasks()
     } else {
@@ -549,49 +569,6 @@ const formatDate = (timestamp) => {
     return '未执行'
   }
   return new Date(timestamp).toLocaleString('zh-CN')
-}
-
-// 返回上一页
-const goBack = () => {
-  navigateTo('/')
-}
-
-// 修改密码
-const changePassword = () => {
-  navigateTo('/auth/change-password')
-}
-
-// 退出登录
-const logout = async () => {
-  try {
-    const token = useCookie('token')
-    
-    // 调用后端登出接口
-    await authenticatedApiCall('/auth/sign-out', {
-      method: 'POST'
-    })
-  } catch (error) {
-    logger.error('登出失败:', error)
-  } finally {
-    // 清除本地token
-    const token = useCookie('token')
-    token.value = null
-    
-    // 跳转到登录页
-    await navigateTo('/auth/login')
-  }
-}
-
-// 打开设置页面
-const openSettings = () => {
-  // 跳转到设置页面
-  navigateTo('/settings')
-}
-
-// 打开日志页面
-const openLogs = () => {
-  // 跳转到日志页面
-  navigateTo('/logs')
 }
 
 // 显示执行模式选择弹窗
@@ -632,8 +609,6 @@ const executeTask = async (taskId, isIncremental) => {
     generatingStrm.value[taskId] = false
   }
 }
-
-
 
 // 组件挂载时获取配置信息和任务列表
 onMounted(() => {

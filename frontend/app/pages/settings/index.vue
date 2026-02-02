@@ -1,16 +1,5 @@
 <template>
-  <div class="min-h-screen">
-    <AppHeader
-      title="系统设置"
-      :show-back-button="true"
-      @logout="handleLogout"
-      @change-password="handleChangePassword"
-      @go-back="goBack"
-      @open-settings="handleOpenSettings"
-      @open-logs="handleOpenLogs"
-    />
-    
-    <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div class="animate-fade-in">
         <!-- 页面标题 -->
         <div class="text-center mb-8">
@@ -438,31 +427,33 @@
     </div>
     
     <!-- 成功提示 -->
-    <div v-if="showSuccess" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-slide-up">
-      <div class="flex items-center">
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-        </svg>
-        设置保存成功！
+    <Teleport to="body">
+      <div v-if="showSuccess" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-slide-up">
+        <div class="flex items-center">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          设置保存成功！
+        </div>
       </div>
-    </div>
-    
+    </Teleport>
+
     <!-- 错误提示 -->
-    <div v-if="errorMessage" class="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-slide-up">
-      <div class="flex items-center">
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        {{ errorMessage }}
+    <Teleport to="body">
+      <div v-if="errorMessage" class="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-slide-up">
+        <div class="flex items-center">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          {{ errorMessage }}
+        </div>
       </div>
-    </div>
-  </div>
+    </Teleport>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import AppHeader from '~/components/AppHeader.vue'
 import { authenticatedApiCall } from '~/core/api/client'
 import { useAuthStore } from '~/core/stores/auth'
 
