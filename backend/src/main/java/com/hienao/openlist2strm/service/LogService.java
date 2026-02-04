@@ -324,4 +324,22 @@ public class LogService {
       throw new RuntimeException("写入前端日志失败", e);
     }
   }
+
+  /** 删除日志文件 */
+  public void deleteLogFile(String logType) {
+    Path logFile = getLogFilePath(logType);
+
+    if (!Files.exists(logFile)) {
+      log.warn("日志文件不存在: {}", logFile);
+      throw new IllegalArgumentException("日志文件不存在");
+    }
+
+    try {
+      Files.delete(logFile);
+      log.info("成功删除日志文件: {}", logFile);
+    } catch (IOException e) {
+      log.error("删除日志文件失败: {}", logFile, e);
+      throw new RuntimeException("删除日志文件失败", e);
+    }
+  }
 }

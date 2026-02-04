@@ -176,4 +176,33 @@ public class LogController {
       return ApiResponse.error(500, "接收前端日志失败: " + e.getMessage());
     }
   }
+
+  @Operation(summary = "删除日志文件", description = "删除指定类型的日志文件（无需认证）")
+  @ApiResponses(
+      value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "删除成功",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "参数错误或日志文件不存在"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "500",
+            description = "服务器内部错误")
+      })
+  @DeleteMapping("/{logType}")
+  public ApiResponse<String> deleteLog(
+      @Parameter(description = "日志类型", example = "backend") @PathVariable String logType) {
+    try {
+      logService.deleteLogFile(logType);
+      return ApiResponse.success("删除成功");
+    } catch (IllegalArgumentException e) {
+      log.warn("删除日志失败，参数错误: {}", e.getMessage());
+      return ApiResponse.error(400, e.getMessage());
+    } catch (Exception e) {
+      log.error("删除日志失败", e);
+      return ApiResponse.error(500, "删除日志失败: " + e.getMessage());
+    }
+  }
 }
