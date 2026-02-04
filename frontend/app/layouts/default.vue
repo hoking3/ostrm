@@ -18,10 +18,49 @@
 
 <template>
   <div class="min-h-screen flex flex-col">
-    <AppHeader />
+    <AppHeader
+      @logout="handleLogout"
+      @change-password="handleChangePassword"
+      @open-settings="handleOpenSettings"
+      @open-logs="handleOpenLogs"
+    />
     <main class="flex-1 w-full">
       <slot />
     </main>
     <AppFooter />
   </div>
 </template>
+
+<script setup>
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '~/core/stores/auth'
+
+const router = useRouter()
+const authStore = useAuthStore()
+
+const handleLogout = async () => {
+  try {
+    const { authenticatedApiCall } = await import('~/core/api/client')
+    await authenticatedApiCall('/auth/sign-out', { method: 'POST' })
+  } catch (error) {
+    // 忽略错误
+  } finally {
+    const { stopTokenRefreshService } = await import('~/core/utils/tokenRefresh.js')
+    stopTokenRefreshService()
+    authStore.clearAuth()
+    router.push('/auth/login')
+  }
+}
+
+const handleChangePassword = () => {
+  router.push('/auth/change-password')
+}
+
+const handleOpenSettings = () => {
+  router.push('/settings')
+}
+
+const handleOpenLogs = () => {
+  router.push('/logs')
+}
+</script>

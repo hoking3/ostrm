@@ -22,39 +22,51 @@
     <div class="mb-8 animate-fade-in">
       <div class="text-center mb-8">
         <h1 class="text-4xl font-bold gradient-text mb-4">OpenList 配置管理</h1>
-        <p class="text-gray-600 text-lg">管理您的 OpenList 配置，轻松生成 STRM 文件</p>
+        <p class="text-white/50 text-lg">管理您的 OpenList 配置，轻松生成 STRM 文件</p>
       </div>
 
       <!-- 统计卡片 -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="glass-card text-center">
-          <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-            </svg>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="stat-card">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center">
+              <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="text-3xl font-bold text-white tabular-nums">{{ configs.length }}</p>
+              <p class="text-sm text-white/40">总配置数</p>
+            </div>
           </div>
-          <h3 class="text-2xl font-bold text-gray-900">{{ configs.length }}</h3>
-          <p class="text-gray-600">总配置数</p>
         </div>
 
-        <div class="glass-card text-center">
-          <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
+        <div class="stat-card">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center">
+              <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="text-3xl font-bold text-white tabular-nums">{{ configs.filter(c => c.isActive).length }}</p>
+              <p class="text-sm text-white/40">启用配置</p>
+            </div>
           </div>
-          <h3 class="text-2xl font-bold text-gray-900">{{ configs.filter(c => c.isActive).length }}</h3>
-          <p class="text-gray-600">启用配置</p>
         </div>
 
-        <div class="glass-card text-center">
-          <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
+        <div class="stat-card">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center">
+              <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="text-3xl font-bold text-white tabular-nums">{{ configs.filter(c => !c.isActive).length }}</p>
+              <p class="text-sm text-white/40">禁用配置</p>
+            </div>
           </div>
-          <h3 class="text-2xl font-bold text-gray-900">{{ configs.filter(c => !c.isActive).length }}</h3>
-          <p class="text-gray-600">禁用配置</p>
         </div>
       </div>
     </div>
@@ -64,25 +76,22 @@
       <!-- 加载状态 -->
       <div v-if="loading" class="flex justify-center items-center py-20">
         <div class="text-center">
-          <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
-          <p class="mt-4 text-gray-600 text-lg">加载配置中...</p>
+          <div class="inline-block loading-spinner w-12 h-12 border-4 border-blue-500 border-t-transparent"></div>
+          <p class="mt-4 text-white/50">加载配置中...</p>
         </div>
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="configs.length === 0" class="text-center py-20">
-        <div class="glass-card max-w-md mx-auto">
-          <div class="w-20 h-20 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div v-else-if="configs.length === 0" class="empty-state">
+        <div class="card max-w-md mx-auto">
+          <div class="empty-state-icon">
+            <svg class="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
             </svg>
           </div>
-          <h3 class="text-xl font-semibold text-gray-900 mb-2">暂无配置</h3>
-          <p class="text-gray-600 mb-6">点击下方按钮添加您的第一个 OpenList 配置</p>
-          <button
-            @click="showAddModal = true"
-            class="btn-primary"
-          >
+          <h3 class="empty-state-title">暂无配置</h3>
+          <p class="empty-state-description">点击下方按钮添加您的第一个 OpenList 配置</p>
+          <button @click="showAddModal = true" class="btn-primary">
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
             </svg>
@@ -92,78 +101,75 @@
       </div>
 
       <!-- 配置卡片网格 -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         <div v-for="config in configs" :key="config.id"
-             class="card group cursor-pointer transform hover:scale-105 transition-all duration-300"
+             class="card card-hover"
              @click="goToTaskManagement(config)">
           <!-- 卡片头部 -->
           <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center space-x-3">
-              <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
                 <span class="text-white font-bold text-lg">
                   {{ config.username.charAt(0).toUpperCase() }}
                 </span>
               </div>
               <div>
-                <h3 class="text-lg font-semibold text-gray-900">{{ config.username }}</h3>
-                <p class="text-sm text-gray-500">{{ formatDate(config.createdAt) }}</p>
+                <h3 class="text-lg font-semibold text-white">{{ config.username }}</h3>
+                <p class="text-xs text-white/40">{{ formatDate(config.createdAt) }}</p>
               </div>
             </div>
-            <span :class="config.isActive ? 'status-active' : 'status-inactive'"
-                  class="status-badge">
+            <span :class="config.isActive ? 'badge-success' : 'badge-neutral'">
               {{ config.isActive ? '启用' : '禁用' }}
             </span>
           </div>
 
           <!-- 配置信息 -->
-          <div class="space-y-3 mb-6">
-            <div class="bg-gray-50 rounded-lg p-3">
-              <label class="text-xs font-medium text-gray-500 uppercase tracking-wider">Base URL</label>
-              <p class="mt-1 text-sm text-gray-900 break-all font-mono">{{ config.baseUrl }}</p>
+          <div class="space-y-3 mb-4">
+            <div class="bg-white/5 rounded-lg p-3 border border-white/6">
+              <label class="text-xs font-medium text-white/40 uppercase tracking-wider">Base URL</label>
+              <p class="mt-1 text-sm text-white/80 break-all font-mono">{{ config.baseUrl }}</p>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
-              <div class="bg-gray-50 rounded-lg p-3">
-                <label class="text-xs font-medium text-gray-500 uppercase tracking-wider">Base Path</label>
-                <p class="mt-1 text-sm text-gray-900 font-mono">{{ config.basePath || '/' }}</p>
+              <div class="bg-white/5 rounded-lg p-3 border border-white/6">
+                <label class="text-xs font-medium text-white/40 uppercase tracking-wider">Base Path</label>
+                <p class="mt-1 text-sm text-white/80 font-mono">{{ config.basePath || '/' }}</p>
               </div>
 
-              <div class="bg-gray-50 rounded-lg p-3">
-                <label class="text-xs font-medium text-gray-500 uppercase tracking-wider">URL编码</label>
-                <div class="mt-1 flex items-center">
-                  <span :class="config.enableUrlEncoding !== false ? 'text-green-600' : 'text-red-600'" class="text-sm font-medium">
+              <div class="bg-white/5 rounded-lg p-3 border border-white/6">
+                <label class="text-xs font-medium text-white/40 uppercase tracking-wider">URL编码</label>
+                <div class="mt-1 flex items-center gap-1">
+                  <span :class="config.enableUrlEncoding !== false ? 'text-emerald-400' : 'text-red-400'" class="text-sm font-medium">
                     {{ config.enableUrlEncoding !== false ? '启用' : '禁用' }}
                   </span>
-                  <svg v-if="config.enableUrlEncoding !== false" class="w-4 h-4 text-green-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg v-if="config.enableUrlEncoding !== false" class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                   </svg>
-                  <svg v-else class="w-4 h-4 text-red-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg v-else class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"></path>
                   </svg>
                 </div>
               </div>
             </div>
 
-            <div v-if="config.strmBaseUrl" class="bg-blue-50 rounded-lg p-3">
-              <label class="text-xs font-medium text-blue-500 uppercase tracking-wider">STRM Base URL</label>
-              <p class="mt-1 text-sm text-blue-900 break-all font-mono">{{ config.strmBaseUrl }}</p>
+            <div v-if="config.strmBaseUrl" class="bg-blue-500/5 rounded-lg p-3 border border-blue-500/10">
+              <label class="text-xs font-medium text-blue-400 uppercase tracking-wider">STRM Base URL</label>
+              <p class="mt-1 text-sm text-white/80 break-all font-mono">{{ config.strmBaseUrl }}</p>
             </div>
           </div>
 
           <!-- 操作按钮 -->
-          <div class="flex justify-between items-center pt-4 border-t border-gray-100">
-            <div class="flex space-x-2">
-              <button @click.stop="editConfig(config)"
-                      class="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
-                      title="编辑配置">
+          <div class="flex justify-between items-center pt-4 border-t border-white/6">
+            <div class="flex gap-1">
+              <button @click.stop="editConfig(config)" class="btn-icon" title="编辑配置">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                 </svg>
               </button>
 
               <button @click.stop="toggleConfigStatus(config)"
-                      :class="config.isActive ? 'text-red-600 hover:text-red-700 hover:bg-red-50' : 'text-green-600 hover:text-green-700 hover:bg-green-50'"
-                      class="p-2 rounded-lg transition-all duration-200"
+                      :class="config.isActive ? 'text-amber-400 hover:bg-amber-500/10' : 'text-emerald-400 hover:bg-emerald-500/10'"
+                      class="btn-icon"
                       :title="config.isActive ? '禁用配置' : '启用配置'">
                 <svg v-if="config.isActive" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"></path>
@@ -173,16 +179,14 @@
                 </svg>
               </button>
 
-              <button @click.stop="deleteConfig(config)"
-                      class="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200"
-                      title="删除配置">
+              <button @click.stop="deleteConfig(config)" class="btn-icon text-red-400 hover:bg-red-500/10" title="删除配置">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                 </svg>
               </button>
             </div>
 
-            <div class="flex items-center text-gray-400 group-hover:text-blue-600 transition-colors duration-200">
+            <div class="flex items-center text-white/40 group-hover:text-blue-400 transition-colors">
               <span class="text-sm mr-2">管理任务</span>
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -194,11 +198,7 @@
     </div>
 
     <!-- 浮动添加按钮 -->
-    <button
-      @click="showAddModal = true"
-      class="floating-action"
-      title="添加配置"
-    >
+    <button @click="showAddModal = true" class="fab" title="添加配置">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
       </svg>
@@ -209,100 +209,53 @@
       <div v-if="showAddModal" class="modal-overlay animate-fade-in" @click="closeAddModal">
         <div class="flex items-center justify-center min-h-screen p-4">
           <div class="modal-content animate-scale-in w-full max-w-lg" @click.stop>
-            <div class="card-header">
-              <div class="flex items-center justify-between">
-                <h3 class="text-xl font-semibold">添加 OpenList 配置</h3>
-                <button @click="closeAddModal" class="text-white/80 hover:text-white transition-colors">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                  </svg>
-                </button>
-              </div>
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-xl font-semibold text-white">添加 OpenList 配置</h3>
+              <button @click="closeAddModal" class="btn-icon">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
             </div>
 
-            <form @submit.prevent="addConfig" class="space-y-6">
+            <form @submit.prevent="addConfig" class="space-y-5">
               <div>
-                <label for="baseUrl" class="block text-sm font-semibold text-gray-700 mb-2">Base URL</label>
-                <input
-                  id="baseUrl"
-                  v-model="configForm.baseUrl"
-                  type="url"
-                  required
-                  class="input-field"
-                  placeholder="https://openlist.example.com"
-                  :disabled="formLoading"
-                />
+                <label for="baseUrl" class="block text-sm font-medium text-white/70 mb-2">Base URL</label>
+                <input id="baseUrl" v-model="configForm.baseUrl" type="url" required class="input-field" placeholder="https://openlist.example.com" :disabled="formLoading" />
               </div>
 
               <div>
-                <label for="token" class="block text-sm font-semibold text-gray-700 mb-2">Token</label>
-                <input
-                  id="token"
-                  v-model="configForm.token"
-                  type="password"
-                  required
-                  class="input-field"
-                  placeholder="您的 OpenList Token"
-                  :disabled="formLoading"
-                />
+                <label for="token" class="block text-sm font-medium text-white/70 mb-2">Token</label>
+                <input id="token" v-model="configForm.token" type="password" required class="input-field" placeholder="您的 OpenList Token" :disabled="formLoading" />
               </div>
 
               <div>
-                <label for="strmBaseUrl" class="block text-sm font-semibold text-gray-700 mb-2">STRM Base URL（可选）</label>
-                <input
-                  id="strmBaseUrl"
-                  v-model="configForm.strmBaseUrl"
-                  type="url"
-                  class="input-field"
-                  placeholder="https://your-media-server.com/path"
-                  :disabled="formLoading"
-                />
-                <p class="mt-1 text-xs text-gray-500">
-                  用于STRM文件生成时替换原始URL的baseUrl，留空则不进行替换
-                </p>
+                <label for="strmBaseUrl" class="block text-sm font-medium text-white/70 mb-2">STRM Base URL（可选）</label>
+                <input id="strmBaseUrl" v-model="configForm.strmBaseUrl" type="url" class="input-field" placeholder="https://your-media-server.com/path" :disabled="formLoading" />
+                <p class="mt-1 text-xs text-white/30">用于STRM文件生成时替换原始URL的baseUrl，留空则不进行替换</p>
               </div>
 
-              <div>
-                <label class="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    v-model="configForm.enableUrlEncoding"
-                    type="checkbox"
-                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                    :disabled="formLoading"
-                  />
-                  <div>
-                    <span class="text-sm font-semibold text-gray-700">启用URL编码</span>
-                    <p class="mt-1 text-xs text-gray-500">
-                      对STRM文件中的链接进行URL编码，确保中文和特殊字符正确显示（推荐启用）
-                    </p>
-                  </div>
+              <div class="flex items-start gap-3">
+                <input id="enableUrlEncoding" v-model="configForm.enableUrlEncoding" type="checkbox" class="mt-1" :disabled="formLoading" />
+                <label for="enableUrlEncoding" class="text-sm text-white/70">
+                  <span class="font-medium">启用URL编码</span>
+                  <p class="text-xs text-white/40 mt-0.5">对STRM文件中的链接进行URL编码，确保中文和特殊字符正确显示（推荐启用）</p>
                 </label>
               </div>
 
-              <div v-if="formError" class="bg-red-50 border border-red-200 rounded-xl p-4">
-                <div class="flex items-center">
-                  <svg class="w-5 h-5 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div v-if="formError" class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <div class="flex items-center gap-2 text-red-400">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
-                  <p class="text-red-700 font-medium">{{ formError }}</p>
+                  <p class="text-sm font-medium">{{ formError }}</p>
                 </div>
               </div>
 
-              <div class="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  @click="closeAddModal"
-                  class="btn-secondary"
-                  :disabled="formLoading"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  class="btn-primary"
-                  :disabled="formLoading"
-                >
-                  <svg v-if="formLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+              <div class="flex justify-end gap-3 pt-4">
+                <button type="button" @click="closeAddModal" class="btn-secondary" :disabled="formLoading">取消</button>
+                <button type="submit" class="btn-primary" :disabled="formLoading">
+                  <svg v-if="formLoading" class="loading-spinner -ml-1 mr-2 w-4 h-4" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
@@ -320,100 +273,53 @@
       <div v-if="showEditModal" class="modal-overlay animate-fade-in" @click="closeEditModal">
         <div class="flex items-center justify-center min-h-screen p-4">
           <div class="modal-content animate-scale-in w-full max-w-lg" @click.stop>
-            <div class="card-header">
-              <div class="flex items-center justify-between">
-                <h3 class="text-xl font-semibold">编辑 OpenList 配置</h3>
-                <button @click="closeEditModal" class="text-white/80 hover:text-white transition-colors">
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                  </svg>
-                </button>
-              </div>
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-xl font-semibold text-white">编辑 OpenList 配置</h3>
+              <button @click="closeEditModal" class="btn-icon">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
             </div>
 
-            <form @submit.prevent="updateConfig" class="space-y-6">
+            <form @submit.prevent="updateConfig" class="space-y-5">
               <div>
-                <label for="editBaseUrl" class="block text-sm font-semibold text-gray-700 mb-2">Base URL</label>
-                <input
-                  id="editBaseUrl"
-                  v-model="configForm.baseUrl"
-                  type="url"
-                  required
-                  class="input-field"
-                  placeholder="https://openlist.example.com"
-                  :disabled="formLoading"
-                />
+                <label for="editBaseUrl" class="block text-sm font-medium text-white/70 mb-2">Base URL</label>
+                <input id="editBaseUrl" v-model="configForm.baseUrl" type="url" required class="input-field" placeholder="https://openlist.example.com" :disabled="formLoading" />
               </div>
 
               <div>
-                <label for="editToken" class="block text-sm font-semibold text-gray-700 mb-2">Token</label>
-                <input
-                  id="editToken"
-                  v-model="configForm.token"
-                  type="password"
-                  required
-                  class="input-field"
-                  placeholder="您的 OpenList Token"
-                  :disabled="formLoading"
-                />
+                <label for="editToken" class="block text-sm font-medium text-white/70 mb-2">Token</label>
+                <input id="editToken" v-model="configForm.token" type="password" required class="input-field" placeholder="您的 OpenList Token" :disabled="formLoading" />
               </div>
 
               <div>
-                <label for="editStrmBaseUrl" class="block text-sm font-semibold text-gray-700 mb-2">STRM Base URL（可选）</label>
-                <input
-                  id="editStrmBaseUrl"
-                  v-model="configForm.strmBaseUrl"
-                  type="url"
-                  class="input-field"
-                  placeholder="https://your-media-server.com/path"
-                  :disabled="formLoading"
-                />
-                <p class="mt-1 text-xs text-gray-500">
-                  用于STRM文件生成时替换原始URL的baseUrl，留空则不进行替换
-                </p>
+                <label for="editStrmBaseUrl" class="block text-sm font-medium text-white/70 mb-2">STRM Base URL（可选）</label>
+                <input id="editStrmBaseUrl" v-model="configForm.strmBaseUrl" type="url" class="input-field" placeholder="https://your-media-server.com/path" :disabled="formLoading" />
+                <p class="mt-1 text-xs text-white/30">用于STRM文件生成时替换原始URL的baseUrl，留空则不进行替换</p>
               </div>
 
-              <div>
-                <label class="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    v-model="configForm.enableUrlEncoding"
-                    type="checkbox"
-                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                    :disabled="formLoading"
-                  />
-                  <div>
-                    <span class="text-sm font-semibold text-gray-700">启用URL编码</span>
-                    <p class="mt-1 text-xs text-gray-500">
-                      对STRM文件中的链接进行URL编码，确保中文和特殊字符正确显示（推荐启用）
-                    </p>
-                  </div>
+              <div class="flex items-start gap-3">
+                <input id="editEnableUrlEncoding" v-model="configForm.enableUrlEncoding" type="checkbox" class="mt-1" :disabled="formLoading" />
+                <label for="editEnableUrlEncoding" class="text-sm text-white/70">
+                  <span class="font-medium">启用URL编码</span>
+                  <p class="text-xs text-white/40 mt-0.5">对STRM文件中的链接进行URL编码，确保中文和特殊字符正确显示（推荐启用）</p>
                 </label>
               </div>
 
-              <div v-if="formError" class="bg-red-50 border border-red-200 rounded-xl p-4">
-                <div class="flex items-center">
-                  <svg class="w-5 h-5 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div v-if="formError" class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <div class="flex items-center gap-2 text-red-400">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
-                  <p class="text-red-700 font-medium">{{ formError }}</p>
+                  <p class="text-sm font-medium">{{ formError }}</p>
                 </div>
               </div>
 
-              <div class="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  @click="closeEditModal"
-                  class="btn-secondary"
-                  :disabled="formLoading"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  class="btn-primary"
-                  :disabled="formLoading"
-                >
-                  <svg v-if="formLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+              <div class="flex justify-end gap-3 pt-4">
+                <button type="button" @click="closeEditModal" class="btn-secondary" :disabled="formLoading">取消</button>
+                <button type="submit" class="btn-primary" :disabled="formLoading">
+                  <svg v-if="formLoading" class="loading-spinner -ml-1 mr-2 w-4 h-4" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
@@ -429,169 +335,76 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { apiCall, authenticatedApiCall } from '~/core/api/client'
 import { useAuthStore } from '~/core/stores/auth'
 import logger from '~/core/utils/logger'
 
-// 页面元数据
-definePageMeta({
-  middleware: 'auth'
-})
+definePageMeta({ middleware: 'auth' })
 
-// 响应式数据和认证store
 const authStore = useAuthStore()
-// 从 authStore 获取用户信息
-const userInfo = computed(() => {
-  return authStore.getUserInfo || { username: '用户' }
-})
-const loginTime = ref('')
 const configs = ref([])
 const loading = ref(false)
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 const currentConfig = ref(null)
-const configForm = ref({
-  baseUrl: '',
-  token: '',
-  strmBaseUrl: '',
-  enableUrlEncoding: true
-})
+const configForm = ref({ baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true })
 const formLoading = ref(false)
 const formError = ref('')
 
-
-
-// 退出登录
 const logout = async () => {
   try {
-    // 调用后端登出接口
-    const response = await authenticatedApiCall('/auth/sign-out', {
-      method: 'POST'
-    })
-
-    // 检查响应格式
-    if (response.code === 200) {
-      logger.info('登出成功:', response.message)
-    }
+    await authenticatedApiCall('/auth/sign-out', { method: 'POST' })
   } catch (error) {
     logger.error('登出失败:', error)
   } finally {
-    // 停止 Token 刷新服务
     const { stopTokenRefreshService } = await import('~/core/utils/tokenRefresh.js')
     stopTokenRefreshService()
-    
-    // 无论成功失败都清除本地认证信息
     authStore.clearAuth()
-    // 跳转到登录页
     await navigateTo('/auth/login')
   }
 }
 
-// 修改密码
-const changePassword = () => {
-  // 跳转到修改密码页面
-  navigateTo('/auth/change-password')
-}
+const changePassword = () => navigateTo('/auth/change-password')
+const openSettings = () => navigateTo('/settings')
+const openLogs = () => navigateTo('/logs')
 
-// 打开设置页面
-const openSettings = () => {
-  // 跳转到设置页面
-  navigateTo('/settings')
-}
-
-// 打开日志页面
-const openLogs = () => {
-  // 跳转到日志页面
-  navigateTo('/logs')
-}
-
-// 获取配置列表
 const getConfigs = async () => {
-  console.log('[getConfigs] 开始获取配置')
-  console.log('[getConfigs] 当前认证状态:')
-  console.log('  - isLoggedIn:', authStore.isLoggedIn)
-  console.log('  - token存在:', !!authStore.getToken)
-  console.log('  - token值:', authStore.getToken?.substring(0, 50) + '...' || 'null')
-
   loading.value = true
   try {
-    console.log('[getConfigs] 发送API请求...')
-    const response = await authenticatedApiCall('/openlist-config', {
-      method: 'GET'
-    })
-    console.log('[getConfigs] 收到响应:', response)
-
-    if (response.code === 200) {
-      configs.value = response.data || []
-      console.log('[getConfigs] 配置加载成功，数量:', configs.value.length)
-    } else {
-      logger.error('获取配置列表失败:', response.message)
-    }
+    const response = await authenticatedApiCall('/openlist-config', { method: 'GET' })
+    if (response.code === 200) configs.value = response.data || []
   } catch (error) {
-    console.error('[getConfigs] 获取配置列表错误:', error)
     logger.error('获取配置列表错误:', error)
   } finally {
     loading.value = false
-    console.log('[getConfigs] 完成, loading=false')
   }
 }
 
-// 验证OpenList配置（通过后端代理，避免CORS问题）
 const validateOpenListConfig = async (baseUrl, token) => {
-  try {
-    // 调用后端代理接口进行验证
-    const response = await authenticatedApiCall('/openlist-config/validate', {
-      method: 'POST',
-      body: {
-        baseUrl: baseUrl,
-        token: token
-      }
-    })
-
-    if (response.code === 200 && response.data) {
-      return {
-        username: response.data.username,
-        basePath: response.data.basePath || '/'
-      }
-    } else {
-      throw new Error(response.message || '验证失败')
-    }
-  } catch (error) {
-    logger.error('OpenList配置验证失败:', error)
-    throw new Error(error.message || '配置验证失败，请检查Base URL和Token')
+  const response = await authenticatedApiCall('/openlist-config/validate', {
+    method: 'POST',
+    body: { baseUrl, token }
+  })
+  if (response.code === 200 && response.data) {
+    return { username: response.data.username, basePath: response.data.basePath || '/' }
   }
+  throw new Error(response.message || '验证失败')
 }
 
-// 添加配置
 const addConfig = async () => {
   formLoading.value = true
   formError.value = ''
-  
   try {
-    // 先验证OpenList配置
     const validationResult = await validateOpenListConfig(configForm.value.baseUrl, configForm.value.token)
-    
-    // 调用后端API保存配置
     const response = await authenticatedApiCall('/openlist-config', {
       method: 'POST',
-      body: {
-        baseUrl: configForm.value.baseUrl,
-        token: configForm.value.token,
-        username: validationResult.username,
-        basePath: validationResult.basePath,
-        strmBaseUrl: configForm.value.strmBaseUrl,
-        enableUrlEncoding: configForm.value.enableUrlEncoding
-      }
+      body: { ...configForm.value, ...validationResult }
     })
-    
     if (response.code === 200) {
-      // 添加成功，刷新列表
       await getConfigs()
       closeAddModal()
-    } else {
-      formError.value = response.message || '添加配置失败'
-    }
+    } else formError.value = response.message || '添加配置失败'
   } catch (error) {
     logger.error('添加配置错误:', error)
     formError.value = error.message || '添加配置失败'
@@ -600,47 +413,25 @@ const addConfig = async () => {
   }
 }
 
-// 编辑配置
 const editConfig = (config) => {
   currentConfig.value = config
-  configForm.value = {
-    baseUrl: config.baseUrl,
-    token: config.token,
-    strmBaseUrl: config.strmBaseUrl || '',
-    enableUrlEncoding: config.enableUrlEncoding !== false // 默认为true，除非明确设置为false
-  }
+  configForm.value = { baseUrl: config.baseUrl, token: config.token, strmBaseUrl: config.strmBaseUrl || '', enableUrlEncoding: config.enableUrlEncoding !== false }
   showEditModal.value = true
 }
 
-// 更新配置
 const updateConfig = async () => {
   formLoading.value = true
   formError.value = ''
-  
   try {
-    // 先验证OpenList配置
     const validationResult = await validateOpenListConfig(configForm.value.baseUrl, configForm.value.token)
-    
-    // 调用后端API更新配置
     const response = await authenticatedApiCall(`/openlist-config/${currentConfig.value.id}`, {
       method: 'PUT',
-      body: {
-        baseUrl: configForm.value.baseUrl,
-        token: configForm.value.token,
-        username: validationResult.username,
-        basePath: validationResult.basePath,
-        strmBaseUrl: configForm.value.strmBaseUrl,
-        enableUrlEncoding: configForm.value.enableUrlEncoding
-      }
+      body: { ...configForm.value, ...validationResult }
     })
-    
     if (response.code === 200) {
-      // 更新成功，刷新列表
       await getConfigs()
       closeEditModal()
-    } else {
-      formError.value = response.message || '更新配置失败'
-    }
+    } else formError.value = response.message || '更新配置失败'
   } catch (error) {
     logger.error('更新配置错误:', error)
     formError.value = error.message || '更新配置失败'
@@ -649,113 +440,55 @@ const updateConfig = async () => {
   }
 }
 
-// 删除配置
 const deleteConfig = async (config) => {
-  if (!confirm(`确定要删除用户 "${config.username}" 的配置吗？`)) {
-    return
-  }
-  
+  if (!confirm(`确定要删除用户 "${config.username}" 的配置吗？`)) return
   try {
-    const response = await authenticatedApiCall(`/openlist-config/${config.id}`, {
-      method: 'DELETE'
-    })
-    
-    if (response.code === 200) {
-      // 删除成功，刷新列表
-      await getConfigs()
-    } else {
-      alert('删除失败: ' + (response.message || '未知错误'))
-    }
+    const response = await authenticatedApiCall(`/openlist-config/${config.id}`, { method: 'DELETE' })
+    if (response.code === 200) await getConfigs()
+    else alert('删除失败: ' + (response.message || '未知错误'))
   } catch (error) {
     logger.error('删除配置错误:', error)
     alert('删除失败: ' + (error.message || '网络错误'))
   }
 }
 
-// 切换配置状态
 const toggleConfigStatus = async (config) => {
   const action = config.isActive ? '禁用' : '启用'
-  if (!confirm(`确定要${action}用户 "${config.username}" 的配置吗？`)) {
-    return
-  }
-  
+  if (!confirm(`确定要${action}用户 "${config.username}" 的配置吗？`)) return
   try {
     const response = await authenticatedApiCall(`/openlist-config/${config.id}/status`, {
       method: 'PATCH',
-      body: {
-        isActive: !config.isActive
-      }
+      body: { isActive: !config.isActive }
     })
-    
-    if (response.code === 200) {
-      // 状态切换成功，刷新列表
-      await getConfigs()
-    } else {
-      alert(`${action}失败: ` + (response.message || '未知错误'))
-    }
+    if (response.code === 200) await getConfigs()
+    else alert(`${action}失败: ` + (response.message || '未知错误'))
   } catch (error) {
     logger.error('切换配置状态错误:', error)
     alert(`${action}失败: ` + (error.message || '网络错误'))
   }
 }
 
-// 关闭添加模态框
 const closeAddModal = () => {
   showAddModal.value = false
-  configForm.value = {
-    baseUrl: '',
-    token: '',
-    strmBaseUrl: '',
-    enableUrlEncoding: true
-  }
+  configForm.value = { baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true }
   formError.value = ''
   formLoading.value = false
 }
 
-// 关闭编辑模态框
 const closeEditModal = () => {
   showEditModal.value = false
   currentConfig.value = null
-  configForm.value = {
-    baseUrl: '',
-    token: '',
-    strmBaseUrl: '',
-    enableUrlEncoding: true
-  }
+  configForm.value = { baseUrl: '', token: '', strmBaseUrl: '', enableUrlEncoding: true }
   formError.value = ''
   formLoading.value = false
 }
 
-// 格式化日期
-const formatDate = (dateString) => {
-  if (!dateString) return '-'
-  return new Date(dateString).toLocaleString('zh-CN')
-}
+const formatDate = (dateString) => !dateString ? '-' : new Date(dateString).toLocaleString('zh-CN')
+const goToTaskManagement = (config) => navigateTo(`/task-management/${config.id}`)
 
-// 跳转到任务管理页面
-const goToTaskManagement = (config) => {
-  navigateTo(`/task-management/${config.id}`)
-}
-
-// 组件挂载时初始化认证状态和获取配置列表
 onMounted(async () => {
-  console.log('[Index Page] onMounted 开始执行')
-  console.log('[Index Page] localStorage中的token:', localStorage.getItem('auth_token')?.substring(0, 50) + '...' || '不存在')
-
-  // 初始化认证状态
   authStore.restoreAuth()
-  console.log('[Index Page] restoreAuth完成后, isLoggedIn:', authStore.isLoggedIn)
-  console.log('[Index Page] store中的token:', authStore.getToken?.substring(0, 50) + '...' || '不存在')
-
-  // 延迟一下再获取配置，确保认证状态完全恢复
-  await new Promise(resolve => setTimeout(resolve, 100))
-
-  console.log('[Index Page] 准备调用getConfigs')
+  await new Promise(r => setTimeout(r, 100))
   await getConfigs()
-  console.log('[Index Page] getConfigs完成, configs数量:', configs.value.length)
 })
 </script>
-
-<style scoped>
-/* 使用Tailwind CSS，无需额外样式 */
-</style>

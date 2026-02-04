@@ -49,6 +49,7 @@ export default defineNuxtConfig({
   components: {
     dirs: [
       'core/ui',
+      'components',
       'modules/*/components',
       'modules/shared/components'
     ]

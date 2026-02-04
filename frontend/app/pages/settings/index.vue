@@ -1,499 +1,311 @@
 <template>
   <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <div class="animate-fade-in">
-        <!-- 页面标题 -->
-        <div class="text-center mb-8">
-          <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+    <div class="animate-fade-in">
+      <!-- 页面标题 -->
+      <div class="text-center mb-8">
+        <div class="w-14 h-14 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl font-bold gradient-text mb-2">系统设置</h1>
+        <p class="text-white/40">配置系统参数和功能选项</p>
+      </div>
+
+      <div class="space-y-6">
+        <!-- 媒体文件后缀设置 -->
+        <div class="card">
+          <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
             </svg>
+            媒体文件设置
+          </h3>
+          <div class="space-y-4">
+            <label class="block text-sm text-white/70">生成 STRM 媒体文件后缀</label>
+            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+              <label v-for="extension in availableExtensions" :key="extension" class="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors">
+                <input :id="extension" v-model="selectedExtensions" :value="extension" type="checkbox" class="h-4 w-4 rounded" />
+                <span class="text-sm text-white/80">{{ extension }}</span>
+              </label>
+            </div>
           </div>
-          <h1 class="text-3xl font-bold gradient-text mb-2">系统设置</h1>
-          <p class="text-gray-600">配置系统参数和功能选项</p>
         </div>
 
-        <div class="space-y-8">
-          <!-- 媒体文件后缀设置 -->
-          <div class="glass-card">
-            <div class="card-header">
-              <h3 class="text-xl font-semibold">媒体文件设置</h3>
+        <!-- TMDB API 配置 -->
+        <div class="card">
+          <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+            </svg>
+            TMDB API 配置
+          </h3>
+          <div class="space-y-5">
+            <div>
+              <label for="tmdbApiKey" class="block text-sm text-white/70 mb-2">TMDB API Key</label>
+              <div class="flex">
+                <input :id="tmdbApiKey" v-model="tmdbConfig.apiKey" :type="showApiKey ? 'text' : 'password'" class="input-field rounded-r-none" placeholder="请输入 TMDB API Key" />
+                <button type="button" @click="toggleApiKeyVisibility" class="px-4 bg-white/5 border border-l-0 border-white/10 rounded-r-xl hover:bg-white/10 transition-colors text-sm text-white/60">
+                  {{ showApiKey ? '隐藏' : '显示' }}
+                </button>
+              </div>
+              <p class="mt-1 text-xs text-white/30">
+                请在 <a href="https://www.themoviedb.org/settings/api" target="_blank" class="text-blue-400 hover:text-blue-300">TMDB 官网</a> 申请 API Key
+              </p>
             </div>
-            <div class="space-y-4">
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-3">
-                  生成 STRM 媒体文件后缀
-                </label>
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  <div v-for="extension in availableExtensions" :key="extension" class="flex items-center">
-                    <input
-                      :id="extension"
-                      v-model="selectedExtensions"
-                      :value="extension"
-                      type="checkbox"
-                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    >
-                    <label :for="extension" class="ml-2 block text-sm text-gray-900 font-medium">
-                      {{ extension }}
-                    </label>
-                  </div>
-                </div>
+                <label for="tmdbLanguage" class="block text-sm text-white/70 mb-2">语言设置</label>
+                <select id="tmdbLanguage" v-model="tmdbConfig.language" class="input-field">
+                  <option value="zh-CN">中文（简体）</option>
+                  <option value="zh-TW">中文（繁体）</option>
+                  <option value="en-US">English</option>
+                </select>
               </div>
-            </div>
-          </div>
-
-          <!-- TMDB API 配置 -->
-          <div class="glass-card">
-            <div class="card-header">
-              <h3 class="text-xl font-semibold">TMDB API 配置</h3>
-            </div>
-            <div class="space-y-6">
               <div>
-                <label for="tmdbApiKey" class="block text-sm font-semibold text-gray-700 mb-2">
-                  TMDB API Key
-                </label>
-                <div class="flex rounded-xl shadow-sm">
-                  <input
-                    id="tmdbApiKey"
-                    v-model="tmdbConfig.apiKey"
-                    :type="showApiKey ? 'text' : 'password'"
-                    class="input-field rounded-r-none"
-                    placeholder="请输入 TMDB API Key"
-                  />
-                  <button
-                    type="button"
-                    @click="toggleApiKeyVisibility"
-                    class="inline-flex items-center px-4 py-3 border border-l-0 border-gray-200 bg-gray-50 text-gray-700 rounded-r-xl hover:bg-gray-100 transition-colors"
-                  >
-                    {{ showApiKey ? '隐藏' : '显示' }}
-                  </button>
-                </div>
-                <p class="mt-2 text-sm text-gray-500">
-                  请在 <a href="https://www.themoviedb.org/settings/api" target="_blank" class="text-blue-600 hover:text-blue-700 font-medium">TMDB 官网</a> 申请 API Key
-                </p>
-              </div>
-
-              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label for="tmdbLanguage" class="block text-sm font-semibold text-gray-700 mb-2">
-                    语言设置
-                  </label>
-                  <select
-                    id="tmdbLanguage"
-                    v-model="tmdbConfig.language"
-                    class="input-field"
-                  >
-                    <option value="zh-CN">中文（简体）</option>
-                    <option value="zh-TW">中文（繁体）</option>
-                    <option value="en-US">English</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label for="tmdbRegion" class="block text-sm font-semibold text-gray-700 mb-2">
-                    地区设置
-                  </label>
-                  <select
-                    id="tmdbRegion"
-                    v-model="tmdbConfig.region"
-                    class="input-field"
-                  >
-                    <option value="CN">中国</option>
-                    <option value="TW">台湾</option>
-                    <option value="HK">香港</option>
-                    <option value="US">美国</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- HTTP 代理配置 -->
-              <div class="bg-gray-50 rounded-xl p-4">
-                <h4 class="text-md font-semibold text-gray-900 mb-3">HTTP 代理配置</h4>
-                <p class="text-sm text-gray-600 mb-4">
-                  如果需要通过代理访问 TMDB API，请配置以下选项（可选）
-                </p>
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label for="tmdbProxyHost" class="block text-sm font-semibold text-gray-700 mb-2">
-                      代理主机地址
-                    </label>
-                    <input
-                      id="tmdbProxyHost"
-                      v-model="tmdbConfig.proxyHost"
-                      type="text"
-                      class="input-field"
-                      placeholder="例如: 127.0.0.1"
-                    />
-                  </div>
-
-                  <div>
-                    <label for="tmdbProxyPort" class="block text-sm font-semibold text-gray-700 mb-2">
-                      代理端口
-                    </label>
-                    <input
-                      id="tmdbProxyPort"
-                      v-model="tmdbConfig.proxyPort"
-                      type="text"
-                      class="input-field"
-                      placeholder="例如: 7890"
-                    />
-                  </div>
-                </div>
+                <label for="tmdbRegion" class="block text-sm text-white/70 mb-2">地区设置</label>
+                <select id="tmdbRegion" v-model="tmdbConfig.region" class="input-field">
+                  <option value="CN">中国</option>
+                  <option value="TW">台湾</option>
+                  <option value="HK">香港</option>
+                  <option value="US">美国</option>
+                </select>
               </div>
             </div>
-          </div>
 
-          <!-- 刮削设置 -->
-          <div class="glass-card">
-            <div class="card-header">
-              <h3 class="text-xl font-semibold">刮削设置</h3>
-            </div>
-            <div class="space-y-4">
-              <div class="flex items-center p-4 bg-blue-50 rounded-xl">
-                <input
-                  id="scrapingEnabled"
-                  v-model="scrapingConfig.enabled"
-                  type="checkbox"
-                  class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label for="scrapingEnabled" class="ml-3 block text-sm font-semibold text-gray-900">
-                  启用刮削功能
-                </label>
-              </div>
-
+            <!-- HTTP 代理配置 -->
+            <div class="p-4 bg-white/5 rounded-xl border border-white/6">
+              <h4 class="text-sm font-medium text-white/80 mb-3">HTTP 代理配置</h4>
+              <p class="text-xs text-white/40 mb-4">如果需要通过代理访问 TMDB API，请配置以下选项（可选）</p>
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="flex items-center p-4 bg-gray-50 rounded-xl">
-                   <input
-                     id="keepSubtitleFiles"
-                     v-model="scrapingConfig.keepSubtitleFiles"
-                     type="checkbox"
-                     class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                   />
-                   <div class="ml-3">
-                     <label for="keepSubtitleFiles" class="block text-sm font-semibold text-gray-900">
-                       保留字幕文件
-                     </label>
-                     <p class="text-xs text-gray-500 mt-1">复制媒体文件同级目录的.srt、.ass字幕文件到STRM目录</p>
-                   </div>
-                 </div>
-
-                <div class="flex items-center p-4 bg-gray-50 rounded-xl">
-                   <input
-                     id="useExistingScrapingInfo"
-                     v-model="scrapingConfig.useExistingScrapingInfo"
-                     type="checkbox"
-                     class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                   />
-                   <div class="ml-3">
-                     <label for="useExistingScrapingInfo" class="block text-sm font-semibold text-gray-900">
-                       优先使用已存在的刮削信息
-                     </label>
-                     <p class="text-xs text-gray-500 mt-1">无论是否启用刮削功能，都会尝试复制媒体文件同级目录的NFO文件和刮削图片，复制成功后跳过后续处理</p>
-                   </div>
-                 </div>
+                <div>
+                  <label for="tmdbProxyHost" class="block text-xs text-white/50 mb-1">代理主机地址</label>
+                  <input id="tmdbProxyHost" v-model="tmdbConfig.proxyHost" type="text" class="input-field" placeholder="例如: 127.0.0.1" />
+                </div>
+                <div>
+                  <label for="tmdbProxyPort" class="block text-xs text-white/50 mb-1">代理端口</label>
+                  <input id="tmdbProxyPort" v-model="tmdbConfig.proxyPort" type="text" class="input-field" placeholder="例如: 7890" />
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- AI 识别设置 -->
-          <div class="glass-card">
-            <div class="card-header">
-              <h3 class="text-xl font-semibold">AI 文件名识别设置</h3>
+        <!-- 刮削设置 -->
+        <div class="card">
+          <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            刮削设置
+          </h3>
+          <div class="space-y-4">
+            <label class="flex items-center gap-3 p-4 bg-white/5 rounded-xl cursor-pointer">
+              <input id="scrapingEnabled" v-model="scrapingConfig.enabled" type="checkbox" class="h-5 w-5 rounded" />
+              <div>
+                <span class="text-sm font-medium text-white">启用刮削功能</span>
+              </div>
+            </label>
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label class="flex items-start gap-3 p-4 bg-white/5 rounded-xl cursor-pointer">
+                <input id="keepSubtitleFiles" v-model="scrapingConfig.keepSubtitleFiles" type="checkbox" class="h-5 w-5 rounded mt-0.5" />
+                <div>
+                  <span class="text-sm font-medium text-white">保留字幕文件</span>
+                  <p class="text-xs text-white/40 mt-1">复制媒体文件同级目录的.srt、.ass字幕文件到STRM目录</p>
+                </div>
+              </label>
+
+              <label class="flex items-start gap-3 p-4 bg-white/5 rounded-xl cursor-pointer">
+                <input id="useExistingScrapingInfo" v-model="scrapingConfig.useExistingScrapingInfo" type="checkbox" class="h-5 w-5 rounded mt-0.5" />
+                <div>
+                  <span class="text-sm font-medium text-white">优先使用已存在的刮削信息</span>
+                  <p class="text-xs text-white/40 mt-1">无论是否启用刮削功能，都会尝试复制媒体文件同级目录的NFO文件和刮削图片</p>
+                </div>
+              </label>
             </div>
-            <div class="space-y-6">
-              <div class="flex items-center p-4 bg-purple-50 rounded-xl">
-                <input
-                  id="aiEnabled"
-                  v-model="aiConfig.enabled"
-                  type="checkbox"
-                  class="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                />
-                <label for="aiEnabled" class="ml-3 block text-sm font-semibold text-gray-900">
-                  启用 AI 文件名识别
-                </label>
-                <span class="ml-2 text-xs text-gray-500">（提高 TMDB 刮削准确性）</span>
+          </div>
+        </div>
+
+        <!-- AI 识别设置 -->
+        <div class="card">
+          <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+            </svg>
+            AI 文件名识别设置
+          </h3>
+          <div class="space-y-5">
+            <label class="flex items-center gap-3 p-4 bg-cyan-500/5 rounded-xl border border-cyan-500/10 cursor-pointer">
+              <input id="aiEnabled" v-model="aiConfig.enabled" type="checkbox" class="h-5 w-5 rounded" />
+              <div>
+                <span class="text-sm font-medium text-white">启用 AI 文件名识别</span>
+                <p class="text-xs text-white/40 mt-0.5">（提高 TMDB 刮削准确性）</p>
+              </div>
+            </label>
+
+            <div v-if="aiConfig.enabled" class="pl-4 border-l-2 border-cyan-500/20 space-y-5">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label for="aiBaseUrl" class="block text-sm text-white/70 mb-2">API 基础 URL</label>
+                  <input id="aiBaseUrl" v-model="aiConfig.baseUrl" type="url" class="input-field" placeholder="https://api.openai.com/v1" />
+                </div>
+                <div>
+                  <label for="aiApiKey" class="block text-sm text-white/70 mb-2">API Key</label>
+                  <input id="aiApiKey" v-model="aiConfig.apiKey" type="password" class="input-field" placeholder="sk-..." />
+                </div>
+                <div>
+                  <label for="aiModel" class="block text-sm text-white/70 mb-2">模型名称</label>
+                  <input id="aiModel" v-model="aiConfig.model" type="text" class="input-field" placeholder="gpt-3.5-turbo" />
+                </div>
+                <div>
+                  <label for="aiQpmLimit" class="block text-sm text-white/70 mb-2">QPM 限制</label>
+                  <input id="aiQpmLimit" v-model.number="aiConfig.qpmLimit" type="number" min="1" max="1000" class="input-field" placeholder="60" />
+                  <p class="mt-1 text-xs text-white/30">每分钟最大请求数</p>
+                </div>
               </div>
 
-              <div v-if="aiConfig.enabled" class="space-y-6 pl-6 border-l-4 border-purple-200">
-                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <div>
-                    <label for="aiBaseUrl" class="block text-sm font-semibold text-gray-700 mb-2">
-                      API 基础 URL
-                    </label>
-                    <input
-                      id="aiBaseUrl"
-                      v-model="aiConfig.baseUrl"
-                      type="url"
-                      placeholder="https://api.openai.com/v1"
-                      class="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label for="aiApiKey" class="block text-sm font-semibold text-gray-700 mb-2">
-                      API Key
-                    </label>
-                    <input
-                      id="aiApiKey"
-                      v-model="aiConfig.apiKey"
-                      type="password"
-                      placeholder="sk-..."
-                      class="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label for="aiModel" class="block text-sm font-semibold text-gray-700 mb-2">
-                      模型名称
-                    </label>
-                    <input
-                      id="aiModel"
-                      v-model="aiConfig.model"
-                      type="text"
-                      placeholder="gpt-3.5-turbo"
-                      class="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label for="aiQpmLimit" class="block text-sm font-semibold text-gray-700 mb-2">
-                      QPM 限制
-                    </label>
-                    <input
-                      id="aiQpmLimit"
-                      v-model.number="aiConfig.qpmLimit"
-                      type="number"
-                      min="1"
-                      max="1000"
-                      placeholder="60"
-                      class="input-field"
-                    />
-                    <p class="mt-1 text-xs text-gray-500">每分钟最大请求数</p>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="flex items-center justify-between mb-2">
-                    <label for="aiPrompt" class="block text-sm font-semibold text-gray-700">
-                      提示词
-                    </label>
-                    <button
-                      @click="resetAiPrompt"
-                      type="button"
-                      class="text-xs text-blue-600 hover:text-blue-800 underline"
-                      :disabled="resettingPrompt"
-                    >
-                      {{ resettingPrompt ? '重置中...' : '重置为默认' }}
-                    </button>
-                  </div>
-                  <textarea
-                    id="aiPrompt"
-                    v-model="aiConfig.prompt"
-                    rows="8"
-                    class="input-field"
-                    placeholder="输入 AI 识别提示词..."
-                  ></textarea>
-                  <p class="mt-1 text-xs text-gray-500">定义 AI 如何识别和标准化文件名</p>
-                </div>
-
-                <div class="flex items-center space-x-3">
-                  <button
-                    @click="testAiConfig"
-                    type="button"
-                    class="btn-success"
-                    :disabled="testingAi"
-                  >
-                    <svg v-if="testingAi" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    {{ testingAi ? '测试中...' : '测试配置' }}
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label for="aiPrompt" class="block text-sm text-white/70">提示词</label>
+                  <button type="button" @click="resetAiPrompt" class="text-xs text-blue-400 hover:text-blue-300" :disabled="resettingPrompt">
+                    {{ resettingPrompt ? '重置中...' : '重置为默认' }}
                   </button>
-                  <span v-if="aiTestResult" :class="aiTestResult.success ? 'text-green-600' : 'text-red-600'" class="text-sm font-medium">
-                    {{ aiTestResult.message }}
-                  </span>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 日志配置设置 -->
-          <div class="glass-card">
-            <div class="card-header">
-              <h3 class="text-xl font-semibold">日志同级配置设置</h3>
-            </div>
-            <div class="space-y-6">
-              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label for="logRetentionDays" class="block text-sm font-semibold text-gray-700 mb-2">
-                    日志保留时间
-                  </label>
-                  <select
-                    id="logRetentionDays"
-                    v-model.number="logConfig.retentionDays"
-                    class="input-field"
-                  >
-                    <option :value="1">1天</option>
-                    <option :value="3">3天</option>
-                    <option :value="5">5天</option>
-                    <option :value="7">7天</option>
-                    <option :value="30">30天</option>
-                  </select>
-                  <p class="mt-1 text-xs text-gray-500">系统将在每天凌晨1:30自动清理过期日志文件</p>
-                </div>
-
-                <div>
-                  <label for="logLevel" class="block text-sm font-semibold text-gray-700 mb-2">
-                    日志级别
-                  </label>
-                  <select
-                    id="logLevel"
-                    v-model="logConfig.level"
-                    class="input-field"
-                  >
-                    <option value="debug">Debug</option>
-                    <option value="info">Info</option>
-                    <option value="warn">Warn</option>
-                    <option value="error">Error</option>
-                  </select>
-                  <p class="mt-1 text-xs text-gray-500">系统仅保留等于或高于所选级别的日志记录</p>
-                </div>
+                <textarea id="aiPrompt" v-model="aiConfig.prompt" rows="6" class="input-field resize-none" placeholder="输入 AI 识别提示词..."></textarea>
+                <p class="mt-1 text-xs text-white/30">定义 AI 如何识别和标准化文件名</p>
               </div>
 
-              <!-- 上报使用数据设置 -->
-              <div class="border-t border-gray-200 pt-6">
-                <div class="flex items-start space-x-3">
-                  <input
-                    id="reportUsageData"
-                    v-model="logConfig.reportUsageData"
-                    type="checkbox"
-                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
-                  >
-                  <div class="flex-1">
-                    <label for="reportUsageData" class="block text-sm font-semibold text-gray-700">
-                      上报使用数据
-                    </label>
-                    <p class="mt-1 text-xs text-gray-500">
-                      帮助我们改进产品体验。即使勾选此选项，也不会上报任何用户隐私信息，仅收集匿名的功能使用统计数据。
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-                <div class="flex items-start">
-                  <svg class="flex-shrink-0 h-5 w-5 text-yellow-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+              <div class="flex items-center gap-3">
+                <button type="button" @click="testAiConfig" class="btn-success" :disabled="testingAi">
+                  <svg v-if="testingAi" class="loading-spinner -ml-1 mr-2 w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  <div class="ml-3">
-                    <h4 class="text-sm font-semibold text-yellow-800">注意事项</h4>
-                    <div class="mt-1 text-sm text-yellow-700">
-                      <ul class="list-disc list-inside space-y-1">
-                        <li>日志级别变更将在下次应用重启后生效</li>
-                        <li>Debug级别会产生大量日志，建议仅在调试时使用</li>
-                        <li>日志清理任务会同时清理前端和后端的过期日志文件</li>
-                      </ul>
-                    </div>
-                  </div>
+                  {{ testingAi ? '测试中...' : '测试配置' }}
+                </button>
+                <span v-if="aiTestResult" :class="aiTestResult.success ? 'text-emerald-400' : 'text-red-400'" class="text-sm font-medium">
+                  {{ aiTestResult.message }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 日志配置 -->
+        <div class="card">
+          <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            日志配置设置
+          </h3>
+          <div class="space-y-5">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label for="logRetentionDays" class="block text-sm text-white/70 mb-2">日志保留时间</label>
+                <select id="logRetentionDays" v-model.number="logConfig.retentionDays" class="input-field">
+                  <option :value="1">1天</option>
+                  <option :value="3">3天</option>
+                  <option :value="5">5天</option>
+                  <option :value="7">7天</option>
+                  <option :value="30">30天</option>
+                </select>
+                <p class="mt-1 text-xs text-white/30">系统将在每天凌晨1:30自动清理过期日志文件</p>
+              </div>
+              <div>
+                <label for="logLevel" class="block text-sm text-white/70 mb-2">日志级别</label>
+                <select id="logLevel" v-model="logConfig.level" class="input-field">
+                  <option value="debug">Debug</option>
+                  <option value="info">Info</option>
+                  <option value="warn">Warn</option>
+                  <option value="error">Error</option>
+                </select>
+                <p class="mt-1 text-xs text-white/30">系统仅保留等于或高于所选级别的日志记录</p>
+              </div>
+            </div>
+
+            <div class="border-t border-white/6 pt-5">
+              <label class="flex items-start gap-3 cursor-pointer">
+                <input id="reportUsageData" v-model="logConfig.reportUsageData" type="checkbox" class="h-5 w-5 rounded mt-0.5" />
+                <div class="flex-1">
+                  <span class="text-sm font-medium text-white">上报使用数据</span>
+                  <p class="text-xs text-white/40 mt-1">帮助我们改进产品体验。即使勾选此选项，也不会上报任何用户隐私信息，仅收集匿名的功能使用统计数据。</p>
+                </div>
+              </label>
+            </div>
+
+            <div class="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+              <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-amber-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                <div>
+                  <h4 class="text-sm font-medium text-amber-300">注意事项</h4>
+                  <ul class="mt-2 text-xs text-white/50 space-y-1">
+                    <li>· 日志级别变更将在下次应用重启后生效</li>
+                    <li>· Debug级别会产生大量日志，建议仅在调试时使用</li>
+                    <li>· 日志清理任务会同时清理前端和后端的过期日志文件</li>
+                  </ul>
                 </div>
               </div>
             </div>
           </div>
-          
-          <!-- 保存按钮 -->
-          <div class="flex justify-end space-x-4">
-            <button
-              @click="goBack"
-              type="button"
-              class="btn-secondary"
-            >
-              取消
-            </button>
-            <button
-              @click="saveSettings"
-              type="button"
-              class="btn-primary"
-              :disabled="saving"
-            >
-              <svg v-if="saving" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              {{ saving ? '保存中...' : '保存设置' }}
-            </button>
-          </div>
+        </div>
+
+        <!-- 保存按钮 -->
+        <div class="flex justify-end gap-4 pt-4">
+          <button type="button" @click="goBack" class="btn-secondary">取消</button>
+          <button type="button" @click="saveSettings" class="btn-primary" :disabled="saving">
+            <svg v-if="saving" class="loading-spinner -ml-1 mr-2 w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            {{ saving ? '保存中...' : '保存设置' }}
+          </button>
         </div>
       </div>
     </div>
-    
+
     <!-- 成功提示 -->
     <Teleport to="body">
-      <div v-if="showSuccess" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-slide-up">
-        <div class="flex items-center">
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-          </svg>
-          设置保存成功！
-        </div>
+      <div v-if="showSuccess" class="fixed top-4 right-4 bg-emerald-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-slide-down flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        设置保存成功！
       </div>
     </Teleport>
 
     <!-- 错误提示 -->
     <Teleport to="body">
-      <div v-if="errorMessage" class="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-slide-up">
-        <div class="flex items-center">
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          {{ errorMessage }}
-        </div>
+      <div v-if="errorMessage" class="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-slide-down flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        {{ errorMessage }}
       </div>
     </Teleport>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { authenticatedApiCall } from '~/core/api/client'
 import { useAuthStore } from '~/core/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const tokenCookie = useCookie('token')
 
-// 从 authStore 获取用户信息
-const userInfo = computed(() => {
-  return authStore.getUserInfo || { username: '用户' }
-})
-
-// 响应式数据
 const availableExtensions = ref([])
 const selectedExtensions = ref([])
-const tmdbConfig = ref({
-  apiKey: '',
-  language: 'zh-CN',
-  region: 'CN',
-  proxyHost: '',
-  proxyPort: ''
-})
-const scrapingConfig = ref({
-  enabled: true,
-  keepSubtitleFiles: false,
-  useExistingScrapingInfo: false
-})
-const aiConfig = ref({
-  enabled: false,
-  baseUrl: 'https://api.openai.com/v1',
-  apiKey: '',
-  model: 'gpt-3.5-turbo',
-  qpmLimit: 60,
-  prompt: ''
-})
-const logConfig = ref({
-  retentionDays: 7,
-  level: 'info',
-  reportUsageData: true
-})
+const tmdbConfig = ref({ apiKey: '', language: 'zh-CN', region: 'CN', proxyHost: '', proxyPort: '' })
+const scrapingConfig = ref({ enabled: true, keepSubtitleFiles: false, useExistingScrapingInfo: false })
+const aiConfig = ref({ enabled: false, baseUrl: 'https://api.openai.com/v1', apiKey: '', model: 'gpt-3.5-turbo', qpmLimit: 60, prompt: '' })
+const logConfig = ref({ retentionDays: 7, level: 'info', reportUsageData: true })
 const showApiKey = ref(false)
 const saving = ref(false)
 const showSuccess = ref(false)
@@ -502,271 +314,60 @@ const testingAi = ref(false)
 const aiTestResult = ref(null)
 const resettingPrompt = ref(false)
 
-// 页面加载时获取当前设置
-onMounted(async () => {
-  await loadCurrentSettings()
-})
-
-// 加载当前设置
 const loadCurrentSettings = async () => {
-  // 设置所有可选的后缀列表（包含所有支持的格式）
   availableExtensions.value = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.3g2', '.asf', '.divx', '.f4v', '.m2ts', '.m2v', '.mts', '.ogv', '.rm', '.rmvb', '.ts', '.vob', '.xvid', '.iso']
-
   try {
     const response = await authenticatedApiCall('/system/config')
-
-    if (response && response.code === 200 && response.data) {
+    if (response?.code === 200 && response.data) {
       const config = response.data
-
-      // 加载媒体扩展名配置
-      if (config.mediaExtensions && Array.isArray(config.mediaExtensions)) {
-        selectedExtensions.value = [...config.mediaExtensions]
-        // 已加载配置的媒体扩展名
-      } else {
-        selectedExtensions.value = ['.mp4', '.avi', '.rmvb', '.mkv']
-        // 使用默认媒体扩展名配置
-      }
-
-      // 加载 TMDB 配置
-      if (config.tmdb && typeof config.tmdb === 'object') {
-        tmdbConfig.value = {
-          apiKey: config.tmdb.apiKey || '',
-          language: config.tmdb.language || 'zh-CN',
-          region: config.tmdb.region || 'CN',
-          proxyHost: config.tmdb.proxyHost || '',
-          proxyPort: config.tmdb.proxyPort || ''
-        }
-        // 已加载 TMDB 配置
-      }
-
-      // 加载刮削配置
-      if (config.scraping && typeof config.scraping === 'object') {
-        scrapingConfig.value = {
-          enabled: config.scraping.enabled !== false,
-          keepSubtitleFiles: config.scraping.keepSubtitleFiles === true,
-          useExistingScrapingInfo: config.scraping.useExistingScrapingInfo === true
-        }
-        // 已加载刮削配置
-      }
-
-      // 加载 AI 配置
-      if (config.ai && typeof config.ai === 'object') {
-        aiConfig.value = {
-          enabled: config.ai.enabled === true,
-          baseUrl: config.ai.baseUrl || 'https://api.openai.com/v1',
-          apiKey: config.ai.apiKey || '',
-          model: config.ai.model || 'gpt-3.5-turbo',
-          qpmLimit: config.ai.qpmLimit || 60,
-          prompt: config.ai.prompt || ''
-        }
-        // 已加载 AI 配置
-      }
-
-      // 加载日志配置
-      if (config.log && typeof config.log === 'object') {
-        logConfig.value = {
-          retentionDays: config.log.retentionDays || 7,
-          level: config.log.level || 'info',
-          reportUsageData: config.log.reportUsageData !== undefined ? config.log.reportUsageData : true
-        }
-        // 已加载日志配置
-      }
-
-    } else {
-      // 如果获取失败，使用默认选择
-      selectedExtensions.value = ['.mp4', '.avi', '.rmvb', '.mkv', '.iso']
-      // 获取配置失败，使用默认配置
-    }
-  } catch (error) {
-    // 加载设置失败，使用默认配置
-    // 出错时使用默认选择
-    selectedExtensions.value = ['.mp4', '.avi', '.rmvb', '.mkv', '.iso']
-  }
+      if (config.mediaExtensions?.length) selectedExtensions.value = [...config.mediaExtensions]
+      else selectedExtensions.value = ['.mp4', '.avi', '.rmvb', '.mkv']
+      if (config.tmdb) tmdbConfig.value = { ...tmdbConfig.value, ...config.tmdb }
+      if (config.scraping) scrapingConfig.value = { ...scrapingConfig.value, ...config.scraping }
+      if (config.ai) aiConfig.value = { ...aiConfig.value, ...config.ai }
+      if (config.log) logConfig.value = { ...logConfig.value, ...config.log }
+    } else selectedExtensions.value = ['.mp4', '.avi', '.rmvb', '.mkv', '.iso']
+  } catch { selectedExtensions.value = ['.mp4', '.avi', '.rmvb', '.mkv', '.iso'] }
 }
 
-// 保存设置
 const saveSettings = async () => {
-  if (selectedExtensions.value.length === 0) {
-    errorMessage.value = '请至少选择一个媒体文件后缀'
-    setTimeout(() => {
-      errorMessage.value = ''
-    }, 3000)
-    return
-  }
-
+  if (selectedExtensions.value.length === 0) { errorMessage.value = '请至少选择一个媒体文件后缀'; setTimeout(() => errorMessage.value = '', 3000); return }
   saving.value = true
   errorMessage.value = ''
-
   try {
-    const configData = {
-      mediaExtensions: selectedExtensions.value,
-      tmdb: {
-        apiKey: tmdbConfig.value.apiKey,
-        language: tmdbConfig.value.language,
-        region: tmdbConfig.value.region,
-        proxyHost: tmdbConfig.value.proxyHost,
-        proxyPort: tmdbConfig.value.proxyPort
-      },
-      scraping: {
-        enabled: scrapingConfig.value.enabled,
-        keepSubtitleFiles: scrapingConfig.value.keepSubtitleFiles,
-        useExistingScrapingInfo: scrapingConfig.value.useExistingScrapingInfo
-      },
-      ai: {
-        enabled: aiConfig.value.enabled,
-        baseUrl: aiConfig.value.baseUrl,
-        apiKey: aiConfig.value.apiKey,
-        model: aiConfig.value.model,
-        qpmLimit: aiConfig.value.qpmLimit,
-        prompt: aiConfig.value.prompt
-      },
-      log: {
-        retentionDays: logConfig.value.retentionDays,
-        level: logConfig.value.level,
-        reportUsageData: logConfig.value.reportUsageData
-      }
-    }
-
     const response = await authenticatedApiCall('/system/config', {
       method: 'POST',
-      body: configData
+      body: { mediaExtensions: selectedExtensions.value, tmdb: tmdbConfig.value, scraping: scrapingConfig.value, ai: aiConfig.value, log: logConfig.value }
     })
-
-    if (response && response.code === 200) {
-      showSuccess.value = true
-      setTimeout(() => {
-        showSuccess.value = false
-      }, 3000)
-    } else {
-      errorMessage.value = response?.message || '保存设置失败'
-      setTimeout(() => {
-        errorMessage.value = ''
-      }, 3000)
-    }
-  } catch (error) {
-    // 保存设置失败
-    errorMessage.value = error.data?.message || '保存设置失败'
-    setTimeout(() => {
-      errorMessage.value = ''
-    }, 3000)
-  } finally {
-    saving.value = false
-  }
+    if (response?.code === 200) { showSuccess.value = true; setTimeout(() => showSuccess.value = false, 3000) }
+    else { errorMessage.value = response?.message || '保存设置失败'; setTimeout(() => errorMessage.value = '', 3000) }
+  } catch { errorMessage.value = '保存设置失败'; setTimeout(() => errorMessage.value = '', 3000) }
+  finally { saving.value = false }
 }
 
-// 测试 AI 配置
 const testAiConfig = async () => {
-  if (!aiConfig.value.baseUrl || !aiConfig.value.apiKey || !aiConfig.value.model) {
-    aiTestResult.value = {
-      success: false,
-      message: '请填写完整的 AI 配置信息'
-    }
-    return
-  }
-
+  if (!aiConfig.value.baseUrl || !aiConfig.value.apiKey || !aiConfig.value.model) { aiTestResult.value = { success: false, message: '请填写完整的 AI 配置信息' }; return }
   testingAi.value = true
   aiTestResult.value = null
-
   try {
-    const response = await authenticatedApiCall('/system/test-ai-config', {
-      method: 'POST',
-      body: {
-        baseUrl: aiConfig.value.baseUrl,
-        apiKey: aiConfig.value.apiKey,
-        model: aiConfig.value.model
-      }
-    })
-
-    if (response && response.code === 200) {
-      aiTestResult.value = {
-        success: true,
-        message: 'AI 配置测试成功'
-      }
-    } else {
-      aiTestResult.value = {
-        success: false,
-        message: response?.message || 'AI 配置测试失败'
-      }
-    }
-  } catch (error) {
-    // 测试 AI 配置失败
-    aiTestResult.value = {
-      success: false,
-      message: error.data?.message || '测试 AI 配置失败'
-    }
-  } finally {
-    testingAi.value = false
-    // 3秒后清除测试结果
-    setTimeout(() => {
-      aiTestResult.value = null
-    }, 3000)
-  }
+    const response = await authenticatedApiCall('/system/test-ai-config', { method: 'POST', body: { baseUrl: aiConfig.value.baseUrl, apiKey: aiConfig.value.apiKey, model: aiConfig.value.model } })
+    aiTestResult.value = response?.code === 200 ? { success: true, message: 'AI 配置测试成功' } : { success: false, message: response?.message || 'AI 配置测试失败' }
+  } catch { aiTestResult.value = { success: false, message: '测试 AI 配置失败' } }
+  finally { testingAi.value = false; setTimeout(() => aiTestResult.value = null, 3000) }
 }
 
-// 重置 AI 提示词为默认值
 const resetAiPrompt = async () => {
   resettingPrompt.value = true
-  
   try {
     const response = await authenticatedApiCall('/system/default-ai-prompt')
-    
-    if (response && response.code === 200 && response.data) {
-      aiConfig.value.prompt = response.data
-      // 显示成功提示
-      showSuccess.value = true
-      setTimeout(() => {
-        showSuccess.value = false
-      }, 3000)
-    } else {
-      errorMessage.value = response?.message || '获取默认提示词失败'
-      setTimeout(() => {
-        errorMessage.value = ''
-      }, 3000)
-    }
-  } catch (error) {
-    // 重置 AI 提示词失败
-    errorMessage.value = error.data?.message || '重置 AI 提示词失败'
-    setTimeout(() => {
-      errorMessage.value = ''
-    }, 3000)
-  } finally {
-    resettingPrompt.value = false
-  }
+    if (response?.code === 200 && response.data) { aiConfig.value.prompt = response.data; showSuccess.value = true; setTimeout(() => showSuccess.value = false, 3000) }
+    else { errorMessage.value = response?.message || '获取默认提示词失败'; setTimeout(() => errorMessage.value = '', 3000) }
+  } catch { errorMessage.value = '获取默认提示词失败'; setTimeout(() => errorMessage.value = '', 3000) }
+  finally { resettingPrompt.value = false }
 }
 
-// 切换 API Key 显示状态
-const toggleApiKeyVisibility = () => {
-  showApiKey.value = !showApiKey.value
-}
+const toggleApiKeyVisibility = () => showApiKey.value = !showApiKey.value
+const goBack = () => router.back()
 
-// 返回上一页
-const goBack = () => {
-  router.back()
-}
-
-// 处理退出登录
-const handleLogout = () => {
-  authStore.clearAuth()
-  router.push('/login')
-}
-
-// 处理修改密码
-const handleChangePassword = () => {
-  router.push('/change-password')
-}
-
-// 处理打开设置（当前页面，不需要操作）
-const handleOpenSettings = () => {
-  // 当前就在设置页面，不需要操作
-}
-
-// 处理打开日志页面
-const handleOpenLogs = () => {
-  // 跳转到日志页面
-  router.push('/logs')
-}
+onMounted(loadCurrentSettings)
 </script>
-
-<style scoped>
-/* 页面样式 */
-</style>
