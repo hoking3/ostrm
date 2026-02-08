@@ -170,7 +170,7 @@
 
     <!-- 创建/编辑任务模态框 -->
     <Teleport to="body">
-      <div v-if="showCreateTaskModal || showEditTaskModal" class="modal-overlay animate-fade-in" @click="closeModal">
+      <div v-if="showCreateTaskModal || showEditTaskModal" class="modal-overlay animate-fade-in">
         <div class="flex items-center justify-center min-h-screen p-4">
           <div class="modal-content animate-scale-in w-full max-w-lg" @click.stop>
             <div class="flex items-center justify-between mb-6">
@@ -276,7 +276,7 @@
 
     <!-- 执行模式选择模态框 -->
     <Teleport to="body">
-      <div v-if="showExecuteTaskModal" class="modal-overlay animate-fade-in" @click="closeExecuteModal">
+      <div v-if="showExecuteTaskModal" class="modal-overlay animate-fade-in">
         <div class="flex items-center justify-center min-h-screen p-4">
           <div class="modal-content animate-scale-in w-full max-w-md" @click.stop>
             <div class="flex items-center justify-between mb-6">

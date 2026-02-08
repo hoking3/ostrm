@@ -206,7 +206,7 @@
 
     <!-- 添加配置模态框 -->
     <Teleport to="body">
-      <div v-if="showAddModal" class="modal-overlay animate-fade-in" @click="closeAddModal">
+      <div v-if="showAddModal" class="modal-overlay animate-fade-in">
         <div class="flex items-center justify-center min-h-screen p-4">
           <div class="modal-content animate-scale-in w-full max-w-lg" @click.stop>
             <div class="flex items-center justify-between mb-6">
@@ -270,7 +270,7 @@
 
     <!-- 编辑配置模态框 -->
     <Teleport to="body">
-      <div v-if="showEditModal" class="modal-overlay animate-fade-in" @click="closeEditModal">
+      <div v-if="showEditModal" class="modal-overlay animate-fade-in">
         <div class="flex items-center justify-center min-h-screen p-4">
           <div class="modal-content animate-scale-in w-full max-w-lg" @click.stop>
             <div class="flex items-center justify-between mb-6">
