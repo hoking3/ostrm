@@ -14,14 +14,15 @@ import org.springframework.stereotype.Component;
 /**
  * 图片文件下载处理器
  *
- * <p>负责图片文件（海报、背景图、缩略图）的三级优先级处理：</p>
+ * <p>负责图片文件（海报、背景图、缩略图）的三级优先级处理：
+ *
  * <ol>
- *   <li>优先级 1 - 本地文件：检查本地是否存在对应图片文件</li>
- *   <li>优先级 2 - OpenList 文件：本地不存在时从 OpenList 同级目录下载</li>
- *   <li>优先级 3 - 刮削文件：前两级都不存在时执行 TMDB 刮削</li>
+ *   <li>优先级 1 - 本地文件：检查本地是否存在对应图片文件
+ *   <li>优先级 2 - OpenList 文件：本地不存在时从 OpenList 同级目录下载
+ *   <li>优先级 3 - 刮削文件：前两级都不存在时执行 TMDB 刮削
  * </ol>
  *
- * <p>Order: 41</p>
+ * <p>Order: 41
  *
  * @author hienao
  * @since 2024-01-01
@@ -36,9 +37,8 @@ public class ImageDownloadHandler implements FileProcessorHandler {
   private final OpenlistApiService openlistApiService;
 
   // 图片文件扩展名
-  private static final Set<String> IMAGE_EXTENSIONS = Set.of(
-      ".jpg", ".jpeg", ".png", ".webp", ".bmp"
-  );
+  private static final Set<String> IMAGE_EXTENSIONS =
+      Set.of(".jpg", ".jpeg", ".png", ".webp", ".bmp");
 
   // ==================== 接口实现 ====================
 
@@ -52,16 +52,13 @@ public class ImageDownloadHandler implements FileProcessorHandler {
       }
 
       // 2. 处理海报文件
-      ProcessingResult posterResult = processImage(
-          context, "-poster.jpg", "海报");
+      ProcessingResult posterResult = processImage(context, "-poster.jpg", "海报");
 
       // 3. 处理背景图文件
-      ProcessingResult backdropResult = processImage(
-          context, "-fanart.jpg", "背景图");
+      ProcessingResult backdropResult = processImage(context, "-fanart.jpg", "背景图");
 
       // 4. 处理缩略图文件
-      ProcessingResult thumbResult = processImage(
-          context, "-thumb.jpg", "缩略图");
+      ProcessingResult thumbResult = processImage(context, "-thumb.jpg", "缩略图");
 
       // 5. 降级处理：如果没有找到特定命名的图片，下载任意图片文件
       ProcessingResult arbitraryImageResult = processArbitraryImages(context);
@@ -90,13 +87,9 @@ public class ImageDownloadHandler implements FileProcessorHandler {
 
   // ==================== 图片处理 ====================
 
-  /**
-   * 处理单个图片文件
-   */
+  /** 处理单个图片文件 */
   private ProcessingResult processImage(
-      FileProcessingContext context,
-      String suffix,
-      String description) {
+      FileProcessingContext context, String suffix, String description) {
 
     String imageFileName = context.getBaseFileName() + suffix;
 
@@ -109,13 +102,13 @@ public class ImageDownloadHandler implements FileProcessorHandler {
     }
 
     // 2. 从 OpenList 下载
-    OpenlistApiService.OpenlistFile openlistImage = findImageInDirectory(
-        context.getDirectoryFiles(), imageFileName);
+    OpenlistApiService.OpenlistFile openlistImage =
+        findImageInDirectory(context.getDirectoryFiles(), imageFileName);
 
     if (openlistImage != null) {
       try {
-        byte[] content = openlistApiService.getFileContent(
-            context.getOpenlistConfig(), openlistImage, false);
+        byte[] content =
+            openlistApiService.getFileContent(context.getOpenlistConfig(), openlistImage, false);
 
         if (content != null && content.length > 0) {
           Files.createDirectories(localPath.getParent());
@@ -136,10 +129,7 @@ public class ImageDownloadHandler implements FileProcessorHandler {
     return ProcessingResult.SKIPPED;
   }
 
-  /**
-   * 处理任意命名的图片文件（降级策略）
-   * 如果没有找到特定命名的图片文件，下载同目录下的任意图片文件
-   */
+  /** 处理任意命名的图片文件（降级策略） 如果没有找到特定命名的图片文件，下载同目录下的任意图片文件 */
   private ProcessingResult processArbitraryImages(FileProcessingContext context) {
     try {
       java.util.List<OpenlistApiService.OpenlistFile> directoryFiles = context.getDirectoryFiles();
@@ -151,16 +141,20 @@ public class ImageDownloadHandler implements FileProcessorHandler {
       String videoBaseName = context.getBaseFileName();
 
       // 获取当前目录路径
-      String currentDirectory = context.getCurrentFile().getPath()
-          .substring(0, context.getCurrentFile().getPath().lastIndexOf('/') + 1);
+      String currentDirectory =
+          context
+              .getCurrentFile()
+              .getPath()
+              .substring(0, context.getCurrentFile().getPath().lastIndexOf('/') + 1);
 
       // 查找同目录下的图片文件（排除已经处理过的特定命名图片）
-      java.util.List<OpenlistApiService.OpenlistFile> arbitraryImages = directoryFiles.stream()
-          .filter(f -> "file".equals(f.getType()))
-          .filter(f -> isImageFile(f.getName()))
-          .filter(f -> f.getPath().startsWith(currentDirectory))
-          .filter(f -> !isNamedImageFile(f.getName(), videoBaseName)) // 排除特定命名的图片
-          .collect(java.util.stream.Collectors.toList());
+      java.util.List<OpenlistApiService.OpenlistFile> arbitraryImages =
+          directoryFiles.stream()
+              .filter(f -> "file".equals(f.getType()))
+              .filter(f -> isImageFile(f.getName()))
+              .filter(f -> f.getPath().startsWith(currentDirectory))
+              .filter(f -> !isNamedImageFile(f.getName(), videoBaseName)) // 排除特定命名的图片
+              .collect(java.util.stream.Collectors.toList());
 
       if (arbitraryImages.isEmpty()) {
         log.debug("没有找到任意命名的图片文件");
@@ -190,12 +184,9 @@ public class ImageDownloadHandler implements FileProcessorHandler {
     }
   }
 
-  /**
-   * 下载任意命名的图片文件，保留原文件名
-   */
+  /** 下载任意命名的图片文件，保留原文件名 */
   private boolean downloadArbitraryImage(
-      FileProcessingContext context,
-      OpenlistApiService.OpenlistFile imageFile) {
+      FileProcessingContext context, OpenlistApiService.OpenlistFile imageFile) {
 
     String saveDirectory = context.getSaveDirectory();
     String fileName = imageFile.getName();
@@ -217,8 +208,9 @@ public class ImageDownloadHandler implements FileProcessorHandler {
       downloadUrl = com.hienao.openlist2strm.util.UrlEncoder.encodeUrlSmart(downloadUrl);
 
       // 从 OpenList 下载
-      byte[] content = openlistApiService.downloadWithEncodedUrl(
-          context.getOpenlistConfig(), imageFile, downloadUrl);
+      byte[] content =
+          openlistApiService.downloadWithEncodedUrl(
+              context.getOpenlistConfig(), imageFile, downloadUrl);
 
       if (content != null && content.length > 0) {
         Files.createDirectories(localPath.getParent());
@@ -237,9 +229,7 @@ public class ImageDownloadHandler implements FileProcessorHandler {
     }
   }
 
-  /**
-   * 检查是否为特定命名的图片文件
-   */
+  /** 检查是否为特定命名的图片文件 */
   private boolean isNamedImageFile(String fileName, String videoBaseName) {
     String lower = fileName.toLowerCase();
     return lower.endsWith("-poster.jpg")
@@ -247,22 +237,20 @@ public class ImageDownloadHandler implements FileProcessorHandler {
         || lower.endsWith("-thumb.jpg");
   }
 
-  /**
-   * 检查是否为图片文件
-   */
+  /** 检查是否为图片文件 */
   private boolean isImageFile(String fileName) {
     if (fileName == null) return false;
     String lower = fileName.toLowerCase();
-    return lower.endsWith(".jpg") || lower.endsWith(".jpeg")
-        || lower.endsWith(".png") || lower.endsWith(".webp")
+    return lower.endsWith(".jpg")
+        || lower.endsWith(".jpeg")
+        || lower.endsWith(".png")
+        || lower.endsWith(".webp")
         || lower.endsWith(".bmp");
   }
 
   // ==================== 电视剧共用图片处理 ====================
 
-  /**
-   * 处理电视剧共用图片（poster.jpg, fanart.jpg）
-   */
+  /** 处理电视剧共用图片（poster.jpg, fanart.jpg） */
   public ProcessingResult processTvShowSharedImages(FileProcessingContext context) {
     try {
       String saveDirectory = context.getSaveDirectory();
@@ -295,13 +283,13 @@ public class ImageDownloadHandler implements FileProcessorHandler {
     }
 
     // 从 OpenList 下载
-    OpenlistApiService.OpenlistFile openlistFile = findImageInDirectory(
-        context.getDirectoryFiles(), fileName);
+    OpenlistApiService.OpenlistFile openlistFile =
+        findImageInDirectory(context.getDirectoryFiles(), fileName);
 
     if (openlistFile != null) {
       try {
-        byte[] content = openlistApiService.getFileContent(
-            context.getOpenlistConfig(), openlistFile, false);
+        byte[] content =
+            openlistApiService.getFileContent(context.getOpenlistConfig(), openlistFile, false);
 
         if (content != null && content.length > 0) {
           Files.createDirectories(localPath.getParent());
@@ -316,17 +304,13 @@ public class ImageDownloadHandler implements FileProcessorHandler {
 
   // ==================== 工具方法 ====================
 
-  /**
-   * 检查图片刮削是否启用
-   */
+  /** 检查图片刮削是否启用 */
   private boolean isImageScrapingEnabled(FileProcessingContext context) {
     Object useExistingValue = context.getAttribute("useExistingScrapingInfo");
     return Boolean.TRUE.equals(useExistingValue);
   }
 
-  /**
-   * 在目录文件中查找图片文件
-   */
+  /** 在目录文件中查找图片文件 */
   private OpenlistApiService.OpenlistFile findImageInDirectory(
       java.util.List<OpenlistApiService.OpenlistFile> files, String fileName) {
     if (files == null) {

@@ -168,24 +168,24 @@ public class SystemConfigService {
         Boolean keepSubtitle = (Boolean) scraping.get("keepSubtitleFiles");
         Boolean useExisting = (Boolean) scraping.get("useExistingScrapingInfo");
         Boolean enabled = (Boolean) scraping.get("enabled");
-        log.info("读取配置 - 刮削配置: enabled={}, keepSubtitleFiles={}, useExistingScrapingInfo={}",
-            enabled, keepSubtitle, useExisting);
+        log.info(
+            "读取配置 - 刮削配置: enabled={}, keepSubtitleFiles={}, useExistingScrapingInfo={}",
+            enabled,
+            keepSubtitle,
+            useExisting);
       }
     } catch (Exception e) {
       log.warn("记录配置值失败", e);
     }
   }
 
-  /**
-   * 记录保存时的配置值
-   */
+  /** 记录保存时的配置值 */
   private void logConfigurationValues(Map<String, Object> config) {
     logConfigValues(config);
   }
 
   /**
-   * 深度合并两个配置 Map
-   * 递归合并嵌套的 Map，确保嵌套属性正确更新
+   * 深度合并两个配置 Map 递归合并嵌套的 Map，确保嵌套属性正确更新
    *
    * @param target 目标 Map
    * @param source 源 Map

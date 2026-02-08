@@ -150,11 +150,11 @@ public class OpenlistConfigController {
     try {
       OpenlistApiService.ValidateConfigResult result =
           openlistApiService.validateConfig(request.getBaseUrl(), request.getToken());
-      
+
       ValidateConfigResponse response = new ValidateConfigResponse();
       response.setUsername(result.getUsername());
       response.setBasePath(result.getBasePath());
-      
+
       return ResponseEntity.ok(ApiResponse.success(response));
     } catch (Exception e) {
       log.error("验证OpenList配置失败: {}", e.getMessage());
@@ -170,10 +170,7 @@ public class OpenlistConfigController {
           ValidatePathRequest request) {
     try {
       openlistApiService.validatePath(
-          request.getBaseUrl(),
-          request.getToken(),
-          request.getBasePath(),
-          request.getTaskPath());
+          request.getBaseUrl(), request.getToken(), request.getBasePath(), request.getTaskPath());
       return ResponseEntity.ok(ApiResponse.success(null));
     } catch (Exception e) {
       log.error("验证任务路径失败: {}", e.getMessage());

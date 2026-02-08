@@ -2,12 +2,9 @@ package com.hienao.openlist2strm.handler;
 
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
 import com.hienao.openlist2strm.service.SystemConfigService;
-import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,11 +13,12 @@ import org.springframework.stereotype.Component;
 /**
  * 文件优先级解析器
  *
- * <p>实现三级优先级判断逻辑：</p>
+ * <p>实现三级优先级判断逻辑：
+ *
  * <ol>
- *   <li>优先级 1 - 本地文件：检查本地是否存在对应文件</li>
- *   <li>优先级 2 - OpenList 文件：本地不存在时从 OpenList 同级目录下载</li>
- *   <li>优先级 3 - 刮削文件：前两级都不存在时执行 API 刮削</li>
+ *   <li>优先级 1 - 本地文件：检查本地是否存在对应文件
+ *   <li>优先级 2 - OpenList 文件：本地不存在时从 OpenList 同级目录下载
+ *   <li>优先级 3 - 刮削文件：前两级都不存在时执行 API 刮削
  * </ol>
  *
  * @author hienao
@@ -35,9 +33,8 @@ public class FilePriorityResolver {
 
   // ==================== 字幕文件扩展名 ====================
 
-  private static final Set<String> SUBTITLE_EXTENSIONS = Set.of(
-      ".srt", ".ass", ".vtt", ".ssa", ".sub", ".idx"
-  );
+  private static final Set<String> SUBTITLE_EXTENSIONS =
+      Set.of(".srt", ".ass", ".vtt", ".ssa", ".sub", ".idx");
 
   // ==================== 优先级判断 ====================
 
@@ -129,24 +126,21 @@ public class FilePriorityResolver {
     }
   }
 
-  /**
-   * 检查 NFO 文件是否存在
-   */
+  /** 检查 NFO 文件是否存在 */
   private boolean hasNfoFile(Path saveDirectory, String baseFileName) {
     try (var stream = Files.list(saveDirectory)) {
-      return stream.anyMatch(path -> {
-        String name = path.getFileName().toString().toLowerCase();
-        return name.endsWith(".nfo") && name.startsWith(normalizeForComparison(baseFileName));
-      });
+      return stream.anyMatch(
+          path -> {
+            String name = path.getFileName().toString().toLowerCase();
+            return name.endsWith(".nfo") && name.startsWith(normalizeForComparison(baseFileName));
+          });
     } catch (Exception e) {
       log.warn("检查NFO文件是否存在失败: {}", saveDirectory, e);
       return false;
     }
   }
 
-  /**
-   * 检查图片文件是否存在
-   */
+  /** 检查图片文件是否存在 */
   private boolean hasImageFiles(Path saveDirectory, String baseFileName) {
     String[] extensions = {"-poster.jpg", "-fanart.jpg", "-thumb.jpg"};
     for (String ext : extensions) {
@@ -158,9 +152,7 @@ public class FilePriorityResolver {
     return false;
   }
 
-  /**
-   * 检查字幕文件是否存在
-   */
+  /** 检查字幕文件是否存在 */
   private boolean hasSubtitleFiles(Path saveDirectory, String baseFileName) {
     for (String ext : SUBTITLE_EXTENSIONS) {
       Path subtitlePath = saveDirectory.resolve(baseFileName + ext);
@@ -171,15 +163,14 @@ public class FilePriorityResolver {
     return false;
   }
 
-  /**
-   * 检查视频文件是否存在
-   */
+  /** 检查视频文件是否存在 */
   private boolean hasVideoFile(Path saveDirectory, String baseFileName) {
     try (var stream = Files.list(saveDirectory)) {
-      return stream.anyMatch(path -> {
-        String name = path.getFileName().toString().toLowerCase();
-        return isVideoExtension(name) && name.startsWith(normalizeForComparison(baseFileName));
-      });
+      return stream.anyMatch(
+          path -> {
+            String name = path.getFileName().toString().toLowerCase();
+            return isVideoExtension(name) && name.startsWith(normalizeForComparison(baseFileName));
+          });
     } catch (Exception e) {
       log.warn("检查视频文件是否存在失败: {}", saveDirectory, e);
       return false;
@@ -188,9 +179,7 @@ public class FilePriorityResolver {
 
   // ==================== 配置检查 ====================
 
-  /**
-   * 检查配置是否启用
-   */
+  /** 检查配置是否启用 */
   private boolean isConfigEnabled(FileType fileType) {
     switch (fileType) {
       case NFO:
@@ -207,9 +196,7 @@ public class FilePriorityResolver {
 
   // ==================== 工具方法 ====================
 
-  /**
-   * 移除文件扩展名
-   */
+  /** 移除文件扩展名 */
   public String removeExtension(String fileName) {
     if (fileName == null || fileName.isEmpty()) {
       return fileName;
@@ -221,31 +208,35 @@ public class FilePriorityResolver {
     return fileName;
   }
 
-  /**
-   * 标准化文件名用于比较
-   */
+  /** 标准化文件名用于比较 */
   private String normalizeForComparison(String fileName) {
     return fileName.toLowerCase().replaceAll("[^a-z0-9]", "");
   }
 
-  /**
-   * 检查是否为视频文件扩展名
-   */
+  /** 检查是否为视频文件扩展名 */
   public boolean isVideoExtension(String fileName) {
     if (fileName == null) {
       return false;
     }
     String lower = fileName.toLowerCase();
-    return lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".avi")
-        || lower.endsWith(".mov") || lower.endsWith(".wmv") || lower.endsWith(".flv")
-        || lower.endsWith(".webm") || lower.endsWith(".m4v") || lower.endsWith(".m2ts")
-        || lower.endsWith(".ts") || lower.endsWith(".rmvb") || lower.endsWith(".rm")
-        || lower.endsWith(".3gp") || lower.endsWith(".mpeg") || lower.endsWith(".mpg");
+    return lower.endsWith(".mp4")
+        || lower.endsWith(".mkv")
+        || lower.endsWith(".avi")
+        || lower.endsWith(".mov")
+        || lower.endsWith(".wmv")
+        || lower.endsWith(".flv")
+        || lower.endsWith(".webm")
+        || lower.endsWith(".m4v")
+        || lower.endsWith(".m2ts")
+        || lower.endsWith(".ts")
+        || lower.endsWith(".rmvb")
+        || lower.endsWith(".rm")
+        || lower.endsWith(".3gp")
+        || lower.endsWith(".mpeg")
+        || lower.endsWith(".mpg");
   }
 
-  /**
-   * 检查是否为字幕文件扩展名
-   */
+  /** 检查是否为字幕文件扩展名 */
   public boolean isSubtitleExtension(String fileName) {
     if (fileName == null) {
       return false;

@@ -14,9 +14,9 @@ import org.springframework.stereotype.Component;
 /**
  * 文件过滤处理器
  *
- * <p>负责过滤出视频文件，只将视频文件传递给后续处理器。</p>
+ * <p>负责过滤出视频文件，只将视频文件传递给后续处理器。
  *
- * <p>Order: 20</p>
+ * <p>Order: 20
  *
  * @author hienao
  * @since 2024-01-01
@@ -29,18 +29,16 @@ public class FileFilterHandler implements FileProcessorHandler {
 
   // ==================== 支持的视频文件扩展名 ====================
 
-  private static final Set<String> VIDEO_EXTENSIONS = Set.of(
-      ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v",
-      ".m2ts", ".ts", ".rmvb", ".rm", ".3gp", ".mpeg", ".mpg"
-  );
+  private static final Set<String> VIDEO_EXTENSIONS =
+      Set.of(
+          ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".m2ts", ".ts", ".rmvb",
+          ".rm", ".3gp", ".mpeg", ".mpg");
 
-  private static final Set<String> SUBTITLE_EXTENSIONS = Set.of(
-      ".srt", ".ass", ".vtt", ".ssa", ".sub", ".idx"
-  );
+  private static final Set<String> SUBTITLE_EXTENSIONS =
+      Set.of(".srt", ".ass", ".vtt", ".ssa", ".sub", ".idx");
 
-  private static final Set<String> IMAGE_EXTENSIONS = Set.of(
-      ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".tif"
-  );
+  private static final Set<String> IMAGE_EXTENSIONS =
+      Set.of(".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".tif");
 
   // ==================== 接口实现 ====================
 
@@ -60,20 +58,23 @@ public class FileFilterHandler implements FileProcessorHandler {
       List<OpenlistApiService.OpenlistFile> videoFiles = filterVideoFiles(allFiles);
 
       // 过滤出字幕文件
-      List<OpenlistApiService.OpenlistFile> subtitleFiles = filterByExtensions(
-          allFiles, SUBTITLE_EXTENSIONS);
+      List<OpenlistApiService.OpenlistFile> subtitleFiles =
+          filterByExtensions(allFiles, SUBTITLE_EXTENSIONS);
 
       // 过滤出图片文件
-      List<OpenlistApiService.OpenlistFile> imageFiles = filterByExtensions(
-          allFiles, IMAGE_EXTENSIONS);
+      List<OpenlistApiService.OpenlistFile> imageFiles =
+          filterByExtensions(allFiles, IMAGE_EXTENSIONS);
 
       // 设置过滤结果到上下文
       context.setAttribute("videoFiles", videoFiles);
       context.setAttribute("subtitleFiles", subtitleFiles);
       context.setAttribute("imageFiles", imageFiles);
 
-      log.debug("文件过滤完成: {} 视频, {} 字幕, {} 图片",
-          videoFiles.size(), subtitleFiles.size(), imageFiles.size());
+      log.debug(
+          "文件过滤完成: {} 视频, {} 字幕, {} 图片",
+          videoFiles.size(),
+          subtitleFiles.size(),
+          imageFiles.size());
 
       return ProcessingResult.SUCCESS;
 
@@ -90,9 +91,7 @@ public class FileFilterHandler implements FileProcessorHandler {
 
   // ==================== 过滤方法 ====================
 
-  /**
-   * 过滤出视频文件
-   */
+  /** 过滤出视频文件 */
   public List<OpenlistApiService.OpenlistFile> filterVideoFiles(
       List<OpenlistApiService.OpenlistFile> files) {
     return files.stream()
@@ -101,12 +100,9 @@ public class FileFilterHandler implements FileProcessorHandler {
         .collect(Collectors.toList());
   }
 
-  /**
-   * 按扩展名过滤文件
-   */
+  /** 按扩展名过滤文件 */
   private List<OpenlistApiService.OpenlistFile> filterByExtensions(
-      List<OpenlistApiService.OpenlistFile> files,
-      Set<String> extensions) {
+      List<OpenlistApiService.OpenlistFile> files, Set<String> extensions) {
     return files.stream()
         .filter(f -> "file".equals(f.getType()))
         .filter(f -> hasExtension(f.getName(), extensions))
@@ -115,9 +111,7 @@ public class FileFilterHandler implements FileProcessorHandler {
 
   // ==================== 工具方法 ====================
 
-  /**
-   * 检查是否为视频文件
-   */
+  /** 检查是否为视频文件 */
   public boolean isVideoFile(String fileName) {
     if (fileName == null) {
       return false;
@@ -130,9 +124,7 @@ public class FileFilterHandler implements FileProcessorHandler {
     return hasExtension(fileName, VIDEO_EXTENSIONS);
   }
 
-  /**
-   * 检查是否为字幕文件
-   */
+  /** 检查是否为字幕文件 */
   public boolean isSubtitleFile(String fileName) {
     if (fileName == null) {
       return false;
@@ -140,9 +132,7 @@ public class FileFilterHandler implements FileProcessorHandler {
     return hasExtension(fileName.toLowerCase(), SUBTITLE_EXTENSIONS);
   }
 
-  /**
-   * 检查是否为图片文件
-   */
+  /** 检查是否为图片文件 */
   public boolean isImageFile(String fileName) {
     if (fileName == null) {
       return false;
@@ -150,9 +140,7 @@ public class FileFilterHandler implements FileProcessorHandler {
     return hasExtension(fileName.toLowerCase(), IMAGE_EXTENSIONS);
   }
 
-  /**
-   * 检查文件是否具有指定扩展名之一
-   */
+  /** 检查文件是否具有指定扩展名之一 */
   private boolean hasExtension(String fileName, Set<String> extensions) {
     if (fileName == null) {
       return false;
@@ -166,16 +154,12 @@ public class FileFilterHandler implements FileProcessorHandler {
     return false;
   }
 
-  /**
-   * 获取所有视频扩展名
-   */
+  /** 获取所有视频扩展名 */
   public Set<String> getVideoExtensions() {
     return new HashSet<>(VIDEO_EXTENSIONS);
   }
 
-  /**
-   * 获取所有字幕扩展名
-   */
+  /** 获取所有字幕扩展名 */
   public Set<String> getSubtitleExtensions() {
     return new HashSet<>(SUBTITLE_EXTENSIONS);
   }

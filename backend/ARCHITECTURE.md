@@ -130,23 +130,23 @@ graph TB
         Controller["Controller<br/>(7个 REST API)"]
         WebSocket["WebSocket<br/>(实时通信)"]
     end
-    
+
     subgraph Business["业务层"]
         Service["Service<br/>(20个服务类)"]
         Handler["Handler Chain<br/>(责任链模式)"]
     end
-    
+
     subgraph Data["数据层"]
         Mapper["MyBatis Mapper"]
         Entity["Entity"]
     end
-    
+
     subgraph Infrastructure["基础设施层"]
         Security["Spring Security + JWT"]
         Scheduler["Quartz Scheduler"]
         Cache["Caffeine Cache"]
     end
-    
+
     Controller --> Service
     WebSocket --> Service
     Service --> Handler
@@ -254,11 +254,11 @@ app:
     data: /maindata           # 数据目录
     database: /maindata/db/openlist2strm.db
     strm: /app/backend/strm   # STRM 输出目录
-    
+
 spring:
   datasource:
     url: jdbc:sqlite:${app.paths.database}
-    
+
 jwt:
   secret: ${JWT_SECRET}       # JWT 密钥 (环境变量)
   expiration-min: 20160       # 14天过期

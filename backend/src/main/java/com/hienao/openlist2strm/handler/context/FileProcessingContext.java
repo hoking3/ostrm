@@ -8,15 +8,15 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 文件处理上下文
  *
- * <p>在 Handler 之间传递处理上下文，包含当前处理的文件信息和配置。</p>
+ * <p>在 Handler 之间传递处理上下文，包含当前处理的文件信息和配置。
  *
  * @author hienao
  * @since 2024-01-01
@@ -29,67 +29,43 @@ public class FileProcessingContext {
 
   // ==================== 配置信息 ====================
 
-  /**
-   * OpenList 配置
-   */
+  /** OpenList 配置 */
   private OpenlistConfig openlistConfig;
 
-  /**
-   * 任务配置
-   */
+  /** 任务配置 */
   private TaskConfig taskConfig;
 
   // ==================== 当前处理的文件信息 ====================
 
-  /**
-   * 当前处理的文件
-   */
+  /** 当前处理的文件 */
   private OpenlistApiService.OpenlistFile currentFile;
 
-  /**
-   * 相对路径（相对于任务配置的 path）
-   */
+  /** 相对路径（相对于任务配置的 path） */
   private String relativePath;
 
-  /**
-   * 保存目录（STRM 文件目录）
-   */
+  /** 保存目录（STRM 文件目录） */
   private String saveDirectory;
 
-  /**
-   * 基础文件名（无扩展名）
-   */
+  /** 基础文件名（无扩展名） */
   private String baseFileName;
 
   // ==================== 文件列表 ====================
 
-  /**
-   * 目录文件列表（用于相关文件查找）
-   */
+  /** 目录文件列表（用于相关文件查找） */
   private List<OpenlistApiService.OpenlistFile> directoryFiles;
 
   // ==================== 处理状态 ====================
 
-  /**
-   * 处理状态
-   */
+  /** 处理状态 */
   private ProcessingState state;
 
-  /**
-   * 扩展属性
-   */
-  @Builder.Default
-  private Map<String, Object> attributes = new HashMap<>();
+  /** 扩展属性 */
+  @Builder.Default private Map<String, Object> attributes = new HashMap<>();
 
-  /**
-   * 统计数据
-   */
-  @Builder.Default
-  private ProcessingStats stats = new ProcessingStats();
+  /** 统计数据 */
+  @Builder.Default private ProcessingStats stats = new ProcessingStats();
 
-  /**
-   * 处理状态
-   */
+  /** 处理状态 */
   public enum ProcessingState {
     INITIALIZED,
     PROCESSING,
@@ -98,69 +74,44 @@ public class FileProcessingContext {
     FAILED
   }
 
-  /**
-   * 处理统计数据
-   */
+  /** 处理统计数据 */
   @Data
   @Builder
   @NoArgsConstructor
   @AllArgsConstructor
   public static class ProcessingStats {
 
-    /**
-     * 总文件数
-     */
-    @Builder.Default
-    private int totalFiles = 0;
+    /** 总文件数 */
+    @Builder.Default private int totalFiles = 0;
 
-    /**
-     * 已处理文件数
-     */
-    @Builder.Default
-    private int processedFiles = 0;
+    /** 已处理文件数 */
+    @Builder.Default private int processedFiles = 0;
 
-    /**
-     * 跳过的文件数
-     */
-    @Builder.Default
-    private int skippedFiles = 0;
+    /** 跳过的文件数 */
+    @Builder.Default private int skippedFiles = 0;
 
-    /**
-     * 失败的文件数
-     */
-    @Builder.Default
-    private int failedFiles = 0;
+    /** 失败的文件数 */
+    @Builder.Default private int failedFiles = 0;
 
-    /**
-     * 按文件类型统计
-     */
-    @Builder.Default
-    private Map<FileType, Integer> typeCounts = new EnumMap<>(FileType.class);
+    /** 按文件类型统计 */
+    @Builder.Default private Map<FileType, Integer> typeCounts = new EnumMap<>(FileType.class);
 
-    /**
-     * 增加处理计数
-     */
+    /** 增加处理计数 */
     public void incrementProcessed() {
       this.processedFiles++;
     }
 
-    /**
-     * 增加跳过计数
-     */
+    /** 增加跳过计数 */
     public void incrementSkipped() {
       this.skippedFiles++;
     }
 
-    /**
-     * 增加失败计数
-     */
+    /** 增加失败计数 */
     public void incrementFailed() {
       this.failedFiles++;
     }
 
-    /**
-     * 增加文件类型计数
-     */
+    /** 增加文件类型计数 */
     public void incrementTypeCount(FileType type) {
       this.typeCounts.merge(type, 1, Integer::sum);
     }

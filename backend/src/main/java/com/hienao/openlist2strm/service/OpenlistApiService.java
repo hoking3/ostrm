@@ -6,8 +6,6 @@ import com.hienao.openlist2strm.constant.AppConstants;
 import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.exception.BusinessException;
 import com.hienao.openlist2strm.util.UrlEncoder;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Data;
@@ -341,7 +339,8 @@ public class OpenlistApiService {
    * @param enableUrlEncoding 是否启用URL编码（false适用于刮削文件下载场景）
    * @return 文件内容字节数组
    */
-  public byte[] getFileContent(OpenlistConfig config, OpenlistFile file, boolean enableUrlEncoding) {
+  public byte[] getFileContent(
+      OpenlistConfig config, OpenlistFile file, boolean enableUrlEncoding) {
     try {
       // 使用OpenlistFile中的url字段，已包含sign参数
       String encodedUrl;
@@ -373,19 +372,19 @@ public class OpenlistApiService {
     }
   }
 
-
   /**
-   * 使用预编码的URL下载文件内容
-   * 调用方负责对URL进行编码，此方法直接使用传入的URL
+   * 使用预编码的URL下载文件内容 调用方负责对URL进行编码，此方法直接使用传入的URL
    *
    * @param config OpenList配置
    * @param file OpenlistFile对象（仅用于日志记录）
    * @param encodedUrl 已编码的完整下载URL
    * @return 文件内容字节数组
    */
-  public byte[] downloadWithEncodedUrl(OpenlistConfig config, OpenlistFile file, String encodedUrl) {
+  public byte[] downloadWithEncodedUrl(
+      OpenlistConfig config, OpenlistFile file, String encodedUrl) {
     return downloadFileWithUrl(config, file, encodedUrl);
   }
+
   /**
    * 使用指定URL下载文件内容
    *
@@ -410,7 +409,8 @@ public class OpenlistApiService {
 
       // 发送GET请求获取文件内容 - 使用URI对象避免Spring将{...}解析为模板变量
       ResponseEntity<byte[]> response =
-          restTemplate.exchange(java.net.URI.create(encodedUrl), HttpMethod.GET, entity, byte[].class);
+          restTemplate.exchange(
+              java.net.URI.create(encodedUrl), HttpMethod.GET, entity, byte[].class);
 
       log.debug(
           "文件下载响应 - 状态码: {}, Content-Type: {}, Headers: {}",
@@ -433,12 +433,13 @@ public class OpenlistApiService {
             log.info("跟随302重定向到: {}", redirectUrl);
 
             // 检查重定向URL是否是外部CDN/存储服务
-            boolean isExternalRedirect = redirectUrl.contains("ctyunxs.cn") ||
-                                       redirectUrl.contains("amazonaws.com") ||
-                                       redirectUrl.contains("aliyuncs.com") ||
-                                       !redirectUrl.contains(config.getBaseUrl());
+            boolean isExternalRedirect =
+                redirectUrl.contains("ctyunxs.cn")
+                    || redirectUrl.contains("amazonaws.com")
+                    || redirectUrl.contains("aliyuncs.com")
+                    || !redirectUrl.contains(config.getBaseUrl());
 
-          // 重新构建请求头
+            // 重新构建请求头
             HttpHeaders redirectHeaders = new HttpHeaders();
             redirectHeaders.set("User-Agent", AppConstants.USER_AGENT);
 
@@ -452,20 +453,22 @@ public class OpenlistApiService {
 
             HttpEntity<String> redirectEntity = new HttpEntity<>(redirectHeaders);
 
-          // 发送重定向请求 - 对于外部CDN，直接使用URI避免RestTemplate自动编码
+            // 发送重定向请求 - 对于外部CDN，直接使用URI避免RestTemplate自动编码
             ResponseEntity<byte[]> redirectResponse;
             if (isExternalRedirect) {
               // 对于外部CDN，使用URI直接请求，避免RestTemplate自动编码导致签名失效
               try {
                 java.net.URI uri = java.net.URI.create(redirectUrl);
-                redirectResponse = restTemplate.exchange(uri, HttpMethod.GET, redirectEntity, byte[].class);
+                redirectResponse =
+                    restTemplate.exchange(uri, HttpMethod.GET, redirectEntity, byte[].class);
                 log.debug("使用URI直接请求外部CDN，避免自动编码: {}", uri);
               } catch (Exception e) {
                 log.error("外部CDN重定向URL构建URI失败，标记下载失败: {}", redirectUrl, e);
                 return null;
               }
             } else {
-              redirectResponse = restTemplate.exchange(redirectUrl, HttpMethod.GET, redirectEntity, byte[].class);
+              redirectResponse =
+                  restTemplate.exchange(redirectUrl, HttpMethod.GET, redirectEntity, byte[].class);
             }
 
             log.debug(
@@ -501,7 +504,8 @@ public class OpenlistApiService {
       }
 
       if (!response.getStatusCode().is2xxSuccessful()) {
-        log.warn("文件下载失败: {}, 状态码: {}, URL: {}", file.getName(), response.getStatusCode(), encodedUrl);
+        log.warn(
+            "文件下载失败: {}, 状态码: {}, URL: {}", file.getName(), response.getStatusCode(), encodedUrl);
         return null;
       }
 
@@ -562,7 +566,8 @@ public class OpenlistApiService {
 
       // 发送GET请求获取文件内容 - 使用URI对象避免Spring将{...}解析为模板变量
       ResponseEntity<byte[]> response =
-          restTemplate.exchange(java.net.URI.create(encodedUrl), HttpMethod.GET, entity, byte[].class);
+          restTemplate.exchange(
+              java.net.URI.create(encodedUrl), HttpMethod.GET, entity, byte[].class);
 
       log.debug(
           "文件下载响应 - 状态码: {}, Content-Type: {}, Headers: {}",
@@ -585,12 +590,13 @@ public class OpenlistApiService {
             log.info("跟随302重定向到: {}", redirectUrl);
 
             // 检查重定向URL是否是外部CDN/存储服务
-            boolean isExternalRedirect = redirectUrl.contains("ctyunxs.cn") ||
-                                       redirectUrl.contains("amazonaws.com") ||
-                                       redirectUrl.contains("aliyuncs.com") ||
-                                       !redirectUrl.contains(config.getBaseUrl());
+            boolean isExternalRedirect =
+                redirectUrl.contains("ctyunxs.cn")
+                    || redirectUrl.contains("amazonaws.com")
+                    || redirectUrl.contains("aliyuncs.com")
+                    || !redirectUrl.contains(config.getBaseUrl());
 
-          // 重新构建请求头
+            // 重新构建请求头
             HttpHeaders redirectHeaders = new HttpHeaders();
             redirectHeaders.set("User-Agent", AppConstants.USER_AGENT);
 
@@ -604,20 +610,22 @@ public class OpenlistApiService {
 
             HttpEntity<String> redirectEntity = new HttpEntity<>(redirectHeaders);
 
-          // 发送重定向请求 - 对于外部CDN，直接使用URI避免RestTemplate自动编码
+            // 发送重定向请求 - 对于外部CDN，直接使用URI避免RestTemplate自动编码
             ResponseEntity<byte[]> redirectResponse;
             if (isExternalRedirect) {
               // 对于外部CDN，使用URI直接请求，避免RestTemplate自动编码导致签名失效
               try {
                 java.net.URI uri = java.net.URI.create(redirectUrl);
-                redirectResponse = restTemplate.exchange(uri, HttpMethod.GET, redirectEntity, byte[].class);
+                redirectResponse =
+                    restTemplate.exchange(uri, HttpMethod.GET, redirectEntity, byte[].class);
                 log.debug("使用URI直接请求外部CDN，避免自动编码: {}", uri);
               } catch (Exception e) {
                 log.error("外部CDN重定向URL构建URI失败，标记下载失败: {}", redirectUrl, e);
                 return null;
               }
             } else {
-              redirectResponse = restTemplate.exchange(redirectUrl, HttpMethod.GET, redirectEntity, byte[].class);
+              redirectResponse =
+                  restTemplate.exchange(redirectUrl, HttpMethod.GET, redirectEntity, byte[].class);
             }
 
             log.debug(
@@ -687,7 +695,7 @@ public class OpenlistApiService {
    * 验证OpenList配置信息（用于前端保存配置时的验证）
    *
    * @param baseUrl OpenList服务地址
-   * @param token   认证Token
+   * @param token 认证Token
    * @return 验证结果，包含用户信息
    */
   public ValidateConfigResult validateConfig(String baseUrl, String token) {
@@ -746,7 +754,8 @@ public class OpenlistApiService {
       result.setUsername(userData.getUsername());
       result.setBasePath(userData.getBasePath() != null ? userData.getBasePath() : "/");
 
-      log.info("验证OpenList配置成功: username={}, basePath={}", result.getUsername(), result.getBasePath());
+      log.info(
+          "验证OpenList配置成功: username={}, basePath={}", result.getUsername(), result.getBasePath());
       return result;
 
     } catch (BusinessException e) {
@@ -767,8 +776,8 @@ public class OpenlistApiService {
   /**
    * 验证任务路径是否存在
    *
-   * @param baseUrl  OpenList服务地址
-   * @param token    认证Token
+   * @param baseUrl OpenList服务地址
+   * @param token 认证Token
    * @param basePath 用户的basePath
    * @param taskPath 任务路径
    * @return 是否为有效目录
@@ -801,9 +810,10 @@ public class OpenlistApiService {
       headers.set("Authorization", token);
 
       // 构建请求体
-      String requestBody = String.format(
-          "{\"path\":\"%s\",\"password\":\"\",\"page\":1,\"per_page\":0,\"refresh\":false}",
-          fullPath);
+      String requestBody =
+          String.format(
+              "{\"path\":\"%s\",\"password\":\"\",\"page\":1,\"per_page\":0,\"refresh\":false}",
+              fullPath);
 
       HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
 

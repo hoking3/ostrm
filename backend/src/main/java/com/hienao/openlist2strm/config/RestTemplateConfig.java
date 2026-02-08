@@ -42,7 +42,8 @@ public class RestTemplateConfig {
     RestTemplate restTemplate = new RestTemplate(factory);
 
     // 添加 UTF-8 编码的 StringHttpMessageConverter，解决中文乱码问题
-    StringHttpMessageConverter stringConverter = new StringHttpMessageConverter(StandardCharsets.UTF_8);
+    StringHttpMessageConverter stringConverter =
+        new StringHttpMessageConverter(StandardCharsets.UTF_8);
     stringConverter.setWriteAcceptCharset(false); // 避免在请求头中添加 Accept-Charset
     restTemplate.getMessageConverters().add(0, stringConverter);
 

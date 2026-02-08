@@ -13,11 +13,12 @@ import org.springframework.stereotype.Component;
 /**
  * 文件处理器链执行器
  *
- * <p>负责按顺序执行所有注册的 Handler：</p>
+ * <p>负责按顺序执行所有注册的 Handler：
+ *
  * <ul>
- *   <li>按 getOrder() 返回值排序</li>
- *   <li>依次调用每个 Handler 的 process() 方法</li>
- *   <li>收集并返回最终处理结果</li>
+ *   <li>按 getOrder() 返回值排序
+ *   <li>依次调用每个 Handler 的 process() 方法
+ *   <li>收集并返回最终处理结果
  * </ul>
  *
  * @author hienao
@@ -31,12 +32,14 @@ public class FileProcessorChain {
 
   public FileProcessorChain(List<FileProcessorHandler> handlers) {
     // 按 Order 排序
-    this.handlers = handlers.stream()
-        .sorted(Comparator.comparingInt(FileProcessorHandler::getOrder))
-        .collect(Collectors.toList());
+    this.handlers =
+        handlers.stream()
+            .sorted(Comparator.comparingInt(FileProcessorHandler::getOrder))
+            .collect(Collectors.toList());
 
     log.info("初始化文件处理链，共 {} 个处理器", this.handlers.size());
-    log.debug("处理器顺序: {}",
+    log.debug(
+        "处理器顺序: {}",
         this.handlers.stream()
             .map(h -> h.getClass().getSimpleName() + "(" + h.getOrder() + ")")
             .collect(Collectors.joining(", ")));
@@ -55,17 +58,14 @@ public class FileProcessorChain {
       try {
         // 检查处理器是否支持当前文件类型
         if (!supports(handler, context)) {
-          log.debug("处理器 {} 不支持当前文件类型，跳过",
-              handler.getClass().getSimpleName());
+          log.debug("处理器 {} 不支持当前文件类型，跳过", handler.getClass().getSimpleName());
           continue;
         }
 
         ProcessingResult handlerResult = handler.process(context);
 
         // 记录处理结果
-        log.debug("处理器 {} 处理结果: {}",
-            handler.getClass().getSimpleName(),
-            handlerResult);
+        log.debug("处理器 {} 处理结果: {}", handler.getClass().getSimpleName(), handlerResult);
 
         // 如果任何处理器失败，整体结果为失败
         if (handlerResult == ProcessingResult.FAILED) {
@@ -73,10 +73,7 @@ public class FileProcessorChain {
         }
 
       } catch (Exception e) {
-        log.error("处理器 {} 执行失败: {}",
-            handler.getClass().getSimpleName(),
-            e.getMessage(),
-            e);
+        log.error("处理器 {} 执行失败: {}", handler.getClass().getSimpleName(), e.getMessage(), e);
         overallResult = ProcessingResult.FAILED;
       }
     }
@@ -84,9 +81,7 @@ public class FileProcessorChain {
     return overallResult;
   }
 
-  /**
-   * 检查处理器是否支持当前文件
-   */
+  /** 检查处理器是否支持当前文件 */
   private boolean supports(FileProcessorHandler handler, FileProcessingContext context) {
     OpenlistApiService.OpenlistFile currentFile = context.getCurrentFile();
     if (currentFile == null) {
@@ -106,9 +101,7 @@ public class FileProcessorChain {
     return handledTypes.contains(fileType);
   }
 
-  /**
-   * 根据文件名获取文件类型
-   */
+  /** 根据文件名获取文件类型 */
   private FileType getFileType(String fileName) {
     if (isVideoExtension(fileName)) {
       return FileType.VIDEO;
@@ -125,26 +118,45 @@ public class FileProcessorChain {
   private boolean isVideoExtension(String fileName) {
     if (fileName == null) return false;
     String lower = fileName.toLowerCase();
-    return lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".avi")
-        || lower.endsWith(".mov") || lower.endsWith(".wmv") || lower.endsWith(".flv")
-        || lower.endsWith(".webm") || lower.endsWith(".m4v") || lower.endsWith(".m2ts")
-        || lower.endsWith(".ts") || lower.endsWith(".rmvb") || lower.endsWith(".rm")
-        || lower.endsWith(".3gp") || lower.endsWith(".mpeg") || lower.endsWith(".mpg");
+    return lower.endsWith(".mp4")
+        || lower.endsWith(".mkv")
+        || lower.endsWith(".avi")
+        || lower.endsWith(".mov")
+        || lower.endsWith(".wmv")
+        || lower.endsWith(".flv")
+        || lower.endsWith(".webm")
+        || lower.endsWith(".m4v")
+        || lower.endsWith(".m2ts")
+        || lower.endsWith(".ts")
+        || lower.endsWith(".rmvb")
+        || lower.endsWith(".rm")
+        || lower.endsWith(".3gp")
+        || lower.endsWith(".mpeg")
+        || lower.endsWith(".mpg");
   }
 
   private boolean isImageExtension(String fileName) {
     if (fileName == null) return false;
     String lower = fileName.toLowerCase();
-    return lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png")
-        || lower.endsWith(".webp") || lower.endsWith(".bmp") || lower.endsWith(".gif")
-        || lower.endsWith(".tiff") || lower.endsWith(".tif");
+    return lower.endsWith(".jpg")
+        || lower.endsWith(".jpeg")
+        || lower.endsWith(".png")
+        || lower.endsWith(".webp")
+        || lower.endsWith(".bmp")
+        || lower.endsWith(".gif")
+        || lower.endsWith(".tiff")
+        || lower.endsWith(".tif");
   }
 
   private boolean isSubtitleExtension(String fileName) {
     if (fileName == null) return false;
     String lower = fileName.toLowerCase();
-    return lower.endsWith(".srt") || lower.endsWith(".ass") || lower.endsWith(".vtt")
-        || lower.endsWith(".ssa") || lower.endsWith(".sub") || lower.endsWith(".idx");
+    return lower.endsWith(".srt")
+        || lower.endsWith(".ass")
+        || lower.endsWith(".vtt")
+        || lower.endsWith(".ssa")
+        || lower.endsWith(".sub")
+        || lower.endsWith(".idx");
   }
 
   /**

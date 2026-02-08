@@ -16,14 +16,15 @@ import org.springframework.stereotype.Component;
 /**
  * 字幕文件复制处理器
  *
- * <p>负责字幕文件的三级优先级处理：</p>
+ * <p>负责字幕文件的三级优先级处理：
+ *
  * <ol>
- *   <li>优先级 1 - 本地文件：检查本地是否存在对应字幕文件</li>
- *   <li>优先级 2 - OpenList 文件：本地不存在时从 OpenList 同级目录下载</li>
- *   <li>优先级 3 - 无刮削选项：字幕文件不支持 API 刮削</li>
+ *   <li>优先级 1 - 本地文件：检查本地是否存在对应字幕文件
+ *   <li>优先级 2 - OpenList 文件：本地不存在时从 OpenList 同级目录下载
+ *   <li>优先级 3 - 无刮削选项：字幕文件不支持 API 刮削
  * </ol>
  *
- * <p>Order: 42</p>
+ * <p>Order: 42
  *
  * @author hienao
  * @since 2024-01-01
@@ -37,16 +38,13 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
   private final FilePriorityResolver priorityResolver;
   private final OpenlistApiService openlistApiService;
 
-  /**
-   * 已下载的字幕文件集合（用于防止重复下载）
-   */
+  /** 已下载的字幕文件集合（用于防止重复下载） */
   private final Set<String> downloadedSubtitles = new HashSet<>();
 
   // ==================== 支持的字幕文件扩展名 ====================
 
-  private static final Set<String> SUBTITLE_EXTENSIONS = Set.of(
-      ".srt", ".ass", ".vtt", ".ssa", ".sub", ".idx"
-  );
+  private static final Set<String> SUBTITLE_EXTENSIONS =
+      Set.of(".srt", ".ass", ".vtt", ".ssa", ".sub", ".idx");
 
   // ==================== 接口实现 ====================
 
@@ -62,20 +60,25 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
       }
 
       // 2. 获取当前目录的所有字幕文件
-      String currentDirectory = context.getCurrentFile().getPath()
-          .substring(0, context.getCurrentFile().getPath().lastIndexOf('/') + 1);
+      String currentDirectory =
+          context
+              .getCurrentFile()
+              .getPath()
+              .substring(0, context.getCurrentFile().getPath().lastIndexOf('/') + 1);
 
-      java.util.List<OpenlistApiService.OpenlistFile> allDirectoryFiles = context.getDirectoryFiles();
+      java.util.List<OpenlistApiService.OpenlistFile> allDirectoryFiles =
+          context.getDirectoryFiles();
 
       java.util.List<OpenlistApiService.OpenlistFile> subtitleFiles =
           allDirectoryFiles.stream()
               .filter(f -> "file".equals(f.getType()))
               .filter(f -> isSubtitleFile(f.getName()))
               .filter(f -> f.getPath().startsWith(currentDirectory))
-              .filter(f -> {
-                String fileName = f.getName();
-                return !downloadedSubtitles.contains(fileName.toLowerCase());
-              })
+              .filter(
+                  f -> {
+                    String fileName = f.getName();
+                    return !downloadedSubtitles.contains(fileName.toLowerCase());
+                  })
               .collect(Collectors.toList());
 
       log.debug("找到 {} 个字幕文件", subtitleFiles.size());
@@ -118,12 +121,9 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
 
   // ==================== 字幕复制逻辑 ====================
 
-  /**
-   * 复制单个字幕文件
-   */
+  /** 复制单个字幕文件 */
   private boolean copySubtitleFile(
-      FileProcessingContext context,
-      OpenlistApiService.OpenlistFile subtitleFile) {
+      FileProcessingContext context, OpenlistApiService.OpenlistFile subtitleFile) {
 
     String saveDirectory = context.getSaveDirectory();
     String fileName = subtitleFile.getName();
@@ -146,16 +146,16 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
       downloadUrl = com.hienao.openlist2strm.util.UrlEncoder.encodeUrlSmart(downloadUrl);
 
       // 3. 从 OpenList 下载
-      byte[] content = openlistApiService.downloadWithEncodedUrl(
-          context.getOpenlistConfig(), subtitleFile, downloadUrl);
+      byte[] content =
+          openlistApiService.downloadWithEncodedUrl(
+              context.getOpenlistConfig(), subtitleFile, downloadUrl);
 
       if (content != null && content.length > 0) {
         // 4. 保存到本地
         Files.createDirectories(localPath.getParent());
         Files.write(localPath, content);
 
-        log.info("已复制字幕文件: {} -> {} (大小: {} bytes)",
-            fileName, localPath, content.length);
+        log.info("已复制字幕文件: {} -> {} (大小: {} bytes)", fileName, localPath, content.length);
         return true;
       }
 
@@ -170,9 +170,7 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
 
   // ==================== 配置检查 ====================
 
-  /**
-   * 检查是否启用保留字幕文件
-   */
+  /** 检查是否启用保留字幕文件 */
   private boolean isKeepSubtitleEnabled(FileProcessingContext context) {
     Object keepSubtitleValue = context.getAttribute("keepSubtitleFiles");
     return Boolean.TRUE.equals(keepSubtitleValue);
@@ -180,9 +178,7 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
 
   // ==================== 工具方法 ====================
 
-  /**
-   * 检查是否为字幕文件
-   */
+  /** 检查是否为字幕文件 */
   public boolean isSubtitleFile(String fileName) {
     if (fileName == null) {
       return false;
@@ -196,23 +192,17 @@ public class SubtitleCopyHandler implements FileProcessorHandler {
     return false;
   }
 
-  /**
-   * 获取字幕文件扩展名列表
-   */
+  /** 获取字幕文件扩展名列表 */
   public Set<String> getSubtitleExtensions() {
     return new HashSet<>(SUBTITLE_EXTENSIONS);
   }
 
-  /**
-   * 清空已下载字幕文件记录（用于新任务开始时）
-   */
+  /** 清空已下载字幕文件记录（用于新任务开始时） */
   public void clearDownloadedSubtitles() {
     downloadedSubtitles.clear();
   }
 
-  /**
-   * 获取已下载字幕文件数量
-   */
+  /** 获取已下载字幕文件数量 */
   public int getDownloadedSubtitleCount() {
     return downloadedSubtitles.size();
   }

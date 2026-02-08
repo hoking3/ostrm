@@ -32,11 +32,7 @@ public class OpenApiConfig {
   @Bean
   public OpenAPI customOpenAPI() {
     return new OpenAPI()
-        .info(
-            new Info()
-                .title("OStrm API")
-                .version("1.0")
-                .description("OStrm 单用户系统 API 文档"))
+        .info(new Info().title("OStrm API").version("1.0").description("OStrm 单用户系统 API 文档"))
         .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
         .components(
             new Components().addSecuritySchemes("Bearer Authentication", createAPIKeyScheme()));

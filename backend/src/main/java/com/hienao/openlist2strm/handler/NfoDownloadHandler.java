@@ -15,14 +15,15 @@ import org.springframework.stereotype.Component;
 /**
  * NFO 文件下载处理器
  *
- * <p>负责 NFO 文件的三级优先级处理：</p>
+ * <p>负责 NFO 文件的三级优先级处理：
+ *
  * <ol>
- *   <li>优先级 1 - 本地文件：检查本地是否存在对应 NFO 文件</li>
- *   <li>优先级 2 - OpenList 文件：本地不存在时从 OpenList 同级目录下载</li>
- *   <li>优先级 3 - 刮削文件：前两级都不存在时执行 TMDB 刮削</li>
+ *   <li>优先级 1 - 本地文件：检查本地是否存在对应 NFO 文件
+ *   <li>优先级 2 - OpenList 文件：本地不存在时从 OpenList 同级目录下载
+ *   <li>优先级 3 - 刮削文件：前两级都不存在时执行 TMDB 刮削
  * </ol>
  *
- * <p>Order: 40</p>
+ * <p>Order: 40
  *
  * @author hienao
  * @since 2024-01-01
@@ -84,23 +85,20 @@ public class NfoDownloadHandler implements FileProcessorHandler {
 
   // ==================== 下载逻辑 ====================
 
-  /**
-   * 从 OpenList 下载 NFO 文件
-   */
+  /** 从 OpenList 下载 NFO 文件 */
   private ProcessingResult downloadFromOpenList(FileProcessingContext context) {
     try {
       String nfoFileName = context.getBaseFileName() + ".nfo";
 
       // 在目录文件列表中查找同名 NFO 文件
-      OpenlistFileWrapper nfoFile = findNfoFileInDirectory(
-          context.getDirectoryFiles(), nfoFileName);
+      OpenlistFileWrapper nfoFile =
+          findNfoFileInDirectory(context.getDirectoryFiles(), nfoFileName);
 
       if (nfoFile != null) {
         // 下载 NFO 文件内容
-        byte[] content = openlistApiService.getFileContent(
-            context.getOpenlistConfig(),
-            nfoFile.getOpenlistFile(),
-            false);
+        byte[] content =
+            openlistApiService.getFileContent(
+                context.getOpenlistConfig(), nfoFile.getOpenlistFile(), false);
 
         if (content != null && content.length > 0) {
           // 保存到本地
@@ -124,9 +122,7 @@ public class NfoDownloadHandler implements FileProcessorHandler {
     }
   }
 
-  /**
-   * Fallback 到刮削
-   */
+  /** Fallback 到刮削 */
   private ProcessingResult fallbackToScraping(FileProcessingContext context) {
     try {
       mediaScrapingService.scrapMedia(
@@ -135,8 +131,7 @@ public class NfoDownloadHandler implements FileProcessorHandler {
           context.getTaskConfig().getStrmPath(),
           context.getRelativePath(),
           context.getDirectoryFiles(),
-          context.getCurrentFile().getPath()
-      );
+          context.getCurrentFile().getPath());
 
       log.debug("NFO 文件刮削完成: {}", context.getBaseFileName());
       context.getStats().incrementProcessed();
@@ -151,9 +146,7 @@ public class NfoDownloadHandler implements FileProcessorHandler {
 
   // ==================== 工具方法 ====================
 
-  /**
-   * 检查 NFO 刮削是否启用
-   */
+  /** 检查 NFO 刮削是否启用 */
   private boolean isNfoScrapingEnabled(FileProcessingContext context) {
     // 优先使用现有刮削信息配置
     var scrapingConfig = context.getAttribute("scrapingConfig");
@@ -165,9 +158,7 @@ public class NfoDownloadHandler implements FileProcessorHandler {
     return false;
   }
 
-  /**
-   * 在目录文件中查找 NFO 文件
-   */
+  /** 在目录文件中查找 NFO 文件 */
   private OpenlistFileWrapper findNfoFileInDirectory(
       java.util.List<OpenlistApiService.OpenlistFile> files, String fileName) {
     if (files == null) {
@@ -182,9 +173,7 @@ public class NfoDownloadHandler implements FileProcessorHandler {
         .orElse(null);
   }
 
-  /**
-   * 内部类：包装 OpenlistFile
-   */
+  /** 内部类：包装 OpenlistFile */
   private static class OpenlistFileWrapper {
     private final OpenlistApiService.OpenlistFile openlistFile;
 

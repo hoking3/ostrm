@@ -4,23 +4,18 @@ import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
 import com.hienao.openlist2strm.service.OpenlistApiService;
 import com.hienao.openlist2strm.service.StrmFileService;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 /**
  * STRM 文件生成处理器
  *
- * <p>负责为视频文件生成 STRM 文件。</p>
+ * <p>负责为视频文件生成 STRM 文件。
  *
- * <p>Order: 30</p>
+ * <p>Order: 30
  *
  * @author hienao
  * @since 2024-01-01
@@ -62,8 +57,7 @@ public class StrmGenerationHandler implements FileProcessorHandler {
           fileUrlWithSign,
           isIncrement,
           renameRegex,
-          openlistConfig
-      );
+          openlistConfig);
 
       context.getStats().incrementProcessed();
       return ProcessingResult.SUCCESS;
@@ -82,9 +76,7 @@ public class StrmGenerationHandler implements FileProcessorHandler {
 
   // ==================== URL 处理 ====================
 
-  /**
-   * 构建包含 sign 参数的文件 URL
-   */
+  /** 构建包含 sign 参数的文件 URL */
   private String buildFileUrlWithSign(String originalUrl, String sign) {
     if (originalUrl == null) {
       return null;

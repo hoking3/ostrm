@@ -1,14 +1,11 @@
 package com.hienao.openlist2strm.handler;
 
-import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
 import com.hienao.openlist2strm.service.OpenlistApiService;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -20,14 +17,15 @@ import org.springframework.stereotype.Component;
 /**
  * 孤立文件清理处理器
  *
- * <p>负责清理增量模式下不再存在于 OpenList 中的文件：</p>
+ * <p>负责清理增量模式下不再存在于 OpenList 中的文件：
+ *
  * <ul>
- *   <li>识别孤立 STRM 文件</li>
- *   <li>清理关联的刮削文件（NFO、图片、字幕）</li>
- *   <li>清理空目录</li>
+ *   <li>识别孤立 STRM 文件
+ *   <li>清理关联的刮削文件（NFO、图片、字幕）
+ *   <li>清理空目录
  * </ul>
  *
- * <p>Order: 60</p>
+ * <p>Order: 60
  *
  * @author hienao
  * @since 2024-01-01
@@ -71,11 +69,15 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
       log.info("开始检查孤立文件，使用 {} 个 OpenList 文件进行匹配", allFiles.size());
 
       // 执行清理
-      CleanupResult result = cleanOrphanedFiles(
-          strmBasePath, allFiles, context.getTaskConfig().getPath());
+      CleanupResult result =
+          cleanOrphanedFiles(strmBasePath, allFiles, context.getTaskConfig().getPath());
 
-      log.info("孤立文件清理完成: {} 个 STRM, {} 个 NFO, {} 个图片, {} 个字幕",
-          result.strmCount, result.nfoCount, result.imageCount, result.subtitleCount);
+      log.info(
+          "孤立文件清理完成: {} 个 STRM, {} 个 NFO, {} 个图片, {} 个字幕",
+          result.strmCount,
+          result.nfoCount,
+          result.imageCount,
+          result.subtitleCount);
 
       context.getStats().incrementProcessed();
       return ProcessingResult.SUCCESS;
@@ -94,13 +96,9 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
 
   // ==================== 清理逻辑 ====================
 
-  /**
-   * 清理孤立文件
-   */
+  /** 清理孤立文件 */
   private CleanupResult cleanOrphanedFiles(
-      String strmBasePath,
-      List<OpenlistApiService.OpenlistFile> openlistFiles,
-      String taskPath) {
+      String strmBasePath, List<OpenlistApiService.OpenlistFile> openlistFiles, String taskPath) {
 
     AtomicInteger strmCount = new AtomicInteger(0);
     AtomicInteger nfoCount = new AtomicInteger(0);
@@ -115,8 +113,15 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
 
       // 深度优先遍历清理
       validateAndCleanDirectory(
-          strmPath, openlistFiles, taskPath, "", "",
-          strmCount, nfoCount, imageCount, subtitleCount);
+          strmPath,
+          openlistFiles,
+          taskPath,
+          "",
+          "",
+          strmCount,
+          nfoCount,
+          imageCount,
+          subtitleCount);
 
     } catch (Exception e) {
       log.error("清理孤立文件失败", e);
@@ -126,9 +131,7 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
         strmCount.get(), nfoCount.get(), imageCount.get(), subtitleCount.get());
   }
 
-  /**
-   * 递归验证和清理目录
-   */
+  /** 递归验证和清理目录 */
   private void validateAndCleanDirectory(
       Path strmDirectoryPath,
       List<OpenlistApiService.OpenlistFile> openlistFiles,
@@ -144,27 +147,41 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
       // 1. 先处理所有子目录
       List<Path> subDirectories;
       try (Stream<Path> stream = Files.list(strmDirectoryPath)) {
-        subDirectories = stream
-            .filter(Files::isDirectory)
-            .sorted()
-            .collect(java.util.stream.Collectors.toList());
+        subDirectories =
+            stream
+                .filter(Files::isDirectory)
+                .sorted()
+                .collect(java.util.stream.Collectors.toList());
       }
 
       for (Path subDir : subDirectories) {
         String subDirName = subDir.getFileName().toString();
-        String subOpenlistPath = openlistRelativePath.isEmpty()
-            ? subDirName
-            : openlistRelativePath + "/" + subDirName;
+        String subOpenlistPath =
+            openlistRelativePath.isEmpty() ? subDirName : openlistRelativePath + "/" + subDirName;
 
         validateAndCleanDirectory(
-            subDir, openlistFiles, taskPath, subOpenlistPath, renameRegex,
-            strmCount, nfoCount, imageCount, subtitleCount);
+            subDir,
+            openlistFiles,
+            taskPath,
+            subOpenlistPath,
+            renameRegex,
+            strmCount,
+            nfoCount,
+            imageCount,
+            subtitleCount);
       }
 
       // 2. 处理当前目录的文件
       cleanFilesInDirectory(
-          strmDirectoryPath, openlistFiles, taskPath, openlistRelativePath, renameRegex,
-          strmCount, nfoCount, imageCount, subtitleCount);
+          strmDirectoryPath,
+          openlistFiles,
+          taskPath,
+          openlistRelativePath,
+          renameRegex,
+          strmCount,
+          nfoCount,
+          imageCount,
+          subtitleCount);
 
       // 3. 检查是否为空目录
       if (isDirectoryEmpty(strmDirectoryPath)) {
@@ -181,9 +198,7 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
     }
   }
 
-  /**
-   * 清理目录中的孤立文件
-   */
+  /** 清理目录中的孤立文件 */
   private void cleanFilesInDirectory(
       Path directoryPath,
       List<OpenlistApiService.OpenlistFile> openlistFiles,
@@ -196,9 +211,8 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
       AtomicInteger subtitleCount) {
 
     try (Stream<Path> stream = Files.list(directoryPath)) {
-      List<Path> files = stream
-          .filter(Files::isRegularFile)
-          .collect(java.util.stream.Collectors.toList());
+      List<Path> files =
+          stream.filter(Files::isRegularFile).collect(java.util.stream.Collectors.toList());
 
       for (Path filePath : files) {
         String fileName = filePath.getFileName().toString().toLowerCase();
@@ -256,9 +270,7 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
     }
   }
 
-  /**
-   * 清理关联的刮削文件
-   */
+  /** 清理关联的刮削文件 */
   private void cleanupScrapingFiles(
       Path strmFilePath,
       AtomicInteger nfoCount,
@@ -315,22 +327,20 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
     checkAndCleanupTvShowSharedFiles(parentDir, nfoCount, imageCount);
   }
 
-  /**
-   * 检查并清理电视剧共用文件
-   */
+  /** 检查并清理电视剧共用文件 */
   private void checkAndCleanupTvShowSharedFiles(
-      Path directoryPath,
-      AtomicInteger nfoCount,
-      AtomicInteger imageCount) {
+      Path directoryPath, AtomicInteger nfoCount, AtomicInteger imageCount) {
 
     // 检查目录中是否还有其他视频文件
     try (Stream<Path> stream = Files.list(directoryPath)) {
-      boolean hasOtherVideoFiles = stream
-          .filter(Files::isRegularFile)
-          .anyMatch(path -> {
-            String name = path.getFileName().toString().toLowerCase();
-            return name.endsWith(".strm") || isVideoFile(name);
-          });
+      boolean hasOtherVideoFiles =
+          stream
+              .filter(Files::isRegularFile)
+              .anyMatch(
+                  path -> {
+                    String name = path.getFileName().toString().toLowerCase();
+                    return name.endsWith(".strm") || isVideoFile(name);
+                  });
 
       if (!hasOtherVideoFiles) {
         // 删除电视剧共用文件
@@ -358,12 +368,9 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
 
   // ==================== 工具方法 ====================
 
-  /**
-   * 检查文件是否存在于 OpenList
-   */
+  /** 检查文件是否存在于 OpenList */
   private boolean isFileExistsInOpenList(
-      String baseName,
-      List<OpenlistApiService.OpenlistFile> openlistFiles) {
+      String baseName, List<OpenlistApiService.OpenlistFile> openlistFiles) {
 
     // 规范化基础名（移除扩展名后转小写）
     String normalizedBaseName = normalizeFileName(baseName);
@@ -371,25 +378,21 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
     return openlistFiles.stream()
         .filter(f -> "file".equals(f.getType()))
         .filter(f -> isVideoFile(f.getName()))
-        .anyMatch(f -> {
-          // 同样规范化 OpenList 文件名
-          String openlistBaseName = normalizeFileName(getBaseName(f.getName()));
-          return normalizedBaseName.equals(openlistBaseName);
-        });
+        .anyMatch(
+            f -> {
+              // 同样规范化 OpenList 文件名
+              String openlistBaseName = normalizeFileName(getBaseName(f.getName()));
+              return normalizedBaseName.equals(openlistBaseName);
+            });
   }
 
-  /**
-   * 规范化文件名用于匹配
-   * 保留中文和特殊字符，只转小写，移除首尾空白
-   */
+  /** 规范化文件名用于匹配 保留中文和特殊字符，只转小写，移除首尾空白 */
   private String normalizeFileName(String fileName) {
     if (fileName == null) return "";
     return fileName.toLowerCase().trim();
   }
 
-  /**
-   * 获取文件名基础名（无扩展名）
-   */
+  /** 获取文件名基础名（无扩展名） */
   private String getBaseName(String fileName) {
     if (fileName == null) return "";
     String lower = fileName.toLowerCase();
@@ -408,27 +411,38 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
   private boolean isVideoFile(String fileName) {
     if (fileName == null) return false;
     String lower = fileName.toLowerCase();
-    return lower.endsWith(".mp4") || lower.endsWith(".mkv") || lower.endsWith(".avi")
-        || lower.endsWith(".mov") || lower.endsWith(".wmv") || lower.endsWith(".flv")
-        || lower.endsWith(".webm") || lower.endsWith(".m4v");
+    return lower.endsWith(".mp4")
+        || lower.endsWith(".mkv")
+        || lower.endsWith(".avi")
+        || lower.endsWith(".mov")
+        || lower.endsWith(".wmv")
+        || lower.endsWith(".flv")
+        || lower.endsWith(".webm")
+        || lower.endsWith(".m4v");
   }
 
   private boolean isImageFile(String fileName) {
     if (fileName == null) return false;
     String lower = fileName.toLowerCase();
-    return lower.endsWith("-poster.jpg") || lower.endsWith("-fanart.jpg")
+    return lower.endsWith("-poster.jpg")
+        || lower.endsWith("-fanart.jpg")
         || lower.endsWith("-thumb.jpg");
   }
 
   private boolean isSubtitleFile(String fileName) {
     if (fileName == null) return false;
     String lower = fileName.toLowerCase();
-    return lower.endsWith(".srt") || lower.endsWith(".ass") || lower.endsWith(".vtt")
-        || lower.endsWith(".ssa") || lower.endsWith(".sub") || lower.endsWith(".idx");
+    return lower.endsWith(".srt")
+        || lower.endsWith(".ass")
+        || lower.endsWith(".vtt")
+        || lower.endsWith(".ssa")
+        || lower.endsWith(".sub")
+        || lower.endsWith(".idx");
   }
 
   private String extractBaseNameFromImage(String fileName) {
-    if (fileName.endsWith("-poster.jpg") || fileName.endsWith("-fanart.jpg")
+    if (fileName.endsWith("-poster.jpg")
+        || fileName.endsWith("-fanart.jpg")
         || fileName.endsWith("-thumb.jpg")) {
       return fileName.substring(0, fileName.length() - 11);
     }
@@ -444,9 +458,7 @@ public class OrphanCleanupHandler implements FileProcessorHandler {
     return null;
   }
 
-  /**
-   * 内部类：清理结果
-   */
+  /** 内部类：清理结果 */
   private static class CleanupResult {
     final int strmCount;
     final int nfoCount;

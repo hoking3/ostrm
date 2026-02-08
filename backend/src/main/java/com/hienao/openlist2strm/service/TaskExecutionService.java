@@ -26,9 +26,9 @@ import com.hienao.openlist2strm.handler.context.FileProcessingContext;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -57,7 +57,7 @@ public class TaskExecutionService {
   /**
    * 提交任务到线程池执行
    *
-   * @param taskId      任务ID
+   * @param taskId 任务ID
    * @param isIncrement 是否增量执行（可选参数）
    */
   public void submitTask(Long taskId, Boolean isIncrement) {
@@ -79,7 +79,7 @@ public class TaskExecutionService {
   /**
    * 同步执行任务（在线程池中调用）
    *
-   * @param taskId      任务ID
+   * @param taskId 任务ID
    * @param isIncrement 是否增量执行（可选参数）
    */
   private void executeTaskSync(Long taskId, Boolean isIncrement) {
@@ -131,7 +131,7 @@ public class TaskExecutionService {
   /**
    * 异步执行任务（保留原有方法以兼容其他调用）
    *
-   * @param taskId      任务ID
+   * @param taskId 任务ID
    * @param isIncrement 是否增量执行（可选参数）
    * @return CompletableFuture<Void>
    */
@@ -185,11 +185,10 @@ public class TaskExecutionService {
   }
 
   /**
-   * 执行具体的任务逻辑 1. 根据任务配置获取OpenList配置 2. 如果是全量执行，先清空STRM目录 3. 通过OpenList
-   * API递归获取所有文件 4. 对视频文件生成STRM文件
+   * 执行具体的任务逻辑 1. 根据任务配置获取OpenList配置 2. 如果是全量执行，先清空STRM目录 3. 通过OpenList API递归获取所有文件 4. 对视频文件生成STRM文件
    * 5. 保持目录结构一致 6. 如果是增量执行，清理孤立的STRM文件
    *
-   * @param taskConfig  任务配置
+   * @param taskConfig 任务配置
    * @param isIncrement 是否增量执行
    */
   private void executeTaskLogic(TaskConfig taskConfig, boolean isIncrement) {
@@ -209,54 +208,60 @@ public class TaskExecutionService {
     }
   }
 
-  /**
-   * 使用 Handler 链执行任务（新方式）
-   */
+  /** 使用 Handler 链执行任务（新方式） */
   private void executeTaskWithHandlerChain(
-      TaskConfig taskConfig,
-      OpenlistConfig openlistConfig,
-      boolean isIncrement) {
+      TaskConfig taskConfig, OpenlistConfig openlistConfig, boolean isIncrement) {
 
-    // 1. 如果是全量执行，先清空STRM目录
+    // 1. 先获取目录文件列表（在清空目录之前验证 OpenList API 可用性）
+    List<OpenlistApiService.OpenlistFile> allFiles;
+    try {
+      log.info("开始获取 OpenList 文件列表: {}", taskConfig.getPath());
+      allFiles = openlistApiService.getAllFilesRecursively(openlistConfig, taskConfig.getPath());
+    } catch (Exception e) {
+      log.error("获取 OpenList 文件列表失败，终止任务执行，STRM 目录未受影响: {}", e.getMessage(), e);
+      throw new BusinessException("获取 OpenList 文件列表失败，任务终止: " + e.getMessage(), e);
+    }
+
+    // 2. 验证文件列表有效性（空列表也继续执行，可能该路径下确实没有文件）
+    log.info("成功获取 OpenList 文件列表，共 {} 个文件/目录", allFiles.size());
+
+    // 3. 文件列表获取成功后，全量模式下再清空 STRM 目录
     if (!isIncrement) {
-      log.info("全量执行模式，开始清理STRM目录: {}", taskConfig.getStrmPath());
+      log.info("全量执行模式，文件列表获取成功（共 {} 个），开始清理STRM目录: {}", allFiles.size(), taskConfig.getStrmPath());
       strmFileService.clearStrmDirectory(taskConfig.getStrmPath());
     }
 
-    // 2. 创建处理上下文
-    FileProcessingContext context = FileProcessingContext.builder()
-        .openlistConfig(openlistConfig)
-        .taskConfig(taskConfig)
-        .build();
+    // 4. 创建处理上下文
+    FileProcessingContext context =
+        FileProcessingContext.builder()
+            .openlistConfig(openlistConfig)
+            .taskConfig(taskConfig)
+            .build();
 
-    // 3. 获取目录文件列表
-    List<OpenlistApiService.OpenlistFile> allFiles = openlistApiService.getAllFilesRecursively(
-        openlistConfig, taskConfig.getPath());
     // 保存原始文件列表，用于 OrphanCleanupHandler 进行孤立文件检查
     context.setAttribute("originalFiles", allFiles);
     context.setAttribute("discoveredFiles", allFiles);
     context.getStats().setTotalFiles(allFiles.size());
 
-    log.info("发现 {} 个文件/目录", allFiles.size());
+    // 5. 过滤出视频文件
+    List<OpenlistApiService.OpenlistFile> videoFiles =
+        allFiles.stream()
+            .filter(f -> "file".equals(f.getType()))
+            .filter(f -> strmFileService.isVideoFile(f.getName()))
+            .toList();
 
-    // 4. 过滤出视频文件
-    List<OpenlistApiService.OpenlistFile> videoFiles = allFiles.stream()
-        .filter(f -> "file".equals(f.getType()))
-        .filter(f -> strmFileService.isVideoFile(f.getName()))
-        .toList();
-
-    // 5. 获取配置
+    // 6. 获取配置
     Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
     boolean needScrap = Boolean.TRUE.equals(taskConfig.getNeedScrap());
 
-    // 6. 处理每个视频文件
+    // 7. 处理每个视频文件
     int processedCount = 0;
     int scrapSkippedCount = 0;
 
     for (OpenlistApiService.OpenlistFile videoFile : videoFiles) {
       // 构建单个文件的上下文
-      FileProcessingContext fileContext = createFileContext(
-          context, videoFile, openlistConfig, scrapingConfig);
+      FileProcessingContext fileContext =
+          createFileContext(context, videoFile, openlistConfig, scrapingConfig);
 
       // 执行处理器链
       fileProcessorChain.execute(fileContext);
@@ -272,22 +277,21 @@ public class TaskExecutionService {
 
     log.info("Handler 链处理完成: 处理 {} 个视频文件, 跳过 {} 个", processedCount, scrapSkippedCount);
 
-    // 7. 增量模式下清理孤立文件
+    // 8. 增量模式下清理孤立文件
     if (isIncrement) {
       log.info("增量执行模式，开始清理孤立的STRM文件");
-      int cleanedCount = strmFileService.cleanOrphanedStrmFiles(
-          taskConfig.getStrmPath(),
-          allFiles,
-          taskConfig.getPath(),
-          taskConfig.getRenameRegex(),
-          openlistConfig);
+      int cleanedCount =
+          strmFileService.cleanOrphanedStrmFiles(
+              taskConfig.getStrmPath(),
+              allFiles,
+              taskConfig.getPath(),
+              taskConfig.getRenameRegex(),
+              openlistConfig);
       log.info("清理了 {} 个孤立的STRM文件", cleanedCount);
     }
   }
 
-  /**
-   * 创建单个文件的处理上下文
-   */
+  /** 创建单个文件的处理上下文 */
   private FileProcessingContext createFileContext(
       FileProcessingContext parentContext,
       OpenlistApiService.OpenlistFile videoFile,
@@ -295,28 +299,32 @@ public class TaskExecutionService {
       Map<String, Object> scrapingConfig) {
 
     // 计算相对路径
-    String relativePath = strmFileService.calculateRelativePath(
-        parentContext.getTaskConfig().getPath(), videoFile.getPath());
+    String relativePath =
+        strmFileService.calculateRelativePath(
+            parentContext.getTaskConfig().getPath(), videoFile.getPath());
 
     // 构建保存目录
-    String saveDirectory = buildScrapSaveDirectory(
-        parentContext.getTaskConfig().getStrmPath(), relativePath);
+    String saveDirectory =
+        buildScrapSaveDirectory(parentContext.getTaskConfig().getStrmPath(), relativePath);
 
     // 获取基础文件名
     String baseFileName = removeExtension(videoFile.getName());
 
     // 获取当前目录的所有文件
-    String currentDirectory = videoFile.getPath()
-        .substring(0, videoFile.getPath().lastIndexOf('/') + 1);
+    String currentDirectory =
+        videoFile.getPath().substring(0, videoFile.getPath().lastIndexOf('/') + 1);
 
-    List<OpenlistApiService.OpenlistFile> directoryFiles = parentContext.getAttribute("discoveredFiles");
-    List<OpenlistApiService.OpenlistFile> currentDirFiles = directoryFiles.stream()
-        .filter(f -> f.getPath().startsWith(currentDirectory))
-        .filter(f -> {
-          String subPath = f.getPath().substring(currentDirectory.length());
-          return subPath.isEmpty() || !subPath.contains("/");
-        })
-        .toList();
+    List<OpenlistApiService.OpenlistFile> directoryFiles =
+        parentContext.getAttribute("discoveredFiles");
+    List<OpenlistApiService.OpenlistFile> currentDirFiles =
+        directoryFiles.stream()
+            .filter(f -> f.getPath().startsWith(currentDirectory))
+            .filter(
+                f -> {
+                  String subPath = f.getPath().substring(currentDirectory.length());
+                  return subPath.isEmpty() || !subPath.contains("/");
+                })
+            .toList();
 
     return FileProcessingContext.builder()
         .openlistConfig(openlistConfig)
@@ -326,13 +334,14 @@ public class TaskExecutionService {
         .saveDirectory(saveDirectory)
         .baseFileName(baseFileName)
         .directoryFiles(currentDirFiles)
-        .attributes(scrapingConfig != null ? new java.util.HashMap<>(scrapingConfig) : new java.util.HashMap<>())
+        .attributes(
+            scrapingConfig != null
+                ? new java.util.HashMap<>(scrapingConfig)
+                : new java.util.HashMap<>())
         .build();
   }
 
-  /**
-   * 移除文件扩展名
-   */
+  /** 移除文件扩展名 */
   private String removeExtension(String fileName) {
     if (fileName == null || fileName.isEmpty()) {
       return fileName;
@@ -371,7 +380,7 @@ public class TaskExecutionService {
    * 构建包含sign参数的文件URL，并处理baseUrl替换
    *
    * @param originalUrl 原始文件URL
-   * @param sign        签名参数
+   * @param sign 签名参数
    * @return 包含sign参数的完整URL
    */
   private String buildFileUrlWithSign(String originalUrl, String sign) {
@@ -395,7 +404,7 @@ public class TaskExecutionService {
   /**
    * 处理URL的baseUrl替换 这个方法会在StrmFileService中调用，用于在生成STRM文件时替换baseUrl
    *
-   * @param originalUrl    原始URL
+   * @param originalUrl 原始URL
    * @param openlistConfig OpenList配置
    * @return 处理后的URL
    */
@@ -415,12 +424,13 @@ public class TaskExecutionService {
     try {
       // 解析原始URL
       java.net.URL url = new java.net.URL(originalUrl);
-      String originalBaseUrl = url.getProtocol()
-          + "://"
-          + url.getHost()
-          + (url.getPort() != -1 && url.getPort() != 80 && url.getPort() != 443
-              ? ":" + url.getPort()
-              : "");
+      String originalBaseUrl =
+          url.getProtocol()
+              + "://"
+              + url.getHost()
+              + (url.getPort() != -1 && url.getPort() != 80 && url.getPort() != 443
+                  ? ":" + url.getPort()
+                  : "");
 
       // 获取路径和查询参数
       String path = url.getPath();
@@ -463,7 +473,7 @@ public class TaskExecutionService {
    * 构建刮削保存目录路径 复用 MediaScrapingService 中的逻辑
    *
    * @param strmDirectory STRM文件目录
-   * @param relativePath  相对路径
+   * @param relativePath 相对路径
    * @return 保存目录路径
    */
   private String buildScrapSaveDirectory(String strmDirectory, String relativePath) {
@@ -537,7 +547,8 @@ public class TaskExecutionService {
       int scrapSkippedCount) {
 
     try {
-      List<OpenlistApiService.OpenlistFile> files = openlistApiService.getDirectoryContents(openlistConfig, path);
+      List<OpenlistApiService.OpenlistFile> files =
+          openlistApiService.getDirectoryContents(openlistConfig, path);
 
       for (OpenlistApiService.OpenlistFile file : files) {
         allFiles.add(file);
@@ -592,7 +603,8 @@ public class TaskExecutionService {
 
     try {
       // 计算相对路径
-      String relativePath = strmFileService.calculateRelativePath(taskConfig.getPath(), file.getPath());
+      String relativePath =
+          strmFileService.calculateRelativePath(taskConfig.getPath(), file.getPath());
 
       // 构建包含sign参数的文件URL
       String fileUrlWithSign = buildFileUrlWithSign(file.getUrl(), file.getSign());
@@ -613,12 +625,13 @@ public class TaskExecutionService {
           String saveDirectory = buildScrapSaveDirectory(taskConfig.getStrmPath(), relativePath);
 
           // 检查是否需要刮削（在增量模式下检查NFO文件是否已存在）
-          boolean needScrapFile = needScrapFile(
-              file.getName(),
-              taskConfig.getRenameRegex(),
-              taskConfig.getStrmPath(),
-              relativePath,
-              isIncrement);
+          boolean needScrapFile =
+              needScrapFile(
+                  file.getName(),
+                  taskConfig.getRenameRegex(),
+                  taskConfig.getStrmPath(),
+                  relativePath,
+                  isIncrement);
 
           if (needScrapFile) {
             if (isIncrement && mediaScrapingService.isDirectoryFullyScraped(saveDirectory)) {
@@ -653,11 +666,11 @@ public class TaskExecutionService {
   /**
    * 判断是否需要刮削文件 在增量模式下，检查NFO文件是否存在，如果NFO文件已存在则跳过刮削
    *
-   * @param fileName     原始文件名
-   * @param renameRegex  重命名正则表达式
-   * @param strmPath     STRM文件路径
+   * @param fileName 原始文件名
+   * @param renameRegex 重命名正则表达式
+   * @param strmPath STRM文件路径
    * @param relativePath 相对路径
-   * @param isIncrement  是否增量模式
+   * @param isIncrement 是否增量模式
    * @return 是否需要刮削
    */
   private boolean needScrapFile(
@@ -674,11 +687,13 @@ public class TaskExecutionService {
     try {
       // 增量模式下，检查NFO文件是否已存在
       String finalFileName = processFileNameForScraping(fileName, renameRegex);
-      java.nio.file.Path strmFilePath = strmFileService.buildStrmFilePath(strmPath, relativePath, finalFileName);
+      java.nio.file.Path strmFilePath =
+          strmFileService.buildStrmFilePath(strmPath, relativePath, finalFileName);
 
       // 构建对应的NFO文件路径
-      java.nio.file.Path nfoFilePath = strmFilePath.resolveSibling(
-          strmFilePath.getFileName().toString().replace(".strm", ".nfo"));
+      java.nio.file.Path nfoFilePath =
+          strmFilePath.resolveSibling(
+              strmFilePath.getFileName().toString().replace(".strm", ".nfo"));
 
       // 如果NFO文件存在，则跳过刮削
       return !java.nio.file.Files.exists(nfoFilePath);
@@ -692,7 +707,7 @@ public class TaskExecutionService {
    * 处理文件名（重命名和添加.strm扩展名） 这个方法复制自StrmFileService，用于判断STRM文件是否存在
    *
    * @param originalFileName 原始文件名
-   * @param renameRegex      重命名正则表达式
+   * @param renameRegex 重命名正则表达式
    * @return 处理后的文件名
    */
   private String processFileNameForScraping(String originalFileName, String renameRegex) {
