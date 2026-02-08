@@ -1,0 +1,153 @@
+/* Vue Select 深色主题样式覆盖 */
+
+/* ============================================
+   下拉容器（主输入框区域）
+   ============================================ */
+.vs__dropdown-toggle {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0.75rem;
+  padding: 4px 28px 4px 8px !important;
+  min-height: 36px;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* 选中标签容器 - 防止换行 */
+.vs__selected-tags {
+  flex-wrap: nowrap !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 选中单个标签 */
+.vs__selected {
+  color: #ffffff !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 4px;
+  margin: 0 !important;
+  padding: 0 4px !important;
+  white-space: nowrap !important;
+}
+
+/* 操作区域（搜索框和箭头） */
+.vs__actions {
+  padding: 0 8px !important;
+}
+
+/* ============================================
+   占位符文字
+   ============================================ */
+.vs__selected {
+  color: #ffffff !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 4px;
+  margin: 0 !important;
+  padding: 0 4px !important;
+}
+
+/* ============================================
+   占位符文字
+   ============================================ */
+.vs__placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ============================================
+   搜索输入框
+   ============================================ */
+.vs__search {
+  color: #ffffff !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.vs__search::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ============================================
+   下拉箭头（隐藏原生，用 CSS 控制）
+   ============================================ */
+.vs__open-indicator {
+  fill: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* 清除按钮 - 隐藏 */
+.vs__clear {
+  display: none !important;
+}
+
+/* ============================================
+   下拉菜单（展开后的选项列表）
+   ============================================ */
+.vs__dropdown-menu {
+  background-color: #1A1A24 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+  padding: 4px;
+  z-index: 9999 !important;
+  position: absolute !important;
+}
+
+/* ============================================
+   下拉选项
+   ============================================ */
+.vs__dropdown-option {
+  color: rgba(255, 255, 255, 0.7) !important;
+  padding: 8px 12px !important;
+  border-radius: 4px !important;
+  line-height: 1.4;
+}
+
+/* 悬停的选项 */
+.vs__dropdown-option:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* 高亮的选项（当前选中或键盘导航） */
+.vs__dropdown-option--highlight {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  color: #ffffff !important;
+}
+
+/* ============================================
+   空选项提示
+   ============================================ */
+.vs__no-options {
+  color: rgba(255, 255, 255, 0.4) !important;
+  padding: 8px 12px;
+}
+
+/* ============================================
+   加载状态
+   ============================================ */
+.vs__spinner {
+  border-top-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* ============================================
+   禁用状态
+   ============================================ */
+.vs--disabled .vs__dropdown-toggle {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+.vs--disabled .vs__selected {
+  opacity: 0.5 !important;
+}
+
+/* ============================================
+   修正：解决选项列表白色背景问题
+   ============================================ */
+.vs__dropdown-menu [role="listbox"] {
+  background-color: #1A1A24 !important;
+}

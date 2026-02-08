@@ -58,20 +58,25 @@
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label for="tmdbLanguage" class="block text-sm text-white/70 mb-2">语言设置</label>
-                <select id="tmdbLanguage" v-model="tmdbConfig.language" class="input-field">
-                  <option value="zh-CN">中文（简体）</option>
-                  <option value="zh-TW">中文（繁体）</option>
-                  <option value="en-US">English</option>
-                </select>
+                <v-select
+                  id="tmdbLanguage"
+                  v-model="tmdbConfig.language"
+                  :options="tmdbLanguageOptions"
+                  :reduce="(opt: any) => opt.value"
+                  :clearable="false"
+                  class="vue-select-md"
+                />
               </div>
               <div>
                 <label for="tmdbRegion" class="block text-sm text-white/70 mb-2">地区设置</label>
-                <select id="tmdbRegion" v-model="tmdbConfig.region" class="input-field">
-                  <option value="CN">中国</option>
-                  <option value="TW">台湾</option>
-                  <option value="HK">香港</option>
-                  <option value="US">美国</option>
-                </select>
+                <v-select
+                  id="tmdbRegion"
+                  v-model="tmdbConfig.region"
+                  :options="tmdbRegionOptions"
+                  :reduce="(opt: any) => opt.value"
+                  :clearable="false"
+                  class="vue-select-md"
+                />
               </div>
             </div>
 
@@ -206,23 +211,26 @@
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label for="logRetentionDays" class="block text-sm text-white/70 mb-2">日志保留时间</label>
-                <select id="logRetentionDays" v-model.number="logConfig.retentionDays" class="input-field">
-                  <option :value="1">1天</option>
-                  <option :value="3">3天</option>
-                  <option :value="5">5天</option>
-                  <option :value="7">7天</option>
-                  <option :value="30">30天</option>
-                </select>
+                <v-select
+                  id="logRetentionDays"
+                  v-model.number="logConfig.retentionDays"
+                  :options="logRetentionOptions"
+                  :reduce="(opt: any) => opt.value"
+                  :clearable="false"
+                  class="vue-select-md"
+                />
                 <p class="mt-1 text-xs text-white/30">系统将在每天凌晨1:30自动清理过期日志文件</p>
               </div>
               <div>
                 <label for="logLevel" class="block text-sm text-white/70 mb-2">日志级别</label>
-                <select id="logLevel" v-model="logConfig.level" class="input-field">
-                  <option value="debug">Debug</option>
-                  <option value="info">Info</option>
-                  <option value="warn">Warn</option>
-                  <option value="error">Error</option>
-                </select>
+                <v-select
+                  id="logLevel"
+                  v-model="logConfig.level"
+                  :options="logLevelOptions"
+                  :reduce="(opt: any) => opt.value"
+                  :clearable="false"
+                  class="vue-select-md"
+                />
                 <p class="mt-1 text-xs text-white/30">系统仅保留等于或高于所选级别的日志记录</p>
               </div>
             </div>
@@ -314,6 +322,35 @@ const testingAi = ref(false)
 const aiTestResult = ref(null)
 const resettingPrompt = ref(false)
 
+// Vue Select 选项数据
+const tmdbLanguageOptions = [
+  { label: '中文（简体）', value: 'zh-CN' },
+  { label: '中文（繁体）', value: 'zh-TW' },
+  { label: 'English', value: 'en-US' }
+]
+
+const tmdbRegionOptions = [
+  { label: '中国', value: 'CN' },
+  { label: '台湾', value: 'TW' },
+  { label: '香港', value: 'HK' },
+  { label: '美国', value: 'US' }
+]
+
+const logRetentionOptions = [
+  { label: '1天', value: 1 },
+  { label: '3天', value: 3 },
+  { label: '5天', value: 5 },
+  { label: '7天', value: 7 },
+  { label: '30天', value: 30 }
+]
+
+const logLevelOptions = [
+  { label: 'Debug', value: 'debug' },
+  { label: 'Info', value: 'info' },
+  { label: 'Warn', value: 'warn' },
+  { label: 'Error', value: 'error' }
+]
+
 const loadCurrentSettings = async () => {
   availableExtensions.value = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.3g2', '.asf', '.divx', '.f4v', '.m2ts', '.m2v', '.mts', '.ogv', '.rm', '.rmvb', '.ts', '.vob', '.xvid', '.iso']
   try {
@@ -371,3 +408,16 @@ const goBack = () => router.back()
 
 onMounted(loadCurrentSettings)
 </script>
+
+<style scoped>
+/* Vue Select 中等高度样式 */
+.vue-select-md {
+  --vs-height: 46px;
+}
+
+.vue-select-md :deep(.vs__dropdown-toggle) {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  min-height: 46px;
+}
+</style>
