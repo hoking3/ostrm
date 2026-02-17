@@ -12,7 +12,7 @@ WORKDIR /app/frontend
 # Install dependencies with BuildKit cache mount for faster builds
 COPY frontend/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit --no-fund --omit=dev && \
+    npm ci --prefer-offline --no-audit --no-fund && \
     rm -rf /tmp/*
 
 # Copy source code and build

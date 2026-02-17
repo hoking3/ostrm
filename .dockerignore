@@ -112,8 +112,7 @@ scripts/
 .eslintcache
 .stylelintcache
 
-# Ignore package manager files
-package-lock.json
+# Ignore package manager files (except frontend/package-lock.json which is needed for npm ci)
 yarn.lock
 pnpm-lock.yaml
 **/yarn-error.log
