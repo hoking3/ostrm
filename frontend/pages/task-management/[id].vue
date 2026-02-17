@@ -23,10 +23,18 @@
                 <h3 class="text-lg leading-6 font-medium text-gray-900">配置信息</h3>
                 <p class="mt-1 max-w-2xl text-sm text-gray-500">当前 OpenList 配置详情</p>
               </div>
-              <span :class="configInfo?.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
-                    class="inline-flex px-2 py-1 text-xs font-semibold rounded-full">
-                {{ configInfo?.isActive ? '启用' : '禁用' }}
-              </span>
+              <div class="flex items-center space-x-3">
+                <span :class="configInfo?.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                      class="inline-flex px-2 py-1 text-xs font-semibold rounded-full">
+                  {{ configInfo?.isActive ? '启用' : '禁用' }}
+                </span>
+                <button @click="browseFiles" class="inline-flex items-center px-3 py-1 text-sm font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-md transition-colors">
+                  <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                  </svg>
+                  浏览文件
+                </button>
+              </div>
             </div>
             
             <div class="mt-5 border-t border-gray-200 pt-5" v-if="configInfo">
@@ -107,13 +115,19 @@
                 </div>
                 
                 <div class="mt-3 flex items-center space-x-4">
-                  <label class="flex items-center text-sm" :class="task.needScrap ? 'text-gray-600' : 'text-gray-500'">
-                    <input type="checkbox" :checked="task.needScrap" disabled class="mr-1">
-                    需要刮削
-                  </label>
                   <label class="flex items-center text-sm text-gray-600">
                     <input type="checkbox" :checked="task.isIncrement" disabled class="mr-1">
                     增量更新
+                  </label>
+                </div>
+                <div class="mt-3 flex items-center space-x-4">
+                  <label class="flex items-center text-sm" :class="task.enableOpenlistRefresh ? 'text-green-600' : 'text-gray-500'">
+                    <input type="checkbox" :checked="task.enableOpenlistRefresh" disabled class="mr-1">
+                    OpenList刷新
+                  </label>
+                  <label class="flex items-center text-sm" :class="task.enableEmbyRefresh ? 'text-green-600' : 'text-gray-500'">
+                    <input type="checkbox" :checked="task.enableEmbyRefresh" disabled class="mr-1">
+                    Emby刷新
                   </label>
                 </div>
                 
@@ -233,15 +247,22 @@
               
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <label class="flex items-center">
-                  <input v-model="taskForm.needScrap" type="checkbox"
-                         class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                  <span class="ml-2 text-sm text-gray-700">需要刮削</span>
-                  <span class="ml-1 text-xs text-gray-500">(启用TMDB刮削功能，生成NFO和封面。如设置中启用"优先使用已存在的刮削信息"，会先尝试复制现有文件)</span>
+                  <input v-model="taskForm.isIncrement" type="checkbox" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                  <span class="ml-2 text-sm text-gray-700">增量更新</span>
+                </label>
+              </div>
+              
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label class="flex items-center">
+                  <input v-model="taskForm.enableOpenlistRefresh" type="checkbox" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                  <span class="ml-2 text-sm text-gray-700">刷新OpenList数据</span>
+                  <span class="ml-1 text-xs text-gray-500">(执行前自动刷新OpenList目录数据)</span>
                 </label>
 
                 <label class="flex items-center">
-                  <input v-model="taskForm.isIncrement" type="checkbox" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
-                  <span class="ml-2 text-sm text-gray-700">增量更新</span>
+                  <input v-model="taskForm.enableEmbyRefresh" type="checkbox" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                  <span class="ml-2 text-sm text-gray-700">刷新Emby媒体库</span>
+                  <span class="ml-1 text-xs text-gray-500">(执行后自动刷新Emby媒体库)</span>
                 </label>
               </div>
               
@@ -350,10 +371,11 @@ const taskForm = ref({
   path: '',
   strmPath: '/app/backend/strm',
   cron: '',
-  needScrap: false,
   renameRegex: '',
   isIncrement: true,
-  isActive: true
+  isActive: true,
+  enableOpenlistRefresh: false,
+  enableEmbyRefresh: false
 })
 const strmSubPath = ref('')
 const showRenameRegexHelp = ref(false)
@@ -404,10 +426,11 @@ const resetTaskForm = () => {
     path: '',
     strmPath: '/app/backend/strm',
     cron: '',
-    needScrap: false,
     renameRegex: '',
     isIncrement: true,
-    isActive: true
+    isActive: true,
+    enableOpenlistRefresh: false,
+    enableEmbyRefresh: false
   }
   strmSubPath.value = ''
   showRenameRegexHelp.value = false
@@ -421,10 +444,11 @@ const editTask = (task) => {
     path: task.path,
     strmPath: task.strmPath,
     cron: task.cron || '',
-    needScrap: task.needScrap || false, // 使用实际的数据库值
     renameRegex: task.renameRegex || '',
     isIncrement: task.isIncrement,
-    isActive: task.isActive
+    isActive: task.isActive,
+    enableOpenlistRefresh: task.enableOpenlistRefresh,
+    enableEmbyRefresh: task.enableEmbyRefresh
   }
   // 解析STRM路径，提取子路径
   const prefix = '/app/backend/strm/'
@@ -554,6 +578,11 @@ const formatDate = (timestamp) => {
 // 返回上一页
 const goBack = () => {
   navigateTo('/')
+}
+
+// 跳转到文件浏览器
+const browseFiles = () => {
+  navigateTo(`/file-browser/${configId}`)
 }
 
 // 修改密码

@@ -56,4 +56,16 @@ public class TaskConfigDto {
 
   /** 是否启用：true-启用，false-禁用 */
   private Boolean isActive;
+
+  /** 是否启用OpenList数据刷新 */
+  private Boolean enableOpenlistRefresh;
+
+  /** 是否启用Emby媒体库刷新 */
+  private Boolean enableEmbyRefresh;
+
+  /** Emby服务器地址 */
+  private String embyServerUrl;
+
+  /** Emby API Key */
+  private String embyApiKey;
 }

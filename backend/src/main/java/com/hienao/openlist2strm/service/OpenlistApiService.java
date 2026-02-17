@@ -9,7 +9,9 @@ import com.hienao.openlist2strm.util.UrlEncoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -343,25 +345,29 @@ public class OpenlistApiService {
    */
   public byte[] getFileContent(OpenlistConfig config, OpenlistFile file, boolean enableUrlEncoding) {
     try {
-      // 使用OpenlistFile中的url字段，已包含sign参数
-      String fileUrl = file.getUrl();
+      // 重新构建URL，确保使用正确的编码（不依赖file.getUrl()）
+      String fileUrl;
+      
+      // 使用我们正确编码的buildFileUrl方法
+      String baseUrl = file.getUrl();
+      // 从file.getUrl()中提取baseUrl和filePath比较复杂，更好的方式是重新使用file.getPath()来构建
+      // 因为file对象中有path属性，我们可以直接用这个来构建正确编码的URL
+      String properlyEncodedUrl = buildFileUrl(config.getBaseUrl(), file.getPath());
+      
       if (file.getSign() != null && !file.getSign().isEmpty()) {
         // 构建完整URL
-        String completeUrl = file.getUrl() + "?sign=" + file.getSign();
+        String completeUrl = properlyEncodedUrl + "?sign=" + file.getSign();
         if (enableUrlEncoding) {
-          // 使用统一的智能编码，避免双重编码（适用于STRM文件写入场景）
           fileUrl = UrlEncoder.encodeUrlSmart(completeUrl);
         } else {
-          // 不进行URL编码（适用于刮削文件下载场景，避免认证问题）
+          // 即使不使用UrlEncoder，我们也需要properlyEncodedUrl，因为它是正确编码的
           fileUrl = completeUrl;
         }
       } else {
         if (enableUrlEncoding) {
-          // 使用统一编码标准确保中文路径正确处理
-          fileUrl = UrlEncoder.encodeUrlSmart(fileUrl);
+          fileUrl = UrlEncoder.encodeUrlSmart(properlyEncodedUrl);
         } else {
-          // 不进行编码，直接使用原始URL
-          fileUrl = file.getUrl();
+          fileUrl = properlyEncodedUrl;
         }
       }
 
@@ -941,6 +947,388 @@ public class OpenlistApiService {
   }
 
   /**
+   * 刷新OpenList目录数据
+   *
+   * @param config OpenList配置
+   * @param path 目录路径
+   * @return 是否刷新成功
+   */
+  public boolean refreshDirectory(OpenlistConfig config, String path) {
+    try {
+      log.info("开始刷新OpenList目录数据: {}", path);
+
+      // 构建请求URL
+      String apiUrl = config.getBaseUrl();
+      if (!apiUrl.endsWith("/")) {
+        apiUrl += "/";
+      }
+      apiUrl += "api/fs/list";
+
+      UriComponentsBuilder builder =
+          UriComponentsBuilder.fromHttpUrl(apiUrl).queryParam("path", path);
+
+      String requestUrl = builder.toUriString();
+      log.debug("刷新请求URL: {}", requestUrl);
+
+      // 设置请求头
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.APPLICATION_JSON);
+      headers.set("User-Agent", AppConstants.USER_AGENT);
+      headers.set("Authorization", config.getToken());
+
+      // 构建请求体，设置refresh参数为true
+      String requestBody = String.format(
+          "{\"path\":\"%s\",\"password\":\"\",\"page\":1,\"per_page\":0,\"refresh\":true}",
+          path);
+
+      HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+
+      // 发送请求
+      long startTime = System.currentTimeMillis();
+      ResponseEntity<String> response = restTemplate.exchange(requestUrl, HttpMethod.POST, entity, String.class);
+      long endTime = System.currentTimeMillis();
+
+      log.info("OpenList目录刷新请求耗时: {}ms", endTime - startTime);
+
+      if (!response.getStatusCode().is2xxSuccessful()) {
+        log.error("OpenList目录刷新失败，状态码: {}", response.getStatusCode());
+        return false;
+      }
+
+      String responseBody = response.getBody();
+      if (responseBody == null || responseBody.isEmpty()) {
+        log.error("OpenList目录刷新返回空响应");
+        return false;
+      }
+
+      log.debug("OpenList目录刷新响应: {}", responseBody);
+
+      // 解析响应
+      AlistApiResponse apiResponse = objectMapper.readValue(responseBody, AlistApiResponse.class);
+
+      if (apiResponse.getCode() == null || !apiResponse.getCode().equals(200)) {
+        log.error("OpenList目录刷新失败: {}", apiResponse.getMessage());
+        return false;
+      }
+
+      log.info("OpenList目录刷新成功: {}", path);
+      return true;
+
+    } catch (Exception e) {
+      log.error("OpenList目录刷新异常: {}, 错误: {}", path, e.getMessage(), e);
+      return false;
+    }
+  }
+
+  /**
+   * 构建相对于挂载目录的路径
+   *
+   * @param basePath 挂载基础路径
+   * @param fullPath 完整路径
+   * @return 相对于挂载目录的路径
+   */
+  private String buildRelativePath(String basePath, String fullPath) {
+    if (basePath == null || basePath.isEmpty() || basePath.equals("/")) {
+      return fullPath;
+    }
+    
+    String normalizedBasePath = basePath.endsWith("/") ? basePath : basePath + "/";
+    if (fullPath.startsWith(normalizedBasePath)) {
+      String relativePath = fullPath.substring(normalizedBasePath.length());
+      return relativePath.startsWith("/") ? relativePath : "/" + relativePath;
+    }
+    
+    return fullPath;
+  }
+
+  /**
+   * 重命名文件或目录
+   *
+   * @param config OpenList配置
+   * @param srcPath 源文件完整路径
+   * @param dstPath 目标文件完整路径
+   * @return 是否重命名成功
+   */
+  public boolean renameFile(OpenlistConfig config, String srcPath, String dstPath) {
+    try {
+      log.info("开始重命名文件 - 源: {}, 目标: {}", srcPath, dstPath);
+      log.info("配置basePath: {}", config.getBasePath());
+
+      String cleanSrcPath = cleanPathForAlist(srcPath);
+      
+      int dstLastSlashIndex = dstPath.lastIndexOf('/');
+      String dstFileName;
+      if (dstLastSlashIndex == -1) {
+        dstFileName = cleanPathForAlist(dstPath);
+      } else {
+        dstFileName = cleanPathForAlist(dstPath.substring(dstLastSlashIndex + 1));
+      }
+      
+      log.info("解析后 - 源路径: {}, 新文件名: {}", cleanSrcPath, dstFileName);
+
+      String apiUrl = config.getBaseUrl();
+      if (!apiUrl.endsWith("/")) {
+        apiUrl += "/";
+      }
+      apiUrl += "api/fs/rename";
+
+      String requestUrl = UriComponentsBuilder.fromHttpUrl(apiUrl).toUriString();
+      log.debug("重命名请求URL: {}", requestUrl);
+
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.APPLICATION_JSON);
+      headers.set("User-Agent", AppConstants.USER_AGENT);
+      headers.set("Authorization", config.getToken());
+
+      String requestBody = String.format(
+          "{\"path\":\"%s\",\"name\":\"%s\"}",
+          cleanSrcPath, dstFileName);
+      
+      log.info("重命名请求体: {}", requestBody);
+
+      HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+
+      long startTime = System.currentTimeMillis();
+      ResponseEntity<String> response = restTemplate.exchange(requestUrl, HttpMethod.POST, entity, String.class);
+      long endTime = System.currentTimeMillis();
+
+      log.info("重命名请求耗时: {}ms", endTime - startTime);
+
+      if (!response.getStatusCode().is2xxSuccessful()) {
+        log.error("重命名失败，状态码: {}", response.getStatusCode());
+        return false;
+      }
+
+      String responseBody = response.getBody();
+      log.debug("重命名响应: {}", responseBody);
+
+      AlistApiResponse apiResponse = objectMapper.readValue(responseBody, AlistApiResponse.class);
+
+      if (apiResponse.getCode() == null || !apiResponse.getCode().equals(200)) {
+        log.error("重命名失败: {}", apiResponse.getMessage());
+        return false;
+      }
+
+      log.info("重命名成功: {} -> {}", srcPath, dstPath);
+      return true;
+
+    } catch (Exception e) {
+      log.error("重命名异常: {} -> {}, 错误: {}", srcPath, dstPath, e.getMessage(), e);
+      return false;
+    }
+  }
+
+  /**
+   * 清理路径，使其符合 Alist API 的要求
+   * Alist API 不接受以 / 开头的路径
+   * 
+   * @param path 原始路径
+   * @return 清理后的路径
+   */
+  private String cleanPathForAlist(String path) {
+    if (path == null || path.isEmpty()) {
+      return path;
+    }
+    
+    String cleanPath = path;
+    
+    while (cleanPath.startsWith("/")) {
+      cleanPath = cleanPath.substring(1);
+    }
+    
+    return cleanPath;
+  }
+
+  /**
+   * 批量重命名文件
+   *
+   * @param config OpenList配置
+   * @param renameList 重命名列表，包含源路径和目标路径
+   * @return 重命名结果，包含成功和失败的列表
+   */
+  public Map<String, Object> batchRenameFiles(OpenlistConfig config, List<Map<String, String>> renameList) {
+    Map<String, Object> result = new HashMap<>();
+    List<Map<String, String>> successList = new ArrayList<>();
+    List<Map<String, String>> failedList = new ArrayList<>();
+
+    for (Map<String, String> renameItem : renameList) {
+      String srcPath = renameItem.get("srcPath");
+      String dstPath = renameItem.get("dstPath");
+
+      try {
+        boolean success = renameFile(config, srcPath, dstPath);
+        Map<String, String> item = new HashMap<>();
+        item.put("srcPath", srcPath);
+        item.put("dstPath", dstPath);
+
+        if (success) {
+          successList.add(item);
+        } else {
+          failedList.add(item);
+        }
+      } catch (Exception e) {
+        log.error("批量重命名项失败: {} -> {}", srcPath, dstPath, e);
+        Map<String, String> item = new HashMap<>();
+        item.put("srcPath", srcPath);
+        item.put("dstPath", dstPath);
+        item.put("error", e.getMessage());
+        failedList.add(item);
+      }
+    }
+
+    result.put("success", successList);
+    result.put("failed", failedList);
+    result.put("total", renameList.size());
+    result.put("successCount", successList.size());
+    result.put("failedCount", failedList.size());
+
+    return result;
+  }
+
+  /**
+   * 写入文本文件内容
+   *
+   * @param config OpenList配置
+   * @param filePath 文件路径（相对于挂载目录）
+   * @param content 文件内容
+   * @return 是否写入成功
+   */
+  public boolean writeTextFile(OpenlistConfig config, String filePath, String content) {
+    try {
+      log.info("开始写入文本文件: {}", filePath);
+
+      String apiUrl = config.getBaseUrl();
+      if (!apiUrl.endsWith("/")) {
+        apiUrl += "/";
+      }
+      apiUrl += "api/fs/put";
+
+      String requestUrl = UriComponentsBuilder.fromHttpUrl(apiUrl).toUriString();
+      log.debug("写入文件请求URL: {}", requestUrl);
+
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.APPLICATION_JSON);
+      headers.set("User-Agent", AppConstants.USER_AGENT);
+      headers.set("Authorization", config.getToken());
+      headers.set("File-Path", filePath);
+
+      HttpEntity<String> entity = new HttpEntity<>(content, headers);
+
+      long startTime = System.currentTimeMillis();
+      ResponseEntity<String> response = restTemplate.exchange(requestUrl, HttpMethod.PUT, entity, String.class);
+      long endTime = System.currentTimeMillis();
+
+      log.info("写入文件请求耗时: {}ms", endTime - startTime);
+
+      if (!response.getStatusCode().is2xxSuccessful()) {
+        log.error("写入文件失败，状态码: {}", response.getStatusCode());
+        return false;
+      }
+
+      String responseBody = response.getBody();
+      log.debug("写入文件响应: {}", responseBody);
+
+      AlistApiResponse apiResponse = objectMapper.readValue(responseBody, AlistApiResponse.class);
+
+      if (apiResponse.getCode() == null || !apiResponse.getCode().equals(200)) {
+        log.error("写入文件失败: {}", apiResponse.getMessage());
+        return false;
+      }
+
+      log.info("写入文件成功: {}", filePath);
+      return true;
+
+    } catch (Exception e) {
+      log.error("写入文件异常: {}, 错误: {}", filePath, e.getMessage(), e);
+      return false;
+    }
+  }
+
+  /**
+   * 下载并保存图片
+   *
+   * @param config OpenList配置
+   * @param imageUrl 图片URL
+   * @param filePath 保存路径（相对于挂载目录）
+   * @return 是否保存成功
+   */
+  public boolean downloadAndSaveImage(OpenlistConfig config, String imageUrl, String filePath) {
+    try {
+      log.info("开始下载并保存图片: {} -> {}", imageUrl, filePath);
+
+      byte[] imageBytes = restTemplate.getForObject(imageUrl, byte[].class);
+      
+      if (imageBytes == null || imageBytes.length == 0) {
+        log.error("下载图片失败: 图片为空");
+        return false;
+      }
+
+      return saveImageBytes(config, imageBytes, filePath);
+
+    } catch (Exception e) {
+      log.error("下载并保存图片异常: {}, 错误: {}", filePath, e.getMessage(), e);
+      return false;
+    }
+  }
+
+  /**
+   * 保存图片字节数组到OpenList
+   *
+   * @param config OpenList配置
+   * @param imageBytes 图片字节数组
+   * @param filePath 保存路径（相对于挂载目录）
+   * @return 是否保存成功
+   */
+  public boolean saveImageBytes(OpenlistConfig config, byte[] imageBytes, String filePath) {
+    try {
+      log.info("开始保存图片字节数组: {}", filePath);
+
+      if (imageBytes == null || imageBytes.length == 0) {
+        log.error("保存图片失败: 图片为空");
+        return false;
+      }
+
+      String apiUrl = config.getBaseUrl();
+      if (!apiUrl.endsWith("/")) {
+        apiUrl += "/";
+      }
+      apiUrl += "api/fs/put";
+
+      String requestUrl = UriComponentsBuilder.fromHttpUrl(apiUrl).toUriString();
+
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+      headers.set("User-Agent", AppConstants.USER_AGENT);
+      headers.set("Authorization", config.getToken());
+      headers.set("File-Path", filePath);
+
+      HttpEntity<byte[]> entity = new HttpEntity<>(imageBytes, headers);
+
+      ResponseEntity<String> response = restTemplate.exchange(requestUrl, HttpMethod.PUT, entity, String.class);
+
+      if (!response.getStatusCode().is2xxSuccessful()) {
+        log.error("保存图片失败，状态码: {}", response.getStatusCode());
+        return false;
+      }
+
+      String responseBody = response.getBody();
+      AlistApiResponse apiResponse = objectMapper.readValue(responseBody, AlistApiResponse.class);
+
+      if (apiResponse.getCode() == null || !apiResponse.getCode().equals(200)) {
+        log.error("保存图片失败: {}", apiResponse.getMessage());
+        return false;
+      }
+
+      log.info("保存图片成功: {}", filePath);
+      return true;
+
+    } catch (Exception e) {
+      log.error("保存图片异常: {}, 错误: {}", filePath, e.getMessage(), e);
+      return false;
+    }
+  }
+
+  /**
    * 构建文件URL，使用UriComponentsBuilder进行正确的URL编码
    *
    * <p>使用Spring的UriComponentsBuilder进行URL编码，正确处理包含中文字符的路径
@@ -950,20 +1338,40 @@ public class OpenlistApiService {
    * @return 完整的文件URL
    */
   private String buildFileUrl(String baseUrl, String filePath) {
-    // 确保baseUrl以/结尾
-    if (!baseUrl.endsWith("/")) {
-      baseUrl += "/";
+    try {
+      // 确保baseUrl以/结尾
+      if (!baseUrl.endsWith("/")) {
+        baseUrl += "/";
+      }
+
+      // 手动构建并编码每个路径段 - 最可靠的方法
+      StringBuilder sb = new StringBuilder();
+      sb.append(baseUrl).append("d");
+      
+      String cleanPath = filePath.startsWith("/") ? filePath.substring(1) : filePath;
+      
+      if (!cleanPath.isEmpty()) {
+        String[] segments = cleanPath.split("/");
+        for (String segment : segments) {
+          if (!segment.isEmpty()) {
+            // 手动编码每个路径段，确保安全
+            String encodedSegment = java.net.URLEncoder.encode(segment, "UTF-8")
+                .replace("+", "%20"); // 用 %20 替代 +
+            sb.append("/").append(encodedSegment);
+          }
+        }
+      }
+      
+      String result = sb.toString();
+      log.debug("URL构建编码: {}{} -> {}", baseUrl, filePath, result);
+      return result;
+    } catch (Exception e) {
+      log.error("构建文件URL失败: {}, 错误: {}", filePath, e.getMessage(), e);
+      // 最后的回退方案
+      if (!baseUrl.endsWith("/")) {
+        baseUrl += "/";
+      }
+      return baseUrl + "d" + filePath;
     }
-
-    // 使用UriComponentsBuilder构建URL，自动处理路径编码
-    String result =
-        UriComponentsBuilder.fromHttpUrl(baseUrl)
-            .pathSegment("d")
-            .path(filePath)
-            .build()
-            .toUriString();
-
-    log.debug("URL构建编码: {}{}d{} -> {}", baseUrl, "d", filePath, result);
-    return result;
   }
 }

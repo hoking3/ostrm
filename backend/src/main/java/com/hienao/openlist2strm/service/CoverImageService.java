@@ -28,6 +28,7 @@ public class CoverImageService {
 
   private final RestTemplate restTemplate;
   private final SystemConfigService systemConfigService;
+  private final OpenlistApiService openlistApiService;
 
   /**
    * 下载海报图片
@@ -127,8 +128,7 @@ public class CoverImageService {
 
     // 检查同名文件是否已存在
     if (Files.exists(savePath)) {
-      Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-      boolean overwriteExisting = (Boolean) scrapingConfig.getOrDefault("overwriteExisting", false);
+      boolean overwriteExisting = systemConfigService.getOverwriteExistingNfoConfig();
 
       if (!overwriteExisting) {
         log.info("检测到同名图片文件已存在，跳过下载: {}", saveFilePath);
@@ -279,5 +279,119 @@ public class CoverImageService {
 
     // 清理文件名
     return sanitizeFileName(nameWithoutExt);
+  }
+
+  /**
+   * 下载图片并通过OpenList API保存
+   *
+   * @param imageUrl 图片URL
+   * @param openlistConfig OpenList配置
+   * @param saveFilePath 保存路径（相对于挂载目录）
+   * @return 是否保存成功
+   */
+  public boolean downloadAndSaveToOpenlist(
+      String imageUrl,
+      com.hienao.openlist2strm.entity.OpenlistConfig openlistConfig,
+      String saveFilePath) {
+    if (imageUrl == null || imageUrl.trim().isEmpty()) {
+      log.warn("图片URL为空，跳过下载: {}", saveFilePath);
+      return false;
+    }
+
+    try {
+      log.info("开始下载并保存图片: {} -> {}", imageUrl, saveFilePath);
+
+      // 下载图片数据
+      HttpHeaders headers = new HttpHeaders();
+      headers.set("User-Agent", AppConstants.USER_AGENT);
+      headers.set("Accept", "image/*");
+      HttpEntity<String> entity = new HttpEntity<>(headers);
+
+      ResponseEntity<byte[]> response =
+          restTemplate.exchange(imageUrl, HttpMethod.GET, entity, byte[].class);
+
+      if (!response.getStatusCode().is2xxSuccessful()) {
+        log.error("下载图片失败，HTTP状态码: {}", response.getStatusCode());
+        return false;
+      }
+
+      byte[] imageData = response.getBody();
+      if (imageData == null || imageData.length == 0) {
+        log.error("下载的图片数据为空");
+        return false;
+      }
+
+      // 通过OpenList API保存图片（直接保存字节数组，避免重复下载）
+      boolean success = openlistApiService.saveImageBytes(openlistConfig, imageData, saveFilePath);
+      
+      if (success) {
+        log.info("图片通过OpenList保存成功: {}", saveFilePath);
+      }
+      
+      return success;
+
+    } catch (Exception e) {
+      log.error("下载并保存图片失败: {} -> {}", imageUrl, saveFilePath, e);
+      return false;
+    }
+  }
+
+  /**
+   * 批量下载图片并通过OpenList API保存
+   *
+   * @param posterUrl 海报URL
+   * @param backdropUrl 背景图片URL
+   * @param openlistConfig OpenList配置
+   * @param baseFilePath 基础文件路径（不含扩展名）
+   * @param downloadPoster 是否下载海报
+   * @param downloadBackdrop 是否下载背景图
+   */
+  public void downloadImagesToOpenlist(
+      String posterUrl,
+      String backdropUrl,
+      com.hienao.openlist2strm.entity.OpenlistConfig openlistConfig,
+      String baseFilePath,
+      boolean downloadPoster,
+      boolean downloadBackdrop) {
+    downloadImagesToOpenlist(posterUrl, backdropUrl, openlistConfig, baseFilePath, downloadPoster, downloadBackdrop, null);
+  }
+
+  /**
+   * 批量下载图片并通过OpenList API保存（支持剧集剧照）
+   *
+   * @param posterUrl 海报URL
+   * @param backdropUrl 背景图片URL
+   * @param openlistConfig OpenList配置
+   * @param baseFilePath 基础文件路径（不含扩展名）
+   * @param downloadPoster 是否下载海报
+   * @param downloadBackdrop 是否下载背景图
+   * @param stillUrl 剧集剧照URL（可选）
+   */
+  public void downloadImagesToOpenlist(
+      String posterUrl,
+      String backdropUrl,
+      com.hienao.openlist2strm.entity.OpenlistConfig openlistConfig,
+      String baseFilePath,
+      boolean downloadPoster,
+      boolean downloadBackdrop,
+      String stillUrl) {
+    
+    // 下载海报
+    if (downloadPoster && posterUrl != null && !posterUrl.trim().isEmpty()) {
+      String posterFilePath = baseFilePath + "-poster.jpg";
+      downloadAndSaveToOpenlist(posterUrl, openlistConfig, posterFilePath);
+    }
+
+    // 下载背景图片
+    if (downloadBackdrop && backdropUrl != null && !backdropUrl.trim().isEmpty()) {
+      String backdropFilePath = baseFilePath + "-fanart.jpg";
+      downloadAndSaveToOpenlist(backdropUrl, openlistConfig, backdropFilePath);
+    }
+
+    // 下载剧集剧照
+    if (stillUrl != null && !stillUrl.trim().isEmpty()) {
+      String stillFilePath = baseFilePath + "-thumb.jpg";
+      downloadAndSaveToOpenlist(stillUrl, openlistConfig, stillFilePath);
+    }
   }
 }

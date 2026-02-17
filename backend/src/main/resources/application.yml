@@ -47,6 +47,18 @@ jwt:
   secret: ${JWT_SECRET:secret}
   expiration-min: ${JWT_EXPIRATION_MIN:20160}  # 14天 = 14 * 24 * 60 = 20160分钟
 
+# Actuator 健康检查配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+
 # GitHub配置
 github:
   repo:

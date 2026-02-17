@@ -107,6 +107,43 @@ public class SystemConfigService {
               }
             }
           }
+          if (!config.containsKey("emby")) {
+            log.info("系统配置中缺少emby字段，添加默认配置");
+            needSave = true;
+          }
+          if (!config.containsKey("copyExistingScrapingInfo")) {
+            // 向后兼容：从旧的 scraping.useExistingScrapingInfo 迁移
+            @SuppressWarnings("unchecked")
+            Map<String, Object> oldScrapingConfig = (Map<String, Object>) config.get("scraping");
+            if (oldScrapingConfig != null && oldScrapingConfig.containsKey("useExistingScrapingInfo")) {
+              result.put("copyExistingScrapingInfo", oldScrapingConfig.get("useExistingScrapingInfo"));
+            } else {
+              result.put("copyExistingScrapingInfo", false);
+            }
+            needSave = true;
+          }
+          if (!config.containsKey("keepSubtitleFiles")) {
+            // 向后兼容：从旧的 scraping.keepSubtitleFiles 迁移
+            @SuppressWarnings("unchecked")
+            Map<String, Object> oldScrapingConfig = (Map<String, Object>) config.get("scraping");
+            if (oldScrapingConfig != null && oldScrapingConfig.containsKey("keepSubtitleFiles")) {
+              result.put("keepSubtitleFiles", oldScrapingConfig.get("keepSubtitleFiles"));
+            } else {
+              result.put("keepSubtitleFiles", false);
+            }
+            needSave = true;
+          }
+          if (!config.containsKey("overwriteExistingNfo")) {
+            // 向后兼容：从旧的 scraping.overwriteExisting 迁移
+            @SuppressWarnings("unchecked")
+            Map<String, Object> oldScrapingConfig = (Map<String, Object>) config.get("scraping");
+            if (oldScrapingConfig != null && oldScrapingConfig.containsKey("overwriteExisting")) {
+              result.put("overwriteExistingNfo", oldScrapingConfig.get("overwriteExisting"));
+            } else {
+              result.put("overwriteExistingNfo", false);
+            }
+            needSave = true;
+          }
         }
       }
 
@@ -233,6 +270,17 @@ public class SystemConfigService {
     logConfig.put("reportUsageData", true); // 默认开启使用数据上报
     defaultConfig.put("log", logConfig);
 
+    // Emby 配置
+    Map<String, Object> embyConfig = new HashMap<>();
+    embyConfig.put("serverUrl", ""); // Emby 服务器地址
+    embyConfig.put("apiKey", ""); // Emby API Key
+    defaultConfig.put("emby", embyConfig);
+
+    // 文件复制配置（独立配置项）
+    defaultConfig.put("copyExistingScrapingInfo", false); // 是否复制已存在的刮削信息
+    defaultConfig.put("keepSubtitleFiles", false); // 是否保留字幕文件
+    defaultConfig.put("overwriteExistingNfo", false); // 是否覆盖已存在的NFO文件
+
     return defaultConfig;
   }
 
@@ -289,6 +337,50 @@ public class SystemConfigService {
   public Map<String, Object> getLogConfig() {
     Map<String, Object> systemConfig = getSystemConfig();
     return (Map<String, Object>) systemConfig.getOrDefault("log", new HashMap<>());
+  }
+
+  /**
+   * 获取Emby配置
+   *
+   * @return Emby配置Map
+   */
+  @SuppressWarnings("unchecked")
+  public Map<String, Object> getEmbyConfig() {
+    Map<String, Object> systemConfig = getSystemConfig();
+    return (Map<String, Object>) systemConfig.getOrDefault("emby", new HashMap<>());
+  }
+
+  /**
+   * 获取复制已存在刮削信息配置
+   *
+   * @return 是否复制已存在的刮削信息
+   */
+  public boolean getCopyExistingScrapingInfoConfig() {
+    Map<String, Object> systemConfig = getSystemConfig();
+    Object value = systemConfig.get("copyExistingScrapingInfo");
+    return Boolean.TRUE.equals(value);
+  }
+
+  /**
+   * 获取保留字幕文件配置
+   *
+   * @return 是否保留字幕文件
+   */
+  public boolean getKeepSubtitleFilesConfig() {
+    Map<String, Object> systemConfig = getSystemConfig();
+    Object value = systemConfig.get("keepSubtitleFiles");
+    return Boolean.TRUE.equals(value);
+  }
+
+  /**
+   * 获取覆盖已存在NFO文件配置
+   *
+   * @return 是否覆盖已存在的NFO文件
+   */
+  public boolean getOverwriteExistingNfoConfig() {
+    Map<String, Object> systemConfig = getSystemConfig();
+    Object value = systemConfig.get("overwriteExistingNfo");
+    return Boolean.TRUE.equals(value);
   }
 
   /**

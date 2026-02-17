@@ -71,11 +71,9 @@ public class MediaScrapingService {
     try {
       log.info("开始处理媒体文件: {}", fileName);
 
-      // 获取配置选项
-      Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-      boolean scrapingEnabled = (Boolean) scrapingConfig.getOrDefault("enabled", true);
-      boolean keepSubtitleFiles = (Boolean) scrapingConfig.getOrDefault("keepSubtitleFiles", false);
-      boolean useExistingScrapingInfo = (Boolean) scrapingConfig.getOrDefault("useExistingScrapingInfo", false);
+      // 获取配置选项（使用独立配置）
+      boolean keepSubtitleFiles = systemConfigService.getKeepSubtitleFilesConfig();
+      boolean useExistingScrapingInfo = systemConfigService.getCopyExistingScrapingInfoConfig();
 
       // 构建保存目录（在解析之前就需要知道保存位置）
       String saveDirectory = buildSaveDirectory(strmDirectory, relativePath);
@@ -87,7 +85,7 @@ public class MediaScrapingService {
         copyRelatedFiles(openlistConfig, saveDirectory, directoryFiles, subtitleExtensions, "字幕文件");
       }
 
-      // 检查是否优先使用已存在的刮削信息（独立于刮削功能启用状态）
+      // 复制已存在的刮削信息（NFO、图片）
       if (useExistingScrapingInfo) {
         boolean foundNfo = copyRelatedFiles(
             openlistConfig, saveDirectory, directoryFiles, new String[]{".nfo"}, "NFO文件");
@@ -96,214 +94,11 @@ public class MediaScrapingService {
             new String[]{".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff"}, "刮削图片");
             
         if (foundNfo || foundImages) {
-          log.info("已复制现有刮削信息，跳过后续处理: {}", fileName);
-          return;
+          log.info("已复制现有刮削信息: {}", fileName);
         }
       }
 
-      // 检查刮削是否启用
-      if (!scrapingEnabled) {
-        log.info("刮削功能已禁用，跳过刮削: {}", fileName);
-        return;
-      }
-
-      // 检查TMDB API Key是否已配置
-      Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
-      String tmdbApiKey = (String) tmdbConfig.getOrDefault("apiKey", "");
-      if (tmdbApiKey == null || tmdbApiKey.trim().isEmpty()) {
-        log.warn("TMDB API Key未配置，跳过刮削功能: {}", fileName);
-        return;
-      }
-
-      // 获取刮削正则配置
-      Map<String, Object> regexConfig = systemConfigService.getScrapingRegexConfig();
-      @SuppressWarnings("unchecked")
-      List<String> movieRegexps = (List<String>) regexConfig.getOrDefault("movieRegexps", Collections.emptyList());
-      @SuppressWarnings("unchecked")
-      List<String> tvDirRegexps = (List<String>) regexConfig.getOrDefault("tvDirRegexps", Collections.emptyList());
-      @SuppressWarnings("unchecked")
-      List<String> tvFileRegexps = (List<String>) regexConfig.getOrDefault("tvFileRegexps", Collections.emptyList());
-
-      // 提取目录路径
-      String directoryPath = extractDirectoryPath(relativePath);
-
-      // 检查路径中是否包含TMDB ID
-      Integer tmdbIdFromPath = TmdbIdExtractor.extractTmdbIdFromPath(relativePath);
-      Integer tmdbIdFromFileName = TmdbIdExtractor.extractTmdbIdFromFileName(fileName);
-      Integer tmdbId = tmdbIdFromPath != null ? tmdbIdFromPath : tmdbIdFromFileName;
-
-      // 解析文件名
-      MediaInfo mediaInfo = MediaFileParser.parse(fileName, directoryPath, movieRegexps, tvDirRegexps, tvFileRegexps);
-      log.debug("正则解析媒体信息: {}", mediaInfo);
-
-      // 如果路径中有TMDB ID，直接使用TMDB ID获取信息，跳过文件名解析
-      if (tmdbId != null) {
-        log.info("检测到路径中的TMDB ID: {}, 直接从TMDB获取信息", tmdbId);
-
-        // 根据文件扩展名判断媒体类型
-        boolean isMovie = MediaFileParser.isVideoFile(fileName);
-
-        try {
-          if (isMovie) {
-            // 直接获取电影详情
-            TmdbMovieDetail movieDetail = tmdbApiService.getMovieDetail(tmdbId);
-            if (movieDetail != null) {
-              log.info("直接获取电影详情成功: {} ({})", movieDetail.getTitle(), movieDetail.getId());
-
-              // 创建MediaInfo对象
-              mediaInfo = new MediaInfo()
-                  .setType(MediaInfo.MediaType.MOVIE)
-                  .setTitle(movieDetail.getTitle())
-                  .setYear(
-                      String.valueOf(
-                          movieDetail.getReleaseDate() != null
-                              ? new SimpleDateFormat("yyyy")
-                                  .format(movieDetail.getReleaseDate())
-                              : null))
-                  .setHasYear(movieDetail.getReleaseDate() != null)
-                  .setOriginalFileName(fileName)
-                  .setConfidence(100); // 使用TMDB ID时置信度为100%
-
-              // 执行电影刮削
-              scrapMovieWithDirectInfo(
-                  mediaInfo, saveDirectory, getStrmCompatibleBaseFileName(fileName), movieDetail);
-              return; // 直接返回，跳过后续逻辑
-            }
-          } else {
-            // 直接获取电视剧详情
-            TmdbTvDetail tvDetail = tmdbApiService.getTvDetail(tmdbId);
-            if (tvDetail != null) {
-              log.info("直接获取电视剧详情成功: {} ({})", tvDetail.getName(), tvDetail.getId());
-              // 创建MediaInfo对象
-              mediaInfo = new MediaInfo()
-                  .setType(MediaInfo.MediaType.TV_SHOW)
-                  .setTitle(tvDetail.getName())
-                  .setYear(
-                      String.valueOf(
-                          tvDetail.getFirstAirDate() != null
-                              ? new SimpleDateFormat("yyyy").format(tvDetail.getFirstAirDate())
-                              : null))
-                  .setHasYear(tvDetail.getFirstAirDate() != null)
-                  .setOriginalFileName(fileName)
-                  .setConfidence(100); // 使用TMDB ID时置信度为100%
-
-              // 尝试从文件名中提取季集信息
-              String nameWithoutExt = MediaFileParser.removeFileExtension(fileName);
-              List<String> tvFileRegexpsOnly = (List<String>) regexConfig.getOrDefault("tvFileRegexps",
-                  Collections.emptyList());
-              for (String regex : tvFileRegexpsOnly) {
-                try {
-                  java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
-                      regex, java.util.regex.Pattern.CASE_INSENSITIVE);
-                  java.util.regex.Matcher matcher = pattern.matcher(nameWithoutExt);
-                  if (matcher.find()) {
-                    com.hienao.openlist2strm.util.MediaFileParser.extractNamedGroups(
-                        matcher, mediaInfo);
-                    log.debug("从文件名中提取季集信息成功: {}", mediaInfo);
-                    break;
-                  }
-                } catch (Exception e) {
-                  log.warn("无效的电视剧文件正则表达式: '{}', 错误: {}", regex, e.getMessage());
-                }
-              }
-
-              // 执行电视剧刮削
-              scrapTvShowWithDirectInfo(
-                  mediaInfo, saveDirectory, getStrmCompatibleBaseFileName(fileName), tvDetail);
-              return; // 直接返回，跳过后续逻辑
-            }
-          }
-        } catch (Exception e) {
-          log.error("使用TMDB ID直接获取信息失败: {}", tmdbId, e);
-          // 继续使用常规的文件名解析方式
-        }
-      }
-
-      // 如果正则解析置信度低，尝试使用AI
-      if (mediaInfo.getConfidence() < 70) {
-        log.info("正则解析置信度低 ({}%)，尝试使用 AI 识别: {}", mediaInfo.getConfidence(), fileName);
-
-        // 上报正则匹配失败事件
-        Map<String, Object> regFailProperties = new HashMap<>();
-        regFailProperties.put("file_path", fullFilePath != null ? fullFilePath : relativePath);
-        regFailProperties.put("file_name", fileName);
-        regFailProperties.put("confidence", mediaInfo.getConfidence());
-        dataReportService.reportEvent("reg_match_fail", regFailProperties);
-        Map<String, Object> aiConfig = systemConfigService.getAiConfig();
-        boolean aiRecognitionEnabled = (Boolean) aiConfig.getOrDefault("enabled", false);
-
-        if (aiRecognitionEnabled) {
-          AiRecognitionResult aiResult = aiFileNameRecognitionService.recognizeFileName(
-              fileName, fullFilePath != null ? fullFilePath : relativePath);
-          if (aiResult != null && aiResult.isSuccess()) {
-            if (aiResult.isNewFormat()) {
-              // 新格式：直接从AI结果构建MediaInfo
-              mediaInfo = aiResult.toMediaInfo(fileName);
-              log.info("使用 AI 识别结果（新格式）重新解析: {}", mediaInfo);
-            } else if (aiResult.isLegacyFormat()) {
-              // 旧格式：使用filename字段重新解析
-              mediaInfo = MediaFileParser.parse(
-                  aiResult.getFilename(),
-                  directoryPath,
-                  movieRegexps,
-                  tvDirRegexps,
-                  tvFileRegexps);
-              log.info("使用 AI 识别结果（旧格式）重新解析: {}", mediaInfo);
-            }
-          } else if (aiResult != null && !aiResult.isSuccess()) {
-            log.info("AI 无法识别文件名: {}, 原因: {}", fileName, aiResult.getReason());
-
-            // 上报AI识别失败事件
-            Map<String, Object> aiFailProperties = new HashMap<>();
-            aiFailProperties.put("file_path", fullFilePath != null ? fullFilePath : relativePath);
-            aiFailProperties.put("file_name", fileName);
-            aiFailProperties.put("reason", aiResult.getReason());
-            dataReportService.reportEvent("ai_match_fail", aiFailProperties);
-          } else {
-            // AI服务调用失败或返回null
-            log.warn("AI识别服务调用失败: {}", fileName);
-
-            // 上报AI识别失败事件
-            Map<String, Object> aiFailProperties = new HashMap<>();
-            aiFailProperties.put("file_path", fullFilePath != null ? fullFilePath : relativePath);
-            aiFailProperties.put("file_name", fileName);
-            aiFailProperties.put("reason", "AI服务调用失败");
-            dataReportService.reportEvent("ai_match_fail", aiFailProperties);
-          }
-        }
-      }
-
-      if (mediaInfo.getConfidence() < 70) {
-        log.warn(
-            "最终解析置信度过低 ({}%)，跳过刮削: {}", mediaInfo.getConfidence(), mediaInfo.getOriginalFileName());
-        return;
-      }
-
-      // 获取与STRM文件一致的baseFileName（只移除扩展名，不进行标准化处理）
-      String baseFileName = getStrmCompatibleBaseFileName(fileName);
-
-      // 检查是否已刮削（增量模式下跳过已刮削的文件）
-      if (isAlreadyScraped(saveDirectory, baseFileName, mediaInfo)) {
-        log.info("文件已刮削，跳过: {}", fileName);
-        return;
-      }
-
-      // 根据媒体类型执行不同的刮削逻辑
-      if (mediaInfo.isMovie()) {
-        scrapMovie(mediaInfo, saveDirectory, baseFileName);
-      } else if (mediaInfo.isTvShow()) {
-        scrapTvShow(mediaInfo, saveDirectory, baseFileName);
-      } else {
-        log.warn("未知媒体类型，跳过刮削: {}", fileName);
-
-        // 上报媒体类型匹配失败事件
-        Map<String, Object> mediaTypeFailProperties = new HashMap<>();
-        mediaTypeFailProperties.put(
-            "file_path", fullFilePath != null ? fullFilePath : relativePath);
-        mediaTypeFailProperties.put("file_name", fileName);
-        mediaTypeFailProperties.put("media_info", mediaInfo.toString());
-        dataReportService.reportEvent("media_type_match_fail", mediaTypeFailProperties);
-      }
+      // 不进行TMDB刮削，已完成复制已存在刮削信息的处理
 
     } catch (Exception e) {
       log.error("刮削媒体文件失败: {}", fileName, e);
@@ -843,13 +638,20 @@ public class MediaScrapingService {
           }
 
           if (isMatch) {
+            Path targetFile = Paths.get(saveDirectory, file.getName());
+            
+            // 检查目标文件是否已存在，避免重复下载
+            if (Files.exists(targetFile)) {
+              log.debug("{}已存在，跳过复制: {}", fileTypeDescription, targetFile);
+              continue;
+            }
+
             log.debug("准备复制{}文件: {}", fileTypeDescription, file.getName());
 
             // 下载文件内容 (不使用URL编码)
             byte[] content = openlistApiService.getFileContent(openlistConfig, file, false);
 
             if (content != null && content.length > 0) {
-              Path targetFile = Paths.get(saveDirectory, file.getName());
               Files.createDirectories(targetFile.getParent());
               Files.write(targetFile, content);
 
@@ -965,5 +767,223 @@ public class MediaScrapingService {
       return fileName.substring(0, lastDotIndex);
     }
     return fileName;
+  }
+
+  /**
+   * 从文件路径中提取目录部分
+   */
+  private String extractDirectoryFromPath(String fullPath) {
+    if (fullPath == null || fullPath.isEmpty()) {
+      return "";
+    }
+    int lastSlashIndex = fullPath.lastIndexOf('/');
+    if (lastSlashIndex > 0) {
+      return fullPath.substring(0, lastSlashIndex);
+    }
+    return "";
+  }
+
+  /**
+   * 从文件路径中提取文件名（不含路径）
+   */
+  private String extractFileNameFromPath(String fullPath) {
+    if (fullPath == null || fullPath.isEmpty()) {
+      return "";
+    }
+    int lastSlashIndex = fullPath.lastIndexOf('/');
+    if (lastSlashIndex >= 0 && lastSlashIndex < fullPath.length() - 1) {
+      return fullPath.substring(lastSlashIndex + 1);
+    }
+    return fullPath;
+  }
+
+  /**
+   * 执行文件浏览器刮削（从TMDB匹配结果直接刮削）
+   *
+   * @param openlistConfig OpenList配置
+   * @param filePath 文件路径（可能包含basePath的完整路径）
+   * @param tmdbId TMDB ID
+   * @param type 类型（movie/tv）
+   * @param season 季号（电视剧用）
+   * @param episode 集号（电视剧用）
+   * @param options 刮削选项
+   * @return 刮削结果
+   */
+  public Map<String, Object> scrapFromTmdbMatch(
+      com.hienao.openlist2strm.entity.OpenlistConfig openlistConfig,
+      String filePath,
+      Integer tmdbId,
+      String type,
+      Integer season,
+      Integer episode,
+      String targetFileName,
+      Map<String, Boolean> options) {
+    Map<String, Object> result = new HashMap<>();
+    result.put("success", false);
+    result.put("filePath", filePath);
+
+    try {
+      log.info("开始从TMDB匹配结果刮削: filePath={}, tmdbId={}, type={}", filePath, tmdbId, type);
+
+      // 从路径中去除basePath前缀，获取相对于挂载目录的路径
+      String relativeFilePath = stripBasePathFromFilePath(filePath, openlistConfig.getBasePath());
+      
+      String fileName = extractFileNameFromPath(relativeFilePath);
+      String directoryPath = extractDirectoryFromPath(relativeFilePath);
+      
+      // 如果提供了目标文件名，使用目标文件名；否则使用原始文件名
+      String useFileName = targetFileName != null && !targetFileName.trim().isEmpty() ? targetFileName : fileName;
+      String baseFileName = getStrmCompatibleBaseFileName(useFileName);
+      String baseFilePath = directoryPath.isEmpty() ? baseFileName : directoryPath + "/" + baseFileName;
+
+      log.info("刮削路径处理 - 原始: {}, 相对: {}, 目录: {}, 基础文件名: {}", 
+          filePath, relativeFilePath, directoryPath, baseFilePath);
+
+      boolean generateNfo = options.getOrDefault("generateNfo", true);
+      boolean downloadPoster = options.getOrDefault("downloadPoster", true);
+      boolean downloadBackdrop = options.getOrDefault("downloadBackdrop", false);
+
+      // 对于电视剧单集，只下载剧集剧照，不下载电视剧海报和背景图
+      boolean isTvEpisode = "tv".equals(type) && season != null && episode != null;
+      if (isTvEpisode) {
+        downloadPoster = false;
+        downloadBackdrop = false;
+      }
+
+      if ("movie".equals(type)) {
+        // 刮削电影
+        com.hienao.openlist2strm.dto.tmdb.TmdbMovieDetail movieDetail = tmdbApiService.getMovieDetail(tmdbId);
+        if (movieDetail == null) {
+          result.put("error", "获取电影详情失败");
+          return result;
+        }
+
+        com.hienao.openlist2strm.dto.media.MediaInfo mediaInfo = new com.hienao.openlist2strm.dto.media.MediaInfo();
+        mediaInfo.setType(com.hienao.openlist2strm.dto.media.MediaInfo.MediaType.MOVIE);
+        mediaInfo.setTitle(movieDetail.getTitle());
+        mediaInfo.setYear(movieDetail.getReleaseDate() != null && movieDetail.getReleaseDate().length() >= 4 
+            ? movieDetail.getReleaseDate().substring(0, 4) 
+            : null);
+        mediaInfo.setHasYear(movieDetail.getReleaseDate() != null);
+        mediaInfo.setOriginalFileName(fileName);
+        mediaInfo.setConfidence(100);
+
+        // 生成NFO
+        if (generateNfo) {
+          String nfoFilePath = baseFilePath + ".nfo";
+          nfoGeneratorService.generateMovieNfoAndSaveToOpenlist(openlistConfig, movieDetail, mediaInfo, nfoFilePath);
+        }
+
+        // 下载图片
+        String posterUrl = tmdbApiService.buildPosterUrl(movieDetail.getPosterPath());
+        String backdropUrl = tmdbApiService.buildBackdropUrl(movieDetail.getBackdropPath());
+        coverImageService.downloadImagesToOpenlist(
+            posterUrl, backdropUrl, openlistConfig, baseFilePath, downloadPoster, downloadBackdrop);
+
+      } else if ("tv".equals(type)) {
+        // 刮削电视剧
+        com.hienao.openlist2strm.dto.tmdb.TmdbTvDetail tvDetail = tmdbApiService.getTvDetail(tmdbId);
+        if (tvDetail == null) {
+          result.put("error", "获取电视剧详情失败");
+          return result;
+        }
+
+        com.hienao.openlist2strm.dto.media.MediaInfo mediaInfo = new com.hienao.openlist2strm.dto.media.MediaInfo();
+        mediaInfo.setType(com.hienao.openlist2strm.dto.media.MediaInfo.MediaType.TV_SHOW);
+        mediaInfo.setTitle(tvDetail.getName());
+        mediaInfo.setYear(tvDetail.getFirstAirDate() != null && tvDetail.getFirstAirDate().length() >= 4 
+            ? tvDetail.getFirstAirDate().substring(0, 4) 
+            : null);
+        mediaInfo.setHasYear(tvDetail.getFirstAirDate() != null);
+        mediaInfo.setSeason(season);
+        mediaInfo.setEpisode(episode);
+        mediaInfo.setOriginalFileName(fileName);
+        mediaInfo.setConfidence(100);
+
+        // 获取剧集详情
+        com.hienao.openlist2strm.dto.tmdb.TmdbSeasonDetail.Episode episodeDetail = null;
+        if (season != null && episode != null) {
+          try {
+            com.hienao.openlist2strm.dto.tmdb.TmdbSeasonDetail seasonDetail = 
+                tmdbApiService.getSeasonDetail(tmdbId, season);
+            if (seasonDetail != null && seasonDetail.getEpisodes() != null) {
+              for (com.hienao.openlist2strm.dto.tmdb.TmdbSeasonDetail.Episode ep : seasonDetail.getEpisodes()) {
+                if (ep.getEpisodeNumber() != null && ep.getEpisodeNumber().equals(episode)) {
+                  episodeDetail = ep;
+                  log.info("获取到剧集详情: S{}E{} - {}", season, episode, ep.getName());
+                  break;
+                }
+              }
+            }
+          } catch (Exception e) {
+            log.warn("获取季详情失败，继续使用电视剧信息: {}", e.getMessage());
+          }
+        }
+
+        // 生成NFO
+        if (generateNfo) {
+          String nfoFilePath = baseFilePath + ".nfo";
+          if (episodeDetail != null) {
+            // 生成单集NFO
+            nfoGeneratorService.generateEpisodeNfoAndSaveToOpenlist(
+                openlistConfig, tvDetail, episodeDetail, mediaInfo, nfoFilePath);
+          } else {
+            // 回退到电视剧NFO
+            nfoGeneratorService.generateTvShowNfoAndSaveToOpenlist(
+                openlistConfig, tvDetail, mediaInfo, nfoFilePath);
+          }
+        }
+
+        // 下载图片
+        String posterUrl = tmdbApiService.buildPosterUrl(tvDetail.getPosterPath());
+        String backdropUrl = tmdbApiService.buildBackdropUrl(tvDetail.getBackdropPath());
+        String stillUrl = null;
+        
+        if (episodeDetail != null && episodeDetail.getStillPath() != null) {
+          stillUrl = tmdbApiService.buildPosterUrl(episodeDetail.getStillPath());
+        }
+        
+        coverImageService.downloadImagesToOpenlist(
+            posterUrl, backdropUrl, openlistConfig, baseFilePath, downloadPoster, downloadBackdrop, stillUrl);
+      }
+
+      result.put("success", true);
+      log.info("刮削成功: {}", filePath);
+      return result;
+
+    } catch (Exception e) {
+      log.error("刮削失败: {}", filePath, e);
+      result.put("error", e.getMessage());
+      return result;
+    }
+  }
+  
+  /**
+   * 从文件路径中去除 basePath 前缀
+   */
+  private String stripBasePathFromFilePath(String fullPath, String basePath) {
+    if (fullPath == null || fullPath.isEmpty()) {
+      return fullPath;
+    }
+    
+    if (basePath == null || basePath.isEmpty() || basePath.equals("/")) {
+      return fullPath;
+    }
+    
+    String normalizedBasePath = basePath;
+    if (!normalizedBasePath.endsWith("/")) {
+      normalizedBasePath = normalizedBasePath + "/";
+    }
+    
+    if (fullPath.startsWith(normalizedBasePath)) {
+      String result = fullPath.substring(normalizedBasePath.length());
+      return result.startsWith("/") ? result : "/" + result;
+    }
+    
+    if (fullPath.equals(basePath)) {
+      return "/";
+    }
+    
+    return fullPath;
   }
 }

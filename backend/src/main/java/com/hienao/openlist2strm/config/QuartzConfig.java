@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.quartz.CronTriggerFactoryBean;
 import org.springframework.scheduling.quartz.JobDetailFactoryBean;
 import org.springframework.scheduling.quartz.SchedulerFactoryBean;
@@ -29,6 +30,7 @@ public class QuartzConfig {
   }
 
   @Bean("emailJobSchedulerFactory")
+  @Primary
   public SchedulerFactoryBean emailJobSchedulerFactory(
       DataSource dataSource, SpringBeanJobFactory springBeanJobFactory) {
     SchedulerFactoryBean schedulerFactory = new SchedulerFactoryBean();

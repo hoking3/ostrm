@@ -12,12 +12,11 @@
     
     <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div class="animate-fade-in">
-        <!-- 页面标题 -->
         <div class="text-center mb-8">
           <div class="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572-1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826 3.31-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 0 11-6 0 3 3 0 016 0z"></path>
             </svg>
           </div>
           <h1 class="text-3xl font-bold gradient-text mb-2">系统设置</h1>
@@ -25,7 +24,6 @@
         </div>
 
         <div class="space-y-8">
-          <!-- 媒体文件后缀设置 -->
           <div class="glass-card">
             <div class="card-header">
               <h3 class="text-xl font-semibold">媒体文件设置</h3>
@@ -53,7 +51,6 @@
             </div>
           </div>
 
-          <!-- TMDB API 配置 -->
           <div class="glass-card">
             <div class="card-header">
               <h3 class="text-xl font-semibold">TMDB API 配置</h3>
@@ -117,7 +114,6 @@
                 </div>
               </div>
 
-              <!-- HTTP 代理配置 -->
               <div class="bg-gray-50 rounded-xl p-4">
                 <h4 class="text-md font-semibold text-gray-900 mb-3">HTTP 代理配置</h4>
                 <p class="text-sm text-gray-600 mb-4">
@@ -154,232 +150,97 @@
             </div>
           </div>
 
-          <!-- 刮削设置 -->
           <div class="glass-card">
             <div class="card-header">
-              <h3 class="text-xl font-semibold">刮削设置</h3>
+              <h3 class="text-xl font-semibold">文件复制设置</h3>
             </div>
             <div class="space-y-4">
-              <div class="flex items-center p-4 bg-blue-50 rounded-xl">
-                <input
-                  id="scrapingEnabled"
-                  v-model="scrapingConfig.enabled"
-                  type="checkbox"
-                  class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label for="scrapingEnabled" class="ml-3 block text-sm font-semibold text-gray-900">
-                  启用刮削功能
-                </label>
-              </div>
-
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="flex items-center p-4 bg-gray-50 rounded-xl">
                   <input
-                    id="generateNfo"
-                    v-model="scrapingConfig.generateNfo"
+                    id="copyExistingScrapingInfo"
+                    v-model="fileCopyConfig.copyExistingScrapingInfo"
                     type="checkbox"
                     class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
-                  <label for="generateNfo" class="ml-3 block text-sm font-semibold text-gray-900">
-                    生成 NFO 文件
-                  </label>
+                  <div class="ml-3">
+                    <label for="copyExistingScrapingInfo" class="block text-sm font-semibold text-gray-900">
+                      复制已存在的刮削信息
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1">在STRM生成时复制媒体文件同级目录的NFO文件和刮削图片</p>
+                  </div>
                 </div>
 
                 <div class="flex items-center p-4 bg-gray-50 rounded-xl">
                   <input
-                    id="downloadPoster"
-                    v-model="scrapingConfig.downloadPoster"
+                    id="keepSubtitleFiles"
+                    v-model="fileCopyConfig.keepSubtitleFiles"
                     type="checkbox"
                     class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
-                  <label for="downloadPoster" class="ml-3 block text-sm font-semibold text-gray-900">
-                    下载海报图片
-                  </label>
+                  <div class="ml-3">
+                    <label for="keepSubtitleFiles" class="block text-sm font-semibold text-gray-900">
+                      保留字幕文件
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1">复制媒体文件同级目录的.srt、.ass字幕文件到STRM目录</p>
+                  </div>
                 </div>
 
                 <div class="flex items-center p-4 bg-gray-50 rounded-xl">
                   <input
-                    id="downloadBackdrop"
-                    v-model="scrapingConfig.downloadBackdrop"
+                    id="overwriteExistingNfo"
+                    v-model="fileCopyConfig.overwriteExistingNfo"
                     type="checkbox"
                     class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
-                  <label for="downloadBackdrop" class="ml-3 block text-sm font-semibold text-gray-900">
-                    下载背景图片
-                  </label>
+                  <div class="ml-3">
+                    <label for="overwriteExistingNfo" class="block text-sm font-semibold text-gray-900">
+                      覆盖已存在的NFO文件
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1">当NFO文件已存在时，是否覆盖</p>
+                  </div>
                 </div>
-
-                <div class="flex items-center p-4 bg-gray-50 rounded-xl">
-                   <input
-                     id="keepSubtitleFiles"
-                     v-model="scrapingConfig.keepSubtitleFiles"
-                     type="checkbox"
-                     class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                   />
-                   <div class="ml-3">
-                     <label for="keepSubtitleFiles" class="block text-sm font-semibold text-gray-900">
-                       保留字幕文件
-                     </label>
-                     <p class="text-xs text-gray-500 mt-1">复制媒体文件同级目录的.srt、.ass字幕文件到STRM目录</p>
-                   </div>
-                 </div>
-
-                <div class="flex items-center p-4 bg-gray-50 rounded-xl">
-                   <input
-                     id="useExistingScrapingInfo"
-                     v-model="scrapingConfig.useExistingScrapingInfo"
-                     type="checkbox"
-                     class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                   />
-                   <div class="ml-3">
-                     <label for="useExistingScrapingInfo" class="block text-sm font-semibold text-gray-900">
-                       优先使用已存在的刮削信息
-                     </label>
-                     <p class="text-xs text-gray-500 mt-1">无论是否启用刮削功能，都会尝试复制媒体文件同级目录的NFO文件和刮削图片，复制成功后跳过后续处理</p>
-                   </div>
-                 </div>
-
-                <div class="flex items-center p-4 bg-gray-50 rounded-xl">
-                   <input
-                     id="overwriteExisting"
-                     v-model="scrapingConfig.overwriteExisting"
-                     type="checkbox"
-                     class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                   />
-                   <div class="ml-3">
-                     <label for="overwriteExisting" class="block text-sm font-semibold text-gray-900">
-                        覆盖已存在的刮削内容
-                      </label>
-                     <p class="text-xs text-gray-500 mt-1">当NFO文件和图片已存在时，是否覆盖重新下载</p>
-                   </div>
-                 </div>
               </div>
             </div>
           </div>
 
-          <!-- AI 识别设置 -->
           <div class="glass-card">
             <div class="card-header">
-              <h3 class="text-xl font-semibold">AI 文件名识别设置</h3>
+              <h3 class="text-xl font-semibold">Emby 媒体库配置</h3>
             </div>
             <div class="space-y-6">
-              <div class="flex items-center p-4 bg-purple-50 rounded-xl">
-                <input
-                  id="aiEnabled"
-                  v-model="aiConfig.enabled"
-                  type="checkbox"
-                  class="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                />
-                <label for="aiEnabled" class="ml-3 block text-sm font-semibold text-gray-900">
-                  启用 AI 文件名识别
+              <div>
+                <label for="embyServerUrl" class="block text-sm font-semibold text-gray-700 mb-2">
+                  Emby 服务器地址
                 </label>
-                <span class="ml-2 text-xs text-gray-500">（提高 TMDB 刮削准确性）</span>
+                <input
+                  id="embyServerUrl"
+                  v-model="embyConfig.serverUrl"
+                  type="url"
+                  placeholder="http://localhost:8096"
+                  class="input-field"
+                />
               </div>
 
-              <div v-if="aiConfig.enabled" class="space-y-6 pl-6 border-l-4 border-purple-200">
-                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <div>
-                    <label for="aiBaseUrl" class="block text-sm font-semibold text-gray-700 mb-2">
-                      API 基础 URL
-                    </label>
-                    <input
-                      id="aiBaseUrl"
-                      v-model="aiConfig.baseUrl"
-                      type="url"
-                      placeholder="https://api.openai.com/v1"
-                      class="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label for="aiApiKey" class="block text-sm font-semibold text-gray-700 mb-2">
-                      API Key
-                    </label>
-                    <input
-                      id="aiApiKey"
-                      v-model="aiConfig.apiKey"
-                      type="password"
-                      placeholder="sk-..."
-                      class="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label for="aiModel" class="block text-sm font-semibold text-gray-700 mb-2">
-                      模型名称
-                    </label>
-                    <input
-                      id="aiModel"
-                      v-model="aiConfig.model"
-                      type="text"
-                      placeholder="gpt-3.5-turbo"
-                      class="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label for="aiQpmLimit" class="block text-sm font-semibold text-gray-700 mb-2">
-                      QPM 限制
-                    </label>
-                    <input
-                      id="aiQpmLimit"
-                      v-model.number="aiConfig.qpmLimit"
-                      type="number"
-                      min="1"
-                      max="1000"
-                      placeholder="60"
-                      class="input-field"
-                    />
-                    <p class="mt-1 text-xs text-gray-500">每分钟最大请求数</p>
-                  </div>
-                </div>
-
-                <div>
-                  <div class="flex items-center justify-between mb-2">
-                    <label for="aiPrompt" class="block text-sm font-semibold text-gray-700">
-                      提示词
-                    </label>
-                    <button
-                      @click="resetAiPrompt"
-                      type="button"
-                      class="text-xs text-blue-600 hover:text-blue-800 underline"
-                      :disabled="resettingPrompt"
-                    >
-                      {{ resettingPrompt ? '重置中...' : '重置为默认' }}
-                    </button>
-                  </div>
-                  <textarea
-                    id="aiPrompt"
-                    v-model="aiConfig.prompt"
-                    rows="8"
-                    class="input-field"
-                    placeholder="输入 AI 识别提示词..."
-                  ></textarea>
-                  <p class="mt-1 text-xs text-gray-500">定义 AI 如何识别和标准化文件名</p>
-                </div>
-
-                <div class="flex items-center space-x-3">
-                  <button
-                    @click="testAiConfig"
-                    type="button"
-                    class="btn-success"
-                    :disabled="testingAi"
-                  >
-                    <svg v-if="testingAi" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    {{ testingAi ? '测试中...' : '测试配置' }}
-                  </button>
-                  <span v-if="aiTestResult" :class="aiTestResult.success ? 'text-green-600' : 'text-red-600'" class="text-sm font-medium">
-                    {{ aiTestResult.message }}
-                  </span>
-                </div>
+              <div>
+                <label for="embyApiKey" class="block text-sm font-semibold text-gray-700 mb-2">
+                  API Key
+                </label>
+                <input
+                  id="embyApiKey"
+                  v-model="embyConfig.apiKey"
+                  type="password"
+                  placeholder="Emby API Key"
+                  class="input-field"
+                />
               </div>
+
+              <p class="text-sm text-gray-500">
+                配置全局 Emby 服务器信息，任务中可以选择使用此全局配置
+              </p>
             </div>
           </div>
 
-          <!-- 日志配置设置 -->
           <div class="glass-card">
             <div class="card-header">
               <h3 class="text-xl font-semibold">日志同级配置设置</h3>
@@ -422,7 +283,6 @@
                 </div>
               </div>
 
-              <!-- 上报使用数据设置 -->
               <div class="border-t border-gray-200 pt-6">
                 <div class="flex items-start space-x-3">
                   <input
@@ -462,7 +322,6 @@
             </div>
           </div>
           
-          <!-- 保存按钮 -->
           <div class="flex justify-end space-x-4">
             <button
               @click="goBack"
@@ -479,7 +338,7 @@
             >
               <svg v-if="saving" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
               {{ saving ? '保存中...' : '保存设置' }}
             </button>
@@ -488,7 +347,6 @@
       </div>
     </div>
     
-    <!-- 成功提示 -->
     <div v-if="showSuccess" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-slide-up">
       <div class="flex items-center">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -498,7 +356,6 @@
       </div>
     </div>
     
-    <!-- 错误提示 -->
     <div v-if="errorMessage" class="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-xl shadow-2xl z-50 animate-slide-up">
       <div class="flex items-center">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -521,12 +378,10 @@ const router = useRouter()
 const authStore = useAuthStore()
 const tokenCookie = useCookie('token')
 
-// 从 authStore 获取用户信息
 const userInfo = computed(() => {
   return authStore.getUserInfo || { username: '用户' }
 })
 
-// 响应式数据
 const availableExtensions = ref([])
 const selectedExtensions = ref([])
 const tmdbConfig = ref({
@@ -536,44 +391,30 @@ const tmdbConfig = ref({
   proxyHost: '',
   proxyPort: ''
 })
-const scrapingConfig = ref({
-  enabled: true,
-  generateNfo: true,
-  downloadPoster: true,
-  downloadBackdrop: false,
+const fileCopyConfig = ref({
+  copyExistingScrapingInfo: false,
   keepSubtitleFiles: false,
-  useExistingScrapingInfo: false,
-  overwriteExisting: false
-})
-const aiConfig = ref({
-  enabled: false,
-  baseUrl: 'https://api.openai.com/v1',
-  apiKey: '',
-  model: 'gpt-3.5-turbo',
-  qpmLimit: 60,
-  prompt: ''
+  overwriteExistingNfo: false
 })
 const logConfig = ref({
   retentionDays: 7,
   level: 'info',
   reportUsageData: true
 })
+const embyConfig = ref({
+  serverUrl: '',
+  apiKey: ''
+})
 const showApiKey = ref(false)
 const saving = ref(false)
 const showSuccess = ref(false)
 const errorMessage = ref('')
-const testingAi = ref(false)
-const aiTestResult = ref(null)
-const resettingPrompt = ref(false)
 
-// 页面加载时获取当前设置
 onMounted(async () => {
   await loadCurrentSettings()
 })
 
-// 加载当前设置
 const loadCurrentSettings = async () => {
-  // 设置所有可选的后缀列表（包含所有支持的格式）
   availableExtensions.value = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.3g2', '.asf', '.divx', '.f4v', '.m2ts', '.m2v', '.mts', '.ogv', '.rm', '.rmvb', '.ts', '.vob', '.xvid', '.iso']
 
   try {
@@ -582,16 +423,12 @@ const loadCurrentSettings = async () => {
     if (response && response.code === 200 && response.data) {
       const config = response.data
 
-      // 加载媒体扩展名配置
       if (config.mediaExtensions && Array.isArray(config.mediaExtensions)) {
         selectedExtensions.value = [...config.mediaExtensions]
-        // 已加载配置的媒体扩展名
       } else {
         selectedExtensions.value = ['.mp4', '.avi', '.rmvb', '.mkv']
-        // 使用默认媒体扩展名配置
       }
 
-      // 加载 TMDB 配置
       if (config.tmdb && typeof config.tmdb === 'object') {
         tmdbConfig.value = {
           apiKey: config.tmdb.apiKey || '',
@@ -600,58 +437,37 @@ const loadCurrentSettings = async () => {
           proxyHost: config.tmdb.proxyHost || '',
           proxyPort: config.tmdb.proxyPort || ''
         }
-        // 已加载 TMDB 配置
       }
 
-      // 加载刮削配置
-      if (config.scraping && typeof config.scraping === 'object') {
-        scrapingConfig.value = {
-          enabled: config.scraping.enabled !== false,
-          generateNfo: config.scraping.generateNfo !== false,
-          downloadPoster: config.scraping.downloadPoster !== false,
-          downloadBackdrop: config.scraping.downloadBackdrop === true,
-          keepSubtitleFiles: config.scraping.keepSubtitleFiles === true,
-          useExistingScrapingInfo: config.scraping.useExistingScrapingInfo === true
-        }
-        // 已加载刮削配置
+      fileCopyConfig.value = {
+        copyExistingScrapingInfo: config.copyExistingScrapingInfo === true,
+        keepSubtitleFiles: config.keepSubtitleFiles === true,
+        overwriteExistingNfo: config.overwriteExistingNfo === true
       }
 
-      // 加载 AI 配置
-      if (config.ai && typeof config.ai === 'object') {
-        aiConfig.value = {
-          enabled: config.ai.enabled === true,
-          baseUrl: config.ai.baseUrl || 'https://api.openai.com/v1',
-          apiKey: config.ai.apiKey || '',
-          model: config.ai.model || 'gpt-3.5-turbo',
-          qpmLimit: config.ai.qpmLimit || 60,
-          prompt: config.ai.prompt || ''
-        }
-        // 已加载 AI 配置
-      }
-
-      // 加载日志配置
       if (config.log && typeof config.log === 'object') {
         logConfig.value = {
           retentionDays: config.log.retentionDays || 7,
           level: config.log.level || 'info',
           reportUsageData: config.log.reportUsageData !== undefined ? config.log.reportUsageData : true
         }
-        // 已加载日志配置
+      }
+
+      if (config.emby && typeof config.emby === 'object') {
+        embyConfig.value = {
+          serverUrl: config.emby.serverUrl || '',
+          apiKey: config.emby.apiKey || ''
+        }
       }
 
     } else {
-      // 如果获取失败，使用默认选择
       selectedExtensions.value = ['.mp4', '.avi', '.rmvb', '.mkv', '.iso']
-      // 获取配置失败，使用默认配置
     }
   } catch (error) {
-    // 加载设置失败，使用默认配置
-    // 出错时使用默认选择
     selectedExtensions.value = ['.mp4', '.avi', '.rmvb', '.mkv', '.iso']
   }
 }
 
-// 保存设置
 const saveSettings = async () => {
   if (selectedExtensions.value.length === 0) {
     errorMessage.value = '请至少选择一个媒体文件后缀'
@@ -674,27 +490,17 @@ const saveSettings = async () => {
         proxyHost: tmdbConfig.value.proxyHost,
         proxyPort: tmdbConfig.value.proxyPort
       },
-      scraping: {
-        enabled: scrapingConfig.value.enabled,
-        generateNfo: scrapingConfig.value.generateNfo,
-        downloadPoster: scrapingConfig.value.downloadPoster,
-        downloadBackdrop: scrapingConfig.value.downloadBackdrop,
-        keepSubtitleFiles: scrapingConfig.value.keepSubtitleFiles,
-        useExistingScrapingInfo: scrapingConfig.value.useExistingScrapingInfo,
-        overwriteExisting: scrapingConfig.value.overwriteExisting
-      },
-      ai: {
-        enabled: aiConfig.value.enabled,
-        baseUrl: aiConfig.value.baseUrl,
-        apiKey: aiConfig.value.apiKey,
-        model: aiConfig.value.model,
-        qpmLimit: aiConfig.value.qpmLimit,
-        prompt: aiConfig.value.prompt
-      },
+      copyExistingScrapingInfo: fileCopyConfig.value.copyExistingScrapingInfo,
+      keepSubtitleFiles: fileCopyConfig.value.keepSubtitleFiles,
+      overwriteExistingNfo: fileCopyConfig.value.overwriteExistingNfo,
       log: {
         retentionDays: logConfig.value.retentionDays,
         level: logConfig.value.level,
         reportUsageData: logConfig.value.reportUsageData
+      },
+      emby: {
+        serverUrl: embyConfig.value.serverUrl,
+        apiKey: embyConfig.value.apiKey
       }
     }
 
@@ -715,7 +521,6 @@ const saveSettings = async () => {
       }, 3000)
     }
   } catch (error) {
-    // 保存设置失败
     errorMessage.value = error.data?.message || '保存设置失败'
     setTimeout(() => {
       errorMessage.value = ''
@@ -725,119 +530,30 @@ const saveSettings = async () => {
   }
 }
 
-// 测试 AI 配置
-const testAiConfig = async () => {
-  if (!aiConfig.value.baseUrl || !aiConfig.value.apiKey || !aiConfig.value.model) {
-    aiTestResult.value = {
-      success: false,
-      message: '请填写完整的 AI 配置信息'
-    }
-    return
-  }
-
-  testingAi.value = true
-  aiTestResult.value = null
-
-  try {
-    const response = await authenticatedApiCall('/system/test-ai-config', {
-      method: 'POST',
-      body: {
-        baseUrl: aiConfig.value.baseUrl,
-        apiKey: aiConfig.value.apiKey,
-        model: aiConfig.value.model
-      }
-    })
-
-    if (response && response.code === 200) {
-      aiTestResult.value = {
-        success: true,
-        message: 'AI 配置测试成功'
-      }
-    } else {
-      aiTestResult.value = {
-        success: false,
-        message: response?.message || 'AI 配置测试失败'
-      }
-    }
-  } catch (error) {
-    // 测试 AI 配置失败
-    aiTestResult.value = {
-      success: false,
-      message: error.data?.message || '测试 AI 配置失败'
-    }
-  } finally {
-    testingAi.value = false
-    // 3秒后清除测试结果
-    setTimeout(() => {
-      aiTestResult.value = null
-    }, 3000)
-  }
-}
-
-// 重置 AI 提示词为默认值
-const resetAiPrompt = async () => {
-  resettingPrompt.value = true
-  
-  try {
-    const response = await authenticatedApiCall('/system/default-ai-prompt')
-    
-    if (response && response.code === 200 && response.data) {
-      aiConfig.value.prompt = response.data
-      // 显示成功提示
-      showSuccess.value = true
-      setTimeout(() => {
-        showSuccess.value = false
-      }, 3000)
-    } else {
-      errorMessage.value = response?.message || '获取默认提示词失败'
-      setTimeout(() => {
-        errorMessage.value = ''
-      }, 3000)
-    }
-  } catch (error) {
-    // 重置 AI 提示词失败
-    errorMessage.value = error.data?.message || '重置 AI 提示词失败'
-    setTimeout(() => {
-      errorMessage.value = ''
-    }, 3000)
-  } finally {
-    resettingPrompt.value = false
-  }
-}
-
-// 切换 API Key 显示状态
 const toggleApiKeyVisibility = () => {
   showApiKey.value = !showApiKey.value
 }
 
-// 返回上一页
 const goBack = () => {
   router.back()
 }
 
-// 处理退出登录
 const handleLogout = () => {
   authStore.clearAuth()
   router.push('/login')
 }
 
-// 处理修改密码
 const handleChangePassword = () => {
   router.push('/change-password')
 }
 
-// 处理打开设置（当前页面，不需要操作）
 const handleOpenSettings = () => {
-  // 当前就在设置页面，不需要操作
 }
 
-// 处理打开日志页面
 const handleOpenLogs = () => {
-  // 跳转到日志页面
   router.push('/logs')
 }
 </script>
 
 <style scoped>
-/* 页面样式 */
 </style>

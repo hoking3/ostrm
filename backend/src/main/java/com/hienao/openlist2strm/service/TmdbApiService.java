@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hienao.openlist2strm.constant.AppConstants;
 import com.hienao.openlist2strm.dto.tmdb.TmdbMovieDetail;
 import com.hienao.openlist2strm.dto.tmdb.TmdbSearchResponse;
+import com.hienao.openlist2strm.dto.tmdb.TmdbSeasonDetail;
 import com.hienao.openlist2strm.dto.tmdb.TmdbTvDetail;
 import com.hienao.openlist2strm.exception.BusinessException;
 import java.net.InetSocketAddress;
@@ -444,6 +445,72 @@ public class TmdbApiService {
     Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
     String backdropSize = (String) tmdbConfig.getOrDefault("backdropSize", "w1280");
     return buildImageUrl(backdropPath, backdropSize);
+  }
+
+  /**
+   * 获取剧集季详情
+   *
+   * @param tvId 电视剧ID
+   * @param seasonNumber 季号
+   * @return 剧集季详情
+   */
+  public TmdbSeasonDetail getSeasonDetail(Integer tvId, Integer seasonNumber) {
+    Map<String, Object> tmdbConfig = systemConfigService.getTmdbConfig();
+    String apiKey = (String) tmdbConfig.get("apiKey");
+
+    if (apiKey == null || apiKey.trim().isEmpty()) {
+      throw new BusinessException("TMDB API Key 未配置");
+    }
+
+    RestTemplate restTemplate = createRestTemplate();
+    String responseBody = null;
+    String url = null;
+
+    try {
+      String baseUrl = (String) tmdbConfig.getOrDefault("baseUrl", "https://api.themoviedb.org/3");
+      String language = (String) tmdbConfig.getOrDefault("language", "zh-CN");
+
+      url =
+          UriComponentsBuilder.fromHttpUrl(baseUrl + "/tv/" + tvId + "/season/" + seasonNumber)
+              .queryParam("api_key", apiKey)
+              .queryParam("language", language)
+              .toUriString();
+
+      Map<String, String> requestParams = new java.util.HashMap<>();
+      requestParams.put("tvId", String.valueOf(tvId));
+      requestParams.put("seasonNumber", String.valueOf(seasonNumber));
+      requestParams.put("language", language);
+      logRequestDetails("GET", url, requestParams);
+
+      HttpHeaders headers = new HttpHeaders();
+      headers.set("User-Agent", AppConstants.USER_AGENT);
+      HttpEntity<String> entity = new HttpEntity<>(headers);
+
+      ResponseEntity<String> response =
+          restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+      responseBody = response.getBody();
+
+      logResponseDetails("GET", response.getStatusCode().value(), responseBody);
+
+      if (!response.getStatusCode().is2xxSuccessful()) {
+        throw new BusinessException("TMDB API 请求失败，状态码: " + response.getStatusCode());
+      }
+
+      if (responseBody == null || responseBody.isEmpty()) {
+        throw new BusinessException("TMDB API 返回空响应");
+      }
+
+      TmdbSeasonDetail seasonDetail = objectMapper.readValue(responseBody, TmdbSeasonDetail.class);
+      log.info("获取剧集季详情成功: TV ID={}, Season={}, Episode Count={}", 
+          tvId, seasonNumber, 
+          seasonDetail.getEpisodes() != null ? seasonDetail.getEpisodes().size() : 0);
+
+      return seasonDetail;
+
+    } catch (Exception e) {
+      logErrorDetails("GET", url, e, responseBody);
+      throw new BusinessException("获取剧集季详情失败: " + e.getMessage());
+    }
   }
 
   /**

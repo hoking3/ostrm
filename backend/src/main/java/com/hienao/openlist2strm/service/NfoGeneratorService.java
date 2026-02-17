@@ -2,6 +2,7 @@ package com.hienao.openlist2strm.service;
 
 import com.hienao.openlist2strm.dto.media.MediaInfo;
 import com.hienao.openlist2strm.dto.tmdb.TmdbMovieDetail;
+import com.hienao.openlist2strm.dto.tmdb.TmdbSeasonDetail;
 import com.hienao.openlist2strm.dto.tmdb.TmdbTvDetail;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,6 +28,7 @@ public class NfoGeneratorService {
 
   private final SystemConfigService systemConfigService;
   private final TmdbApiService tmdbApiService;
+  private final OpenlistApiService openlistApiService;
 
   /**
    * 为电影生成NFO文件
@@ -277,8 +279,7 @@ public class NfoGeneratorService {
 
     // 检查同名NFO文件是否已存在
     if (Files.exists(path)) {
-      Map<String, Object> scrapingConfig = systemConfigService.getScrapingConfig();
-      boolean overwriteExisting = (Boolean) scrapingConfig.getOrDefault("overwriteExisting", false);
+      boolean overwriteExisting = systemConfigService.getOverwriteExistingNfoConfig();
 
       if (!overwriteExisting) {
         log.info("检测到同名NFO文件已存在，跳过生成: {}", nfoFilePath);
@@ -290,5 +291,167 @@ public class NfoGeneratorService {
 
     // 写入文件
     Files.writeString(path, content);
+  }
+
+  /**
+   * 为电影生成NFO文件并通过OpenList API保存
+   *
+   * @param openlistConfig OpenList配置
+   * @param movieDetail TMDB电影详情
+   * @param mediaInfo 媒体信息
+   * @param nfoFilePath NFO文件路径（相对于挂载目录）
+   * @return 是否保存成功
+   */
+  public boolean generateMovieNfoAndSaveToOpenlist(
+      com.hienao.openlist2strm.entity.OpenlistConfig openlistConfig,
+      TmdbMovieDetail movieDetail, 
+      MediaInfo mediaInfo, 
+      String nfoFilePath) {
+    try {
+      String nfoContent = buildMovieNfoContent(movieDetail, mediaInfo);
+      boolean success = openlistApiService.writeTextFile(openlistConfig, nfoFilePath, nfoContent);
+      if (success) {
+        log.info("电影NFO文件通过OpenList保存成功: {}", nfoFilePath);
+      }
+      return success;
+    } catch (Exception e) {
+      log.error("生成并保存电影NFO文件失败: {}", e.getMessage(), e);
+      return false;
+    }
+  }
+
+  /**
+   * 为电视剧生成NFO文件并通过OpenList API保存
+   *
+   * @param openlistConfig OpenList配置
+   * @param tvDetail TMDB电视剧详情
+   * @param mediaInfo 媒体信息
+   * @param nfoFilePath NFO文件路径（相对于挂载目录）
+   * @return 是否保存成功
+   */
+  public boolean generateTvShowNfoAndSaveToOpenlist(
+      com.hienao.openlist2strm.entity.OpenlistConfig openlistConfig,
+      TmdbTvDetail tvDetail, 
+      MediaInfo mediaInfo, 
+      String nfoFilePath) {
+    try {
+      String nfoContent = buildTvShowNfoContent(tvDetail, mediaInfo);
+      boolean success = openlistApiService.writeTextFile(openlistConfig, nfoFilePath, nfoContent);
+      if (success) {
+        log.info("电视剧NFO文件通过OpenList保存成功: {}", nfoFilePath);
+      }
+      return success;
+    } catch (Exception e) {
+      log.error("生成并保存电视剧NFO文件失败: {}", e.getMessage(), e);
+      return false;
+    }
+  }
+
+  /** 构建单集NFO内容 */
+  private String buildEpisodeNfoContent(
+      TmdbTvDetail tvDetail, 
+      TmdbSeasonDetail.Episode episode, 
+      MediaInfo mediaInfo) {
+    StringBuilder nfo = new StringBuilder();
+
+    nfo.append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n");
+    nfo.append("<episodedetails>\n");
+
+    // 基本信息
+    appendElement(nfo, "title", episode.getName());
+    appendElement(nfo, "showtitle", tvDetail.getName());
+    appendElement(nfo, "plot", episode.getOverview());
+
+    // 评分信息
+    if (episode.getVoteAverage() != null) {
+      nfo.append("  <rating>\n");
+      appendElement(nfo, "value", episode.getVoteAverage(), 2);
+      appendElement(nfo, "votes", episode.getVoteCount(), 2);
+      nfo.append("  </rating>\n");
+    }
+
+    // 季集信息
+    appendElement(nfo, "season", episode.getSeasonNumber());
+    appendElement(nfo, "episode", episode.getEpisodeNumber());
+
+    // 日期信息
+    appendElement(nfo, "aired", episode.getAirDate());
+
+    // 时长
+    appendElement(nfo, "runtime", episode.getRuntime());
+
+    // 图片信息
+    if (episode.getStillPath() != null) {
+      String stillUrl = tmdbApiService.buildPosterUrl(episode.getStillPath());
+      appendElement(nfo, "thumb", stillUrl);
+    }
+
+    if (tvDetail.getPosterPath() != null) {
+      String posterUrl = tmdbApiService.buildPosterUrl(tvDetail.getPosterPath());
+      appendElement(nfo, "tvshowthumb", posterUrl);
+    }
+
+    // 外部ID
+    appendElement(nfo, "tmdbid", tvDetail.getId());
+    appendElement(nfo, "episodeid", episode.getId());
+
+    // 生成信息
+    appendElement(nfo, "dateadded", getCurrentDateTime());
+
+    nfo.append("</episodedetails>\n");
+
+    return nfo.toString();
+  }
+
+  /**
+   * 为电视剧单集生成NFO文件
+   *
+   * @param tvDetail TMDB电视剧详情
+   * @param episode 剧集详情
+   * @param mediaInfo 媒体信息
+   * @param nfoFilePath NFO文件路径
+   */
+  public void generateEpisodeNfo(
+      TmdbTvDetail tvDetail, 
+      TmdbSeasonDetail.Episode episode, 
+      MediaInfo mediaInfo, 
+      String nfoFilePath) {
+    try {
+      String nfoContent = buildEpisodeNfoContent(tvDetail, episode, mediaInfo);
+      writeNfoFile(nfoFilePath, nfoContent);
+      log.info("剧集NFO文件生成成功: {}", nfoFilePath);
+    } catch (Exception e) {
+      log.error("生成剧集NFO文件失败: {}", e.getMessage(), e);
+      throw new RuntimeException("生成剧集NFO文件失败", e);
+    }
+  }
+
+  /**
+   * 为电视剧单集生成NFO文件并通过OpenList API保存
+   *
+   * @param openlistConfig OpenList配置
+   * @param tvDetail TMDB电视剧详情
+   * @param episode 剧集详情
+   * @param mediaInfo 媒体信息
+   * @param nfoFilePath NFO文件路径（相对于挂载目录）
+   * @return 是否保存成功
+   */
+  public boolean generateEpisodeNfoAndSaveToOpenlist(
+      com.hienao.openlist2strm.entity.OpenlistConfig openlistConfig,
+      TmdbTvDetail tvDetail, 
+      TmdbSeasonDetail.Episode episode, 
+      MediaInfo mediaInfo, 
+      String nfoFilePath) {
+    try {
+      String nfoContent = buildEpisodeNfoContent(tvDetail, episode, mediaInfo);
+      boolean success = openlistApiService.writeTextFile(openlistConfig, nfoFilePath, nfoContent);
+      if (success) {
+        log.info("剧集NFO文件通过OpenList保存成功: {}", nfoFilePath);
+      }
+      return success;
+    } catch (Exception e) {
+      log.error("生成并保存剧集NFO文件失败: {}", e.getMessage(), e);
+      return false;
+    }
   }
 }

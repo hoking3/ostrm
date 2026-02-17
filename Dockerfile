@@ -63,6 +63,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     openjdk-21-jre-headless \
+    curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -73,7 +74,6 @@ COPY Caddyfile /etc/caddy/Caddyfile.custom
 RUN apt-get update && \
     DEBCONF_NOWARNINGS=yes DEBIAN_FRONTEND=noninteractive \
     apt-get install -y --no-install-recommends \
-    curl \
     gpg \
     && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
     && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
@@ -125,5 +125,9 @@ ENV LANGUAGE=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
 EXPOSE 80 8080
+
+# Health check configuration
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
 
 CMD ["/start.sh"]

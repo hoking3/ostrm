@@ -165,6 +165,14 @@
             <!-- 操作按钮 -->
             <div class="flex justify-between items-center pt-4 border-t border-gray-100">
               <div class="flex space-x-2">
+                <button @click.stop="browseFiles(config)" 
+                        class="p-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-all duration-200"
+                        title="浏览文件">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                  </svg>
+                </button>
+                
                 <button @click.stop="editConfig(config)" 
                         class="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200"
                         title="编辑配置">
@@ -730,6 +738,11 @@ const formatDate = (dateString) => {
 // 跳转到任务管理页面
 const goToTaskManagement = (config) => {
   navigateTo(`/task-management/${config.id}`)
+}
+
+// 跳转到文件浏览器
+const browseFiles = (config) => {
+  navigateTo(`/file-browser/${config.id}`)
 }
 
 // 组件挂载时初始化认证状态和获取配置列表

@@ -24,6 +24,7 @@ import com.hienao.openlist2strm.exception.BusinessException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
@@ -45,8 +46,10 @@ public class TaskExecutionService {
   private final TaskConfigService taskConfigService;
   private final OpenlistConfigService openlistConfigService;
   private final OpenlistApiService openlistApiService;
+  private final EmbyApiService embyApiService;
   private final StrmFileService strmFileService;
   private final MediaScrapingService mediaScrapingService;
+  private final SystemConfigService systemConfigService;
   private final Executor taskSubmitExecutor;
 
   /**
@@ -180,9 +183,10 @@ public class TaskExecutionService {
   }
 
   /**
-   * 执行具体的任务逻辑 1. 根据任务配置获取OpenList配置 2. 如果是全量执行，先清空STRM目录 3. 通过OpenList
-   * API递归获取所有文件 4. 对视频文件生成STRM文件
-   * 5. 保持目录结构一致 6. 如果是增量执行，清理孤立的STRM文件
+   * 执行具体的任务逻辑 1. 根据任务配置获取OpenList配置 2. 执行OpenList数据刷新 3. 如果是全量执行，先清空STRM目录 4. 通过OpenList
+   * API递归获取所有文件 5. 对视频文件生成STRM文件
+   * 6. 保持目录结构一致 7. 如果是增量执行，清理孤立的STRM文件
+   * 8. 执行Emby媒体库刷新
    *
    * @param taskConfig  任务配置
    * @param isIncrement 是否增量执行
@@ -194,25 +198,36 @@ public class TaskExecutionService {
       // 1. 获取OpenList配置
       OpenlistConfig openlistConfig = getOpenlistConfig(taskConfig);
 
-      // 2. 如果是全量执行，先清空STRM目录
+      // 2. 执行OpenList数据刷新（如果启用）
+      boolean openlistRefreshEnabled = Boolean.TRUE.equals(taskConfig.getEnableOpenlistRefresh());
+      if (openlistRefreshEnabled) {
+        log.info("执行OpenList数据刷新: {}", taskConfig.getPath());
+        boolean openlistRefreshSuccess = openlistApiService.refreshDirectory(openlistConfig, taskConfig.getPath());
+        if (openlistRefreshSuccess) {
+          log.info("OpenList数据刷新成功");
+        } else {
+          log.warn("OpenList数据刷新失败，继续执行任务");
+        }
+      } else {
+        log.info("OpenList数据刷新已禁用");
+      }
+
+      // 3. 如果是全量执行，先清空STRM目录
       if (!isIncrement) {
         log.info("全量执行模式，开始清理STRM目录: {}", taskConfig.getStrmPath());
         strmFileService.clearStrmDirectory(taskConfig.getStrmPath());
       }
 
-      // 3. 使用内存优化的文件处理方式
+      // 4. 使用内存优化的文件处理方式
       log.info("开始处理文件，使用内存优化策略");
-
-      // 如果启用了刮削功能，先进行目录级别的优化检查
-      boolean needScrap = Boolean.TRUE.equals(taskConfig.getNeedScrap());
 
       // 使用分批处理减少内存占用
       List<OpenlistApiService.OpenlistFile> allFiles = processFilesWithMemoryOptimization(openlistConfig, taskConfig,
-          isIncrement, needScrap);
+          isIncrement, true);
 
       log.info("处理完成，共处理 {} 个文件/目录", allFiles.size());
 
-      // 4. 过滤并处理视频文件
+      // 5. 过滤并处理视频文件
       int processedCount = 0;
       int scrapSkippedCount = 0;
 
@@ -235,56 +250,54 @@ public class TaskExecutionService {
                 taskConfig.getRenameRegex(),
                 openlistConfig);
 
-            // 如果启用了刮削功能，执行媒体刮削
-            if (needScrap) {
-              try {
-                // 构建完整的保存目录路径
-                String saveDirectory = buildScrapSaveDirectory(taskConfig.getStrmPath(), relativePath);
+            // 执行媒体刮削（包括复制已存在刮削信息）
+            try {
+              // 构建完整的保存目录路径
+              String saveDirectory = buildScrapSaveDirectory(taskConfig.getStrmPath(), relativePath);
 
-                // 检查是否需要刮削（在增量模式下检查NFO文件是否已存在）
-                boolean needScrapFile = needScrapFile(
-                    file.getName(),
-                    taskConfig.getRenameRegex(),
-                    taskConfig.getStrmPath(),
-                    relativePath,
-                    isIncrement);
+              // 检查是否需要刮削（在增量模式下检查NFO文件是否已存在）
+              boolean needScrapFile = needScrapFile(
+                  file.getName(),
+                  taskConfig.getRenameRegex(),
+                  taskConfig.getStrmPath(),
+                  relativePath,
+                  isIncrement);
 
-                if (needScrapFile) {
-                  // 检查目录是否已完全刮削（仅在增量模式下进行目录级别检查）
-                  if (isIncrement && mediaScrapingService.isDirectoryFullyScraped(saveDirectory)) {
-                    log.debug("目录已完全刮削，跳过: {}", saveDirectory);
-                    scrapSkippedCount++;
-                  } else {
-                    // 过滤出当前视频文件所在目录的文件
-                    String currentDirectory = file.getPath().substring(0, file.getPath().lastIndexOf('/') + 1);
-                    List<OpenlistApiService.OpenlistFile> currentDirFiles = allFiles.stream()
-                        .filter(
-                            f -> f.getPath().startsWith(currentDirectory)
-                                && f.getPath()
-                                    .substring(currentDirectory.length())
-                                    .indexOf('/') == -1)
-                        .collect(java.util.stream.Collectors.toList());
-
-                    mediaScrapingService.scrapMedia(
-                        openlistConfig,
-                        file.getName(),
-                        taskConfig.getStrmPath(),
-                        relativePath,
-                        currentDirFiles,
-                        file.getPath());
-                  }
-                } else {
-                  log.debug("NFO文件已存在，跳过刮削: {}", file.getName());
+              if (needScrapFile) {
+                // 检查目录是否已完全刮削（仅在增量模式下进行目录级别检查）
+                if (isIncrement && mediaScrapingService.isDirectoryFullyScraped(saveDirectory)) {
+                  log.debug("目录已完全刮削，跳过: {}", saveDirectory);
                   scrapSkippedCount++;
+                } else {
+                  // 过滤出当前视频文件所在目录的文件
+                  String currentDirectory = file.getPath().substring(0, file.getPath().lastIndexOf('/') + 1);
+                  List<OpenlistApiService.OpenlistFile> currentDirFiles = allFiles.stream()
+                      .filter(
+                          f -> f.getPath().startsWith(currentDirectory)
+                              && f.getPath()
+                                  .substring(currentDirectory.length())
+                                  .indexOf('/') == -1)
+                      .collect(java.util.stream.Collectors.toList());
+
+                  mediaScrapingService.scrapMedia(
+                      openlistConfig,
+                      file.getName(),
+                      taskConfig.getStrmPath(),
+                      relativePath,
+                      currentDirFiles,
+                      file.getPath());
                 }
-              } catch (Exception scrapException) {
-                log.error(
-                    "刮削文件失败: {}, 错误: {}",
-                    file.getName(),
-                    scrapException.getMessage(),
-                    scrapException);
-                // 刮削失败不影响STRM文件生成，继续处理
+              } else {
+                log.debug("NFO文件已存在，跳过刮削: {}", file.getName());
+                scrapSkippedCount++;
               }
+            } catch (Exception scrapException) {
+              log.error(
+                  "刮削文件失败: {}, 错误: {}",
+                  file.getName(),
+                  scrapException.getMessage(),
+                  scrapException);
+              // 刮削失败不影响STRM文件生成，继续处理
             }
 
             processedCount++;
@@ -296,11 +309,11 @@ public class TaskExecutionService {
         }
       }
 
-      if (needScrap && scrapSkippedCount > 0) {
+      if (scrapSkippedCount > 0) {
         log.info("跳过了 {} 个已刮削目录中的文件", scrapSkippedCount);
       }
 
-      // 5. 如果是增量执行，清理孤立的STRM文件（源文件已不存在的STRM文件）
+      // 6. 如果是增量执行，清理孤立的STRM文件（源文件已不存在的STRM文件）
       if (isIncrement) {
         log.info("增量执行模式，开始清理孤立的STRM文件");
         int cleanedCount = strmFileService.cleanOrphanedStrmFiles(
@@ -310,6 +323,34 @@ public class TaskExecutionService {
             taskConfig.getRenameRegex(),
             openlistConfig);
         log.info("清理了 {} 个孤立的STRM文件", cleanedCount);
+      }
+
+      // 7. 执行Emby媒体库刷新（如果启用）
+      boolean embyRefreshEnabled = Boolean.TRUE.equals(taskConfig.getEnableEmbyRefresh());
+      if (embyRefreshEnabled) {
+        log.info("执行Emby媒体库刷新");
+        
+        // 只使用全局Emby配置
+        Map<String, Object> globalEmbyConfig = systemConfigService.getEmbyConfig();
+        String embyServerUrl = (String) globalEmbyConfig.getOrDefault("serverUrl", "http://localhost:8096");
+        String embyApiKey = (String) globalEmbyConfig.getOrDefault("apiKey", "");
+        log.info("使用全局Emby配置");
+        
+        log.debug("Emby服务器配置: URL={}, API Key={}", 
+            embyServerUrl, 
+            embyApiKey != null && !embyApiKey.isEmpty() ? "***" : "");
+        
+        boolean embyRefreshSuccess = embyApiService.refreshMediaLibrary(
+            embyServerUrl,
+            embyApiKey
+        );
+        if (embyRefreshSuccess) {
+          log.info("Emby媒体库刷新成功");
+        } else {
+          log.warn("Emby媒体库刷新失败，任务已完成");
+        }
+      } else {
+        log.info("Emby媒体库刷新已禁用");
       }
 
       log.info("任务执行完成: {}, 处理了 {} 个视频文件", taskConfig.getTaskName(), processedCount);
@@ -583,40 +624,38 @@ public class TaskExecutionService {
           taskConfig.getRenameRegex(),
           openlistConfig);
 
-      // 如果启用了刮削功能，执行媒体刮削
-      if (needScrap) {
-        try {
-          String saveDirectory = buildScrapSaveDirectory(taskConfig.getStrmPath(), relativePath);
+      // 执行媒体刮削（包括复制已存在刮削信息）
+      try {
+        String saveDirectory = buildScrapSaveDirectory(taskConfig.getStrmPath(), relativePath);
 
-          // 检查是否需要刮削（在增量模式下检查NFO文件是否已存在）
-          boolean needScrapFile = needScrapFile(
-              file.getName(),
-              taskConfig.getRenameRegex(),
-              taskConfig.getStrmPath(),
-              relativePath,
-              isIncrement);
+        // 检查是否需要刮削（在增量模式下检查NFO文件是否已存在）
+        boolean needScrapFile = needScrapFile(
+            file.getName(),
+            taskConfig.getRenameRegex(),
+            taskConfig.getStrmPath(),
+            relativePath,
+            isIncrement);
 
-          if (needScrapFile) {
-            if (isIncrement && mediaScrapingService.isDirectoryFullyScraped(saveDirectory)) {
-              log.debug("目录已完全刮削，跳过: {}", saveDirectory);
-              scrapSkippedCount++;
-            } else {
-              mediaScrapingService.scrapMedia(
-                  openlistConfig,
-                  file.getName(),
-                  taskConfig.getStrmPath(),
-                  relativePath,
-                  directoryFiles,
-                  file.getPath());
-            }
-          } else {
-            log.debug("NFO文件已存在，跳过刮削: {}", file.getName());
+        if (needScrapFile) {
+          if (isIncrement && mediaScrapingService.isDirectoryFullyScraped(saveDirectory)) {
+            log.debug("目录已完全刮削，跳过: {}", saveDirectory);
             scrapSkippedCount++;
+          } else {
+            mediaScrapingService.scrapMedia(
+                openlistConfig,
+                file.getName(),
+                taskConfig.getStrmPath(),
+                relativePath,
+                directoryFiles,
+                file.getPath());
           }
-        } catch (Exception scrapException) {
-          log.error(
-              "刮削文件失败: {}, 错误: {}", file.getName(), scrapException.getMessage(), scrapException);
+        } else {
+          log.debug("NFO文件已存在，跳过刮削: {}", file.getName());
+          scrapSkippedCount++;
         }
+      } catch (Exception scrapException) {
+        log.error(
+            "刮削文件失败: {}, 错误: {}", file.getName(), scrapException.getMessage(), scrapException);
       }
 
       processedCount++;

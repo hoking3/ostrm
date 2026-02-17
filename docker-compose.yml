@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-    container_name: app
-    hostname: app
+    container_name: ostrm-app
+    hostname: ostrm-app
     environment:
       SPRING_PROFILES_ACTIVE: prod
       LOG_PATH: /maindata/log
@@ -15,8 +15,27 @@ services:
     ports:
       - "3111:80"  # External port:Internal port, users can modify external port as needed
     volumes:
-      - ${LOG_PATH_HOST}:/maindata/log
-      - ${CONFIG_PATH_HOST}:/maindata/config
-      - ${DB_PATH_HOST}:/maindata/db
-      - ${STRM_PATH_HOST}:/app/backend/strm
-    restart: always
+      - ${LOG_PATH_HOST:-./logs}:/maindata/log
+      - ${CONFIG_PATH_HOST:-./data/config}:/maindata/config
+      - ${DB_PATH_HOST:-./data/db}:/maindata/db
+      - ${STRM_PATH_HOST:-./strm}:/app/backend/strm
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

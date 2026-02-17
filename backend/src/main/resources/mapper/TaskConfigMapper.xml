@@ -17,11 +17,18 @@
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
         <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
         <result column="is_active" property="isActive" jdbcType="BOOLEAN"/>
+        <result column="enable_openlist_refresh" property="enableOpenlistRefresh" jdbcType="BOOLEAN"/>
+        <result column="enable_emby_refresh" property="enableEmbyRefresh" jdbcType="BOOLEAN"/>
+        <result column="emby_server_url" property="embyServerUrl" jdbcType="VARCHAR"/>
+        <result column="emby_api_key" property="embyApiKey" jdbcType="VARCHAR"/>
+        <result column="emby_username" property="embyUsername" jdbcType="VARCHAR"/>
+        <result column="emby_password" property="embyPassword" jdbcType="VARCHAR"/>
     </resultMap>
 
     <!-- 基础字段 -->
     <sql id="Base_Column_List">
-        id, task_name, path, openlist_config_id, need_scrap, rename_regex, cron, is_increment, strm_path, last_exec_time, created_at, updated_at, is_active
+        id, task_name, path, openlist_config_id, need_scrap, rename_regex, cron, is_increment, strm_path, last_exec_time, created_at, updated_at, is_active, 
+        enable_openlist_refresh, enable_emby_refresh, emby_server_url, emby_api_key, emby_username, emby_password
     </sql>
 
     <!-- 根据ID查询 -->
@@ -110,6 +117,24 @@
             <if test="isActive != null">
                 is_active,
             </if>
+            <if test="enableOpenlistRefresh != null">
+                enable_openlist_refresh,
+            </if>
+            <if test="enableEmbyRefresh != null">
+                enable_emby_refresh,
+            </if>
+            <if test="embyServerUrl != null">
+                emby_server_url,
+            </if>
+            <if test="embyApiKey != null">
+                emby_api_key,
+            </if>
+            <if test="embyUsername != null">
+                emby_username,
+            </if>
+            <if test="embyPassword != null">
+                emby_password,
+            </if>
         </trim>
         <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
             <if test="taskName != null and taskName != ''">
@@ -141,6 +166,24 @@
             </if>
             <if test="isActive != null">
                 #{isActive},
+            </if>
+            <if test="enableOpenlistRefresh != null">
+                #{enableOpenlistRefresh},
+            </if>
+            <if test="enableEmbyRefresh != null">
+                #{enableEmbyRefresh},
+            </if>
+            <if test="embyServerUrl != null">
+                #{embyServerUrl},
+            </if>
+            <if test="embyApiKey != null">
+                #{embyApiKey},
+            </if>
+            <if test="embyUsername != null">
+                #{embyUsername},
+            </if>
+            <if test="embyPassword != null">
+                #{embyPassword},
             </if>
         </trim>
     </insert>
@@ -178,6 +221,24 @@
             </if>
             <if test="isActive != null">
                 is_active = #{isActive},
+            </if>
+            <if test="enableOpenlistRefresh != null">
+                enable_openlist_refresh = #{enableOpenlistRefresh},
+            </if>
+            <if test="enableEmbyRefresh != null">
+                enable_emby_refresh = #{enableEmbyRefresh},
+            </if>
+            <if test="embyServerUrl != null">
+                emby_server_url = #{embyServerUrl},
+            </if>
+            <if test="embyApiKey != null">
+                emby_api_key = #{embyApiKey},
+            </if>
+            <if test="embyUsername != null">
+                emby_username = #{embyUsername},
+            </if>
+            <if test="embyPassword != null">
+                emby_password = #{embyPassword},
             </if>
             updated_at = CURRENT_TIMESTAMP,
         </set>
