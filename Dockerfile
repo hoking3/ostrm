@@ -9,16 +9,15 @@ FROM node:20 AS frontend-builder
 ARG APP_VERSION
 WORKDIR /app/frontend
 
-# Install dependencies with BuildKit cache mount for faster builds
-COPY frontend/package*.json ./
-RUN --mount=type=cache,target=/root/.npm \
-    echo "=== Node version: $(node -v) ===" && \
+# Copy package files first
+COPY frontend/package.json ./
+
+# Install dependencies (without cache mount for reliability)
+RUN echo "=== Node version: $(node -v) ===" && \
     echo "=== NPM version: $(npm -v) ===" && \
     echo "=== Installing dependencies ===" && \
-    ls -la && \
-    npm install --prefer-offline --no-audit --no-fund && \
-    echo "=== Dependencies installed ===" && \
-    rm -rf /tmp/*
+    npm install --no-audit --no-fund && \
+    echo "=== Dependencies installed ==="
 
 # Copy source code and build
 COPY frontend/ ./
@@ -27,7 +26,7 @@ RUN echo "=== Building Nuxt app ===" && \
     npm run generate && \
     echo "=== Build complete ===" && \
     rm -rf /app/frontend/.nuxt && \
-    rm -rf /app/frontend/node_modules/.cache
+    rm -rf /app/frontend/node_modules
 
 # Stage 2: Build Backend (Spring Boot) - Use Gradle official image
 FROM gradle:8.12.1-jdk21-noble AS backend-builder
