@@ -80,9 +80,6 @@ vitest.config.*
 .stylelintrc*
 babel.config.*
 postcss.config.*
-tailwind.config.*
-vue.config.*
-nuxt.config.*
 
 # Ignore CI/CD files
 .github/

@@ -12,13 +12,20 @@ WORKDIR /app/frontend
 # Install dependencies with BuildKit cache mount for faster builds
 COPY frontend/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit --no-fund && \
+    echo "=== Node version: $(node -v) ===" && \
+    echo "=== NPM version: $(npm -v) ===" && \
+    echo "=== Installing dependencies ===" && \
+    ls -la && \
+    npm install --prefer-offline --no-audit --no-fund && \
+    echo "=== Dependencies installed ===" && \
     rm -rf /tmp/*
 
 # Copy source code and build
 COPY frontend/ ./
 ENV NUXT_PUBLIC_APP_VERSION=$APP_VERSION
-RUN npm run generate && \
+RUN echo "=== Building Nuxt app ===" && \
+    npm run generate && \
+    echo "=== Build complete ===" && \
     rm -rf /app/frontend/.nuxt && \
     rm -rf /app/frontend/node_modules/.cache
 
