@@ -1,0 +1,87 @@
+name: Build Docker Image Only (No Push)
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:  # 支持手动触发
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: ostrm
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          # - linux/arm64  # 可选：如需 arm64 构建，取消注释
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Extract metadata
+      id: meta
+      run: |
+        echo "timestamp=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+        echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+        echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        platforms: ${{ matrix.platform }}
+        push: false  # 不推送到仓库
+        tags: |
+          ostrm:${{ steps.meta.outputs.sha }}
+          ostrm:${{ steps.meta.outputs.branch }}
+        build-args: |
+          APP_VERSION=${{ steps.meta.outputs.sha }}
+        provenance: false
+        sbom: false
+        # 使用 GHA 缓存加速构建
+        cache-from: |
+          type=gha,scope=${{ matrix.platform }}
+        cache-to: |
+          type=gha,mode=max,scope=${{ matrix.platform }}
+        outputs: type=docker,dest=/tmp/ostrm-image-${{ matrix.platform }}.tar
+
+    - name: Upload image artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ostrm-image-${{ matrix.platform }}
+        path: /tmp/ostrm-image-${{ matrix.platform }}.tar
+        retention-days: 7
+
+    - name: Show build summary
+      run: |
+        echo "## 🐳 Docker Image Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Platform | ${{ matrix.platform }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Commit SHA | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Branch | ${{ steps.meta.outputs.branch }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Timestamp | ${{ steps.meta.outputs.timestamp }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📦 Image artifact has been uploaded and is available for 7 days."
