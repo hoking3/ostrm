@@ -75,9 +75,16 @@ public class UrlEncoder {
 
     for (String segment : segments) {
       if (!segment.isEmpty()) {
-        result
-            .append("/")
-            .append(URLEncoder.encode(segment, StandardCharsets.UTF_8).replace("+", "%20"));
+        try {
+          String decodedSegment = java.net.URLDecoder.decode(segment, StandardCharsets.UTF_8);
+          result
+              .append("/")
+              .append(URLEncoder.encode(decodedSegment, StandardCharsets.UTF_8).replace("+", "%20"));
+        } catch (Exception e) {
+          result
+              .append("/")
+              .append(URLEncoder.encode(segment, StandardCharsets.UTF_8).replace("+", "%20"));
+        }
       }
     }
 
